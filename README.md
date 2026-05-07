@@ -14,11 +14,9 @@
 
 We wanted more features. So we added them here.
 
-Everything added in this fork gets submitted back to upstream Logto as a PR. They merge it if they want to. If they do not? Welp. Their thing. The feature is available here regardless.
+Everything added in this fork gets submitted back to upstream Logto as a PR. They merge it if they want to. This fork has stuff I need, you may need the same things too. Thats why the fork is public instead of private. 
 
-### Why Blacktop?
-
-The Toyota 4A-GE Blacktop is a cool motor. That is all.
+Why Blacktop? Toyota's 4A-GE Blacktop is a cool motor. And I needed a name for this to differentiate my modded version from the offical one. 
 
 ---
 
@@ -55,21 +53,19 @@ docker compose restart logto
 
 ---
 
-## Merged PRs (not yet in official Logto)
+## Community PRs
 
-These are PRs submitted to `logto-io/logto` by community members. They have been reviewed, approved (or close to it), but not merged into `master`. They are merged into Logto Blacktop and ready to use.
+These are PRs submitted to `logto-io/logto` by community members. They are merged into Logto Blacktop and ready to use. Some have since been accepted by upstream Logto as well (marked with **[Merged!]**).
 
-### [#8728](https://github.com/logto-io/logto/pull/8728), [#8729](https://github.com/logto-io/logto/pull/8729), [#8731](https://github.com/logto-io/logto/pull/8731) - `isCurrent` flag on session listings
+### ~~[#8728](https://github.com/logto-io/logto/pull/8728)~~ **[Merged!]**, ~~[#8729](https://github.com/logto-io/logto/pull/8729)~~ **[Merged!]**, [#8731](https://github.com/logto-io/logto/pull/8731) - `isCurrent` flag on session listings
 
 by [@simeng-li](https://github.com/simeng-li)
 
 Three stacked PRs that together add an `isCurrent` boolean to the `GET /api/my-account/sessions` response, so clients can tell which session in the list is the one making the request (i.e. "this device").
 
-- **#8728** plumbs the OIDC session UID from the access token through `koaOidcAuth` into `ctx.auth.sessionUid`. Small groundwork change, no consumer yet.
-- **#8729** uses that `sessionUid` to tag the matching entry in `GET /api/my-account/sessions` with `isCurrent: true` (others get `false`). Initially behind a dev-features flag.
+- **#8728** plumbs the OIDC session UID from the access token through `koaOidcAuth` into `ctx.auth.sessionUid`. Small groundwork change, no consumer yet. **[Merged!]**
+- **#8729** uses that `sessionUid` to tag the matching entry in `GET /api/my-account/sessions` with `isCurrent: true` (others get `false`). Initially behind a dev-features flag. **[Merged!]**
 - **#8731** removes the dev-features gate and ships `isCurrent` unconditionally to production. Also updates the OpenAPI docs.
-
-> The feature below is built on top of these three PRs.
 
 ### [#8752](https://github.com/logto-io/logto/pull/8752) - `userIds` in organization membership webhooks
 
@@ -105,6 +101,8 @@ Full end-to-end password expiration feature. Configure a maximum password age an
 ### Session Last Active Tracking + Heartbeat API
 
 An original feature built for this fork.
+
+> **Upstream status:** Submitted as [PR #8748](https://github.com/logto-io/logto/pull/8748). Logto maintainer @simeng-li responded that session-level `lastActiveAt` conflates session activity with grant activity, and suggested grant-level `lastUsedAt` as a more accurate signal for the "is this access still being used? I do not know how Logto will handle this and when, if at all, so the heartbeat remains in Blacktop.
 
 Adds a `last_active_at` timestamp to each session and keeps it up to date automatically:
 
@@ -197,10 +195,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ---
 
-## License
-
-[MPL-2.0](LICENSE) - same as upstream Logto.
-
 ## Other Changes from Upstream
 
 ### Cloud upsell content removed
@@ -208,3 +202,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 All "Try Cloud", "Explore Logto Cloud", "Logto Cloud Pricing", and similar SaaS upsell messaging has been stripped from the Admin Console across all 17 locales. The i18n keys are preserved with empty or neutral self-hosted values so nothing breaks at runtime. The `oss-upsell` utility now returns `#` instead of building `cloud.logto.io` URLs, and `openCloudUpsell` is a no-op.
 
 This is a self-hosted fork. You already chose to self-host. You do not need to be sold on the cloud version every time you open the console.
+
+
+## License
+
+[MPL-2.0](LICENSE) - same as upstream Logto. (duh)
