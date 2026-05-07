@@ -19,6 +19,14 @@ const user_details = {
     new_password: 'New password:',
     password: 'Password:',
   },
+  expire_password: {
+    button: 'Expire',
+    title: 'Are you sure you want to expire this password?',
+    content:
+      'The user will be required to reset their password on the next sign-in. This action cannot be undone.',
+    success: "The user's password has been marked as expired.",
+    not_enabled_tooltip: 'Password expiration policy is not enabled.',
+  },
   tab_settings: 'Settings',
   tab_roles: 'Roles',
   tab_logs: 'User logs',
@@ -160,6 +168,8 @@ const user_details = {
     revoke_session: 'Revoke session',
     revoke_session_confirmation:
       'If you remove this session, users will be forced to re-authentication.',
+    last_active: 'Last active',
+    active_now: 'Active now',
   },
   third_party_apps: {
     title: 'Third-party apps',
