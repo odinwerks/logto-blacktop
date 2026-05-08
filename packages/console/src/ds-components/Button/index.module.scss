@@ -116,25 +116,25 @@
   }
 
   &.branding {
-    background: linear-gradient(90deg, #5d34f2 32%, #bd31ff 102%);
+    background: linear-gradient(90deg, var(--color-primary) 32%, var(--color-primary-60) 102%);
     color: var(--color-on-primary);
 
     &:focus-visible {
       background:
         linear-gradient(0deg, rgba(0, 0, 0, 20%), rgba(0, 0, 0, 20%)),
-        linear-gradient(90deg, #5d34f2 32%, #bd31ff 102%);
+        linear-gradient(90deg, var(--color-primary) 32%, var(--color-primary-60) 102%);
     }
 
     &:active {
       background:
         linear-gradient(0deg, rgba(0, 0, 0, 20%), rgba(0, 0, 0, 20%)),
-        linear-gradient(90deg, #5d34f2 32%, #bd31ff 102%);
+        linear-gradient(90deg, var(--color-primary) 32%, var(--color-primary-60) 102%);
     }
 
     &:not(:disabled):not(:active):hover {
       background:
         linear-gradient(0deg, rgba(255, 255, 255, 20%), rgba(255, 255, 255, 20%)),
-        linear-gradient(90deg, #5d34f2 32%, #bd31ff 102%);
+        linear-gradient(90deg, var(--color-primary) 32%, var(--color-primary-60) 102%);
     }
   }
 

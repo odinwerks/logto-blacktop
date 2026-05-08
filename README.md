@@ -10,11 +10,11 @@
 
 # Logto Blacktop
 
-[Logto](https://github.com/logto-io/logto) is an amazing platform. Seriously. Modern auth, OIDC/OAuth 2.1/SAML, multi-tenancy, enterprise SSO, RBAC, all out of the box. We love it.
+[Logto](https://github.com/logto-io/logto) is an amazing platform. OIDC/OAuth 2.1/SAML, multi-tenancy, enterprise SSO, RBAC, all out of the box. I love it.
 
-We wanted more features. So we added them here.
+I wanted more features. So... I did?
 
-Everything added in this fork gets submitted back to upstream Logto as a PR. They merge it if they want to. This fork has stuff I need, you may need the same things too. Thats why the fork is public instead of private. 
+Everything added in this fork gets submitted back to upstream Logto as a PR (Unless it is something I KNOW they will not pull into their repo). They merge it if they want to. This fork has stuff I need, you may need the same things too. So the fork is public instead of private. 
 
 Why Blacktop? Toyota's 4A-GE Blacktop is a cool motor. And I needed a name for this to differentiate my modded version from the offical one. 
 
@@ -97,13 +97,10 @@ Full end-to-end password expiration feature. Configure a maximum password age an
 
 ## Original Features
 
-> **Note:** The feature below is built on top of PRs #8728, #8729, and #8731.
+### Session Last Active Tracking + Heartbeat API (built on top of PRs #8728, #8729, and #8731.)
 
-### Session Last Active Tracking + Heartbeat API
 
-An original feature built for this fork.
-
-> **Upstream status:** Submitted as [PR #8748](https://github.com/logto-io/logto/pull/8748). Logto maintainer @simeng-li responded that session-level `lastActiveAt` conflates session activity with grant activity, and suggested grant-level `lastUsedAt` as a more accurate signal for the "is this access still being used? I do not know how Logto will handle this and when, if at all, so the heartbeat remains in Blacktop.
+> **Upstream status:** Submitted as [PR #8748](https://github.com/logto-io/logto/pull/8748). Logto maintainer @simeng-li responded that session-level `lastActiveAt` conflates session activity with grant activity, and suggested grant-level `lastUsedAt` as a more accurate signal for the "is this session still being used?" I do not know how Logto will handle this and when, if at all, so the heartbeat remains in Blacktop.
 
 Adds a `last_active_at` timestamp to each session and keeps it up to date automatically:
 
@@ -204,6 +201,9 @@ All "Try Cloud", "Explore Logto Cloud", "Logto Cloud Pricing", and similar SaaS 
 
 This is a self-hosted fork. You already chose to self-host. You do not need to be sold on the cloud version every time you open the console.
 
+### Dark theme modified 
+
+I did not like the color scheme. So I changed the theme to darker colores, tinted blue instead of violet and purple.  
 
 ## License
 

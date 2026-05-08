@@ -38,10 +38,10 @@
   }
 
   &.purple {
-    border-color: #947dff;
+    border-color: var(--color-primary);
 
     .header {
-      background: #947dff; // Static purple color in both light and dark themes
+      background: var(--color-primary); // Static purple color in both light and dark themes
     }
   }
 }

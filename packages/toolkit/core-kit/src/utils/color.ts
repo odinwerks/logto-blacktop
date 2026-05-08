@@ -13,5 +13,5 @@ export const absoluteDarken = (baseColor: color, delta: number) => {
   return color([hslArray[0] ?? 0, hslArray[1] ?? 0, (hslArray[2] ?? 0) - delta], 'hsl');
 };
 
-export const generateDarkColor = (lightColor: string) =>
+export const generateDarkColor = (lightColor: string): string =>
   absoluteLighten(color(lightColor), 10).hex();

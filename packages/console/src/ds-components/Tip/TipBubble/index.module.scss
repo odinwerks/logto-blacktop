@@ -21,10 +21,10 @@
   }
 
   a {
-    color: #cabeff;
+    color: var(--color-text-link);
 
     &:active {
-      color: #cabeff;
+      color: var(--color-text-link);
     }
   }
 

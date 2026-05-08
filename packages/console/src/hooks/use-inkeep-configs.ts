@@ -102,7 +102,7 @@ const useInkeepConfigs = () => {
       ({
         baseSettings: {
           apiKey: inkeepApiKey,
-          primaryBrandColor: theme === 'dark' ? '#7958ff' : '#5d34f2',
+          primaryBrandColor: '#0062cc',
           organizationDisplayName: 'Logto',
           colorMode: {
             sync: {

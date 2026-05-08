@@ -11,7 +11,7 @@ import {
 
 import { adminTenantId, defaultTenantId } from './tenant.js';
 
-export const defaultPrimaryColor = '#6139F6';
+export const defaultPrimaryColor = '#0062cc';
 
 export const createDefaultSignInExperience = (
   forTenantId: string,

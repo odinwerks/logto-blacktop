@@ -22,10 +22,10 @@
   --color-neutral-95: #eff1f1;
   --color-neutral-100: #fff;
 
-  --color-neutral-variant-60: #928f9a;
-  --color-neutral-variant-70: #adaab4;
-  --color-neutral-variant-80: #c9c5d0;
-  --color-neutral-variant-90: #e5e1ec;
+  --color-neutral-variant-60: #8e8e9e;
+  --color-neutral-variant-70: #a8a8b6;
+  --color-neutral-variant-80: #c4c4ce;
+  --color-neutral-variant-90: #e0e0e8;
 
   --color-danger-30: #930006;
   --color-danger-40: #ba1b1b;
@@ -36,11 +36,11 @@
   --color-success-80: #83da85;
   --color-success-90: #9fe79f;
 
-  --color-brand-30: #4300da;
-  --color-brand-40: #5d34f2;
-  --color-brand-50: #7958ff;
-  --color-brand-60: #9b80f9;
-  --color-brand-70: #af9eff;
+  --color-brand-30: #003880;
+  --color-brand-40: #0062cc;
+  --color-brand-50: #1a74db;
+  --color-brand-60: #4a90f0;
+  --color-brand-70: #78abf8;
 
   --color-alert-60: #ca8000;
   --color-alert-70: #eb9918;
@@ -103,9 +103,9 @@
   --color-overlay-danger-pressed: rgba(186, 27, 27, 12%); // 12% --color-danger-40
   --color-overlay-danger-focused: rgba(186, 27, 27, 16%); // 16% --color-danger-40
   // Note: System brand color. May be overwritten dynamically by js
-  --color-overlay-brand-hover: rgba(93, 52, 242, 8%); // 8% --color-brand-default
-  --color-overlay-brand-pressed: rgba(93, 52, 242, 12%); // 12% --color-brand-default
-  --color-overlay-brand-focused: rgba(93, 52, 242, 16%); // 16% --color-brand-default
+  --color-overlay-brand-hover: rgba(0, 98, 204, 8%); // 8% --color-brand-default
+  --color-overlay-brand-pressed: rgba(0, 98, 204, 12%); // 12% --color-brand-default
+  --color-overlay-brand-focused: rgba(0, 98, 204, 16%); // 16% --color-brand-default
 
   --color-surface: var(--color-neutral-99);
 }
@@ -114,18 +114,18 @@
   /* Color Platte */
   --color-neutral-0: #fff;
   --color-neutral-10: #f7f8f8;
-  --color-neutral-20: #eff1f1;
-  --color-neutral-50: #a9acac;
-  --color-neutral-80: #5c5f60;
-  --color-neutral-90: #444748;
-  --color-neutral-95: #2d3132;
-  --color-neutral-99: #191c1d;
-  --color-neutral-100: #000;
+  --color-neutral-20: #e8e8ec;
+  --color-neutral-50: #9c9ca4;
+  --color-neutral-80: #52525e;
+  --color-neutral-90: #3e3e4a;
+  --color-neutral-95: #1e1e2a;
+  --color-neutral-99: #090b0f;
+  --color-neutral-100: #040408;
 
-  --color-neutral-variant-60: #928f9a;
-  --color-neutral-variant-70: #78767f;
-  --color-neutral-variant-80: #5f5d67;
-  --color-neutral-variant-90: #47464e;
+  --color-neutral-variant-60: #808092;
+  --color-neutral-variant-70: #68687a;
+  --color-neutral-variant-80: #525264;
+  --color-neutral-variant-90: #3e3e50;
 
   --color-danger-30: #ffdad4;
   --color-danger-40: #ffb4a9;
@@ -139,25 +139,25 @@
   --color-success-80: #116d26;
   --color-success-90: #005314;
 
-  --color-brand-30: #e6deff;
-  --color-brand-40: #cabeff;
-  --color-brand-50: #af9eff;
-  --color-brand-60: #6137f6;
-  --color-brand-70: #7958ff;
+  --color-brand-30: #c2d9ff;
+  --color-brand-40: #9dc2fd;
+  --color-brand-50: #78abf8;
+  --color-brand-60: #4a90f0;
+  --color-brand-70: #0062cc;
 
   --color-surface: var(--color-neutral-99);
   --color-surface-2:
-    linear-gradient(0deg, rgba(202, 190, 255, 8%), rgba(202, 190, 255, 8%)),
+    linear-gradient(0deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)),
     linear-gradient(0deg, rgba(196, 199, 199, 2%), rgba(196, 199, 199, 2%)),
-    #191c1d;
+    #151822;
   --color-surface-3:
-    linear-gradient(0deg, rgba(202, 190, 255, 11%), rgba(202, 190, 255, 11%)),
+    linear-gradient(0deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)),
     linear-gradient(0deg, rgba(196, 199, 199, 2%), rgba(196, 199, 199, 2%)),
-    #191c1d;
+    #1a1d28;
   --color-surface-4:
-    linear-gradient(0deg, rgba(202, 190, 255, 14%), rgba(202, 190, 255, 14%)),
+    linear-gradient(0deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)),
     linear-gradient(0deg, rgba(196, 199, 199, 2%), rgba(196, 199, 199, 2%)),
-    #191c1d;
+    #1e2230;
 
   --color-alert-60: #ca8000;
   --color-alert-70: #a76900;
@@ -184,9 +184,9 @@
   --color-bg-body: var(--color-surface);
   --color-bg-body-overlay: var(--color-surface-2);
   --color-bg-layer-1:
-    linear-gradient(0deg, rgba(202, 190, 255, 8%), rgba(202, 190, 255, 8%)),
+    linear-gradient(0deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)),
     linear-gradient(0deg, rgba(196, 199, 199, 2%), rgba(196, 199, 199, 2%)),
-    #191c1d;
+    #090b0f;
   --color-bg-layer-2: var(--color-surface-4);
   --color-bg-float-base: var(--color-neutral-100);
   --color-bg-float: var(--color-surface-3);
@@ -224,7 +224,7 @@
   --color-overlay-danger-pressed: rgba(221, 55, 48, 12%); // 12% --color-danger-40
   --color-overlay-danger-focused: rgba(221, 55, 48, 16%); // 16% --color-danger-40
   // Note: System brand color. May be overwritten dynamically by js
-  --color-overlay-brand-hover: rgba(202, 190, 255, 8%); // 8% --color-brand-40
-  --color-overlay-brand-pressed: rgba(202, 190, 255, 12%); // 12% --color-brand-40
-  --color-overlay-brand-focused: rgba(202, 190, 255, 16%); // 16% --color-brand-40
+  --color-overlay-brand-hover: rgba(0, 98, 204, 8%); // 8% --color-brand-40
+  --color-overlay-brand-pressed: rgba(0, 98, 204, 12%); // 12% --color-brand-40
+  --color-overlay-brand-focused: rgba(0, 98, 204, 16%); // 16% --color-brand-40
 }
