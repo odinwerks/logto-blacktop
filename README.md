@@ -94,6 +94,21 @@ Full end-to-end password expiration feature. Configure a maximum password age an
 
 ---
 
+## Upstream Merges
+
+The following upstream commits have been cherry-picked into Logto Blacktop:
+
+- **[#8757](https://github.com/logto-io/logto/pull/8757)** - Updated pnpm dependency version overrides with security patches (basic-ftp, follow-redirects, ip-address, postcss, lodash, lodash-es, xmldom)
+- **[#8753](https://github.com/logto-io/logto/pull/8753)** - Added account profile prebuilt UI link in console (dev-feature gated)
+- **[#8758](https://github.com/logto-io/logto/pull/8758)** - Fixed social callback connector ID not being preserved in Account Center
+- **[#8763](https://github.com/logto-io/logto/pull/8763)** - Fixed code editor width not updating on tab display
+- **[#8764](https://github.com/logto-io/logto/pull/8764)** - Fixed missing redirect URI in social callback verification
+- **[#8765](https://github.com/logto-io/logto/pull/8765)** - Added loading mask for MFA section in Account Center
+- **[#8760](https://github.com/logto-io/logto/pull/8760)** - Added isCurrent edge case integration tests (revoke-own, two-perspectives, admin-endpoint)
+- **[#8761](https://github.com/logto-io/logto/pull/8761)** - Updated Android SDK version to 2.0.2 in docs
+
+---
+
 ## Original Features
 
 > **Note:** The feature below is built on top of PRs #8728, #8729, and #8731.
