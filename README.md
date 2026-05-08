@@ -66,6 +66,7 @@ Three stacked PRs that together add an `isCurrent` boolean to the `GET /api/my-a
 - **#8728** plumbs the OIDC session UID from the access token through `koaOidcAuth` into `ctx.auth.sessionUid`. Small groundwork change, no consumer yet. **[Merged!]**
 - **#8729** uses that `sessionUid` to tag the matching entry in `GET /api/my-account/sessions` with `isCurrent: true` (others get `false`). Initially behind a dev-features flag. **[Merged!]**
 - **#8731** removes the dev-features gate and ships `isCurrent` unconditionally to production. Also updates the OpenAPI docs.
+- **#8760** edge case integration tests (revoke-own, two-perspectives, admin-endpoint) applied as-is from upstream. The fork's existing `isCurrent` tests already use `devFeatureTest.it()`, matching the upstream pattern.
 
 ### [#8752](https://github.com/logto-io/logto/pull/8752) - `userIds` in organization membership webhooks
 
@@ -91,21 +92,6 @@ Full end-to-end password expiration feature. Configure a maximum password age an
 - DB: `password_expiration` policy column on `sign_in_experiences`, `is_password_expired` flag on `users`, `password_updated_at` on `users`
 - i18n in 20 languages (ar, cs, de, en, es, fr, it, ja, ko, pl, pt-br, pt-pt, ru, th, tr, uk, zh-cn, zh-hk, zh-tw)
 - All review comments addressed. gao-sun and wangsijie reacted with hearts on the PR.
-
----
-
-## Upstream Merges
-
-The following upstream commits have been cherry-picked into Logto Blacktop:
-
-- **[#8757](https://github.com/logto-io/logto/pull/8757)** - Updated pnpm dependency version overrides with security patches (basic-ftp, follow-redirects, ip-address, postcss, lodash, lodash-es, xmldom)
-- **[#8753](https://github.com/logto-io/logto/pull/8753)** - Added account profile prebuilt UI link in console (dev-feature gated)
-- **[#8758](https://github.com/logto-io/logto/pull/8758)** - Fixed social callback connector ID not being preserved in Account Center
-- **[#8763](https://github.com/logto-io/logto/pull/8763)** - Fixed code editor width not updating on tab display
-- **[#8764](https://github.com/logto-io/logto/pull/8764)** - Fixed missing redirect URI in social callback verification
-- **[#8765](https://github.com/logto-io/logto/pull/8765)** - Added loading mask for MFA section in Account Center
-- **[#8760](https://github.com/logto-io/logto/pull/8760)** - Added isCurrent edge case integration tests (revoke-own, two-perspectives, admin-endpoint)
-- **[#8761](https://github.com/logto-io/logto/pull/8761)** - Updated Android SDK version to 2.0.2 in docs
 
 ---
 
