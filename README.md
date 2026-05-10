@@ -12,7 +12,7 @@
 
 [Logto](https://github.com/logto-io/logto) is an amazing platform. OIDC/OAuth 2.1/SAML, multi-tenancy, enterprise SSO, RBAC, all out of the box. I love it.
 
-I wanted more features. So... I did?
+I wanted to add more features. So... I did?
 
 Everything added in this fork gets submitted back to upstream Logto as a PR (Unless it is something I KNOW they will not pull into their repo). They merge it if they want to. This fork has stuff I need, you may need the same things too. So the fork is public instead of private. 
 
