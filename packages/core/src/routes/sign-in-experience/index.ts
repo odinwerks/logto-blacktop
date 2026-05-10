@@ -259,10 +259,23 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
       }
 
       // eslint-disable-next-line no-restricted-syntax, @typescript-eslint/consistent-type-assertions
-      const currentPasswordExpiration = {
-        ...currentSettings.passwordExpiration,
-        ...passwordExpiration,
-      } as PasswordExpirationPolicy;
+      const currentPasswordExpiration: PasswordExpirationPolicy = !passwordExpiration
+        ? (currentSettings.passwordExpiration as PasswordExpirationPolicy)
+        : passwordExpiration.enabled
+          ? {
+              enabled: true,
+              validPeriodDays:
+                passwordExpiration.validPeriodDays ??
+                (currentSettings.passwordExpiration as PasswordExpirationPolicy & {
+                  enabled: true;
+                }).validPeriodDays,
+              reminderPeriodDays:
+                passwordExpiration.reminderPeriodDays ??
+                (currentSettings.passwordExpiration as PasswordExpirationPolicy & {
+                  enabled: true;
+                }).reminderPeriodDays,
+            }
+          : { enabled: false };
 
       if (currentPasswordExpiration.enabled) {
         const forgotPasswordAvailability = getForgotPasswordAvailability(
@@ -334,6 +347,7 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
 
       const payload = {
         ...rest,
+        passwordExpiration: currentPasswordExpiration,
         ...conditional(normalizedAdaptiveMfa && { adaptiveMfa: normalizedAdaptiveMfa }),
         ...conditional(
           filteredSocialSignInConnectorTargets && {

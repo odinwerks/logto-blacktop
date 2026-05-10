@@ -79,6 +79,25 @@ export type SendMessagePayload = {
    * @example 'en-US en'
    */
   uiLocales?: string;
+  /**
+   * The email address being verified or messaged.
+   * This will replace the `{{email}}` handlebars in the template.
+   * @example 'user@example.com'
+   */
+  email?: string;
+  /**
+   * The phone number being verified or messaged.
+   * This will replace the `{{phone}}` handlebars in the template.
+   * @example '+1234567890'
+   */
+  phone?: string;
+  /**
+   * The client IP address of the requesting user. Useful for location-aware
+   * messages or security notifications.
+   * This will replace the `{{ip}}` handlebars in the template.
+   * @example '203.0.113.1'
+   */
+  ip?: string;
 } & Record<string, unknown>;
 
 /** The guard for {@link SendMessagePayload}. */
@@ -88,6 +107,9 @@ export const sendMessagePayloadGuard = z
     link: z.string().optional(),
     locale: z.string().optional(),
     uiLocales: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    ip: z.string().optional(),
   })
   .catchall(z.unknown()) satisfies z.ZodType<SendMessagePayload>;
 

@@ -258,7 +258,11 @@ export class OrganizationInvitationLibrary {
     return emailConnector.sendMessage({
       to,
       type: TemplateType.OrganizationInvitation,
-      payload,
+      payload: {
+        email: to,
+        ...(ip && { ip }),
+        ...payload,
+      },
       ...(ip && { ip }),
     });
   }

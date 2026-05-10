@@ -158,7 +158,7 @@ export class PasswordVerification
     }
 
     assertThat(
-      passwordExpiration.validPeriodDays,
+      passwordExpiration.validPeriodDays > 0,
       new RequestError({
         code: 'sign_in_experiences.password_expiration_invalid_period_days',
         status: 500,

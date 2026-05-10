@@ -162,11 +162,24 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
       // Predefined context
       const {
         ip,
-        headers: { 'user-agent': userAgent },
+        headers: {
+          'user-agent': userAgent,
+          'sec-ch-ua-model': chUaModel,
+          'sec-ch-ua-platform-version': chUaPlatformVersion,
+          'sec-ch-ua-platform': chUaPlatform,
+          'sec-ch-ua-full-version-list': chUaFullVersionList,
+        },
       } = ctx.request;
       const signInContext = conditional(getInjectedHeaderValues(ctx.request.headers));
       const userAgentValue: Optional<string> =
         typeof userAgent === 'string' ? userAgent : userAgent?.[0];
+      const chHeaders = {
+        'sec-ch-ua-model': chUaModel,
+        'sec-ch-ua-platform-version': chUaPlatformVersion,
+        'sec-ch-ua-platform': chUaPlatform,
+        'sec-ch-ua-full-version-list': chUaFullVersionList,
+      };
+      const hasCh = Object.values(chHeaders).some(Boolean);
       const userAgentParsed: Optional<UAParser.IResult> = conditional(
         (() => {
           if (!userAgentValue) {
@@ -174,8 +187,11 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
           }
 
           try {
-            return new UAParser(userAgentValue).getResult();
-          } catch {}
+            const parser = new UAParser(userAgentValue, undefined, hasCh ? chHeaders : undefined);
+            return (hasCh ? parser.withClientHints() : parser).getResult();
+          } catch (error: unknown) {
+            console.warn('Failed to parse user-agent:', error instanceof Error ? error.message : error);
+          }
         })()
       );
       const basePayload = removeUndefinedKeys({

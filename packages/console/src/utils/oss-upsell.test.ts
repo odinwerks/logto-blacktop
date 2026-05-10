@@ -6,10 +6,8 @@ describe('oss upsell helpers', () => {
     expect(url).toBe('#');
   });
 
-  it('openCloudUpsell returns a neutral placeholder', () => {
-    const result = openCloudUpsell({
-      entry: ossUpsellEntries.ossSidebarCloudCard,
-    });
-    expect(result).toBe('#');
+  it('openCloudUpsell is a no-op', () => {
+    const result = openCloudUpsell();
+    expect(result).toBeUndefined();
   });
 });

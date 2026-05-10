@@ -1,5 +1,5 @@
 import { useLogto } from '@logto/react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { sendHeartbeat } from '../apis/heartbeat';
 
@@ -14,6 +14,8 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
  */
 export const useSessionHeartbeat = (enabled: boolean): void => {
   const { getAccessToken } = useLogto();
+  const getAccessTokenRef = useRef(getAccessToken);
+  getAccessTokenRef.current = getAccessToken;
 
   useEffect(() => {
     if (!enabled) {
@@ -25,7 +27,7 @@ export const useSessionHeartbeat = (enabled: boolean): void => {
         return;
       }
       try {
-        const token = await getAccessToken();
+        const token = await getAccessTokenRef.current();
         if (token) {
           await sendHeartbeat(token);
         }
@@ -48,5 +50,5 @@ export const useSessionHeartbeat = (enabled: boolean): void => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', ping);
     };
-  }, [enabled, getAccessToken]);
+  }, [enabled]);
 };

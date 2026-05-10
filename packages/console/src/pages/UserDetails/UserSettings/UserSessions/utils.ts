@@ -29,12 +29,28 @@ type SessionDisplayInfo = ParsedUserAgentInfo & {
   country?: string;
 };
 
-const getParsedUserAgentInfo = (userAgent?: string): ParsedUserAgentInfo => {
+const getParsedUserAgentInfo = (
+  userAgent?: string,
+  chHeaders?: Record<string, string>
+): ParsedUserAgentInfo => {
   if (!userAgent) {
     return {};
   }
 
-  const { device, browser, os } = new UAParser(userAgent).getResult();
+  const uaHeaders = chHeaders
+    ? {
+        'sec-ch-ua-model': chHeaders.CHUAModel,
+        'sec-ch-ua-platform-version': chHeaders.CHUAPlatformVersion,
+        'sec-ch-ua-platform': chHeaders.CHUAPlatform,
+        'sec-ch-ua-full-version-list': chHeaders.CHUAFullVersionList,
+      }
+    : undefined;
+
+  const parser = new UAParser(userAgent, undefined, uaHeaders);
+  const { device, browser, os } = (
+    uaHeaders ? parser.withClientHints() : parser
+  ).getResult();
+
   const deviceModel = [device.vendor, device.model].filter(Boolean).join(' ') || undefined;
 
   return {
@@ -50,8 +66,9 @@ const formatSessionLocation = ({ country, city }: UserSessionSignInContext) => {
   return location || undefined;
 };
 
-const formatSessionDeviceName = ({ userAgent }: UserSessionSignInContext) => {
-  const { browserName, osName, deviceModel } = getParsedUserAgentInfo(userAgent);
+const formatSessionDeviceName = (signInContext: UserSessionSignInContext) => {
+  const { userAgent, ...chHeaders } = signInContext;
+  const { browserName, osName, deviceModel } = getParsedUserAgentInfo(userAgent, chHeaders);
 
   if (browserName && deviceModel) {
     return `${browserName} on ${deviceModel}`;
@@ -73,7 +90,8 @@ const formatSessionDeviceName = ({ userAgent }: UserSessionSignInContext) => {
 };
 
 const normalizeSessionInfo = (signInContext: UserSessionSignInContext): SessionDisplayInfo => {
-  const { browserName, osName, deviceModel } = getParsedUserAgentInfo(signInContext.userAgent);
+  const { userAgent, ...chHeaders } = signInContext;
+  const { browserName, osName, deviceModel } = getParsedUserAgentInfo(userAgent, chHeaders);
 
   return {
     name: formatSessionDeviceName(signInContext),

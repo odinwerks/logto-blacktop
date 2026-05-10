@@ -204,6 +204,8 @@ describe('sendPasscode', () => {
       type: passcode.type,
       payload: {
         code: passcode.code,
+        phone: passcode.phone,
+        ip: undefined,
         locale: 'en',
       },
     });
@@ -246,6 +248,8 @@ describe('sendPasscode', () => {
       type: passcode.type,
       payload: {
         code: passcode.code,
+        phone: passcode.phone,
+        ip: '192.168.1.100',
         locale: 'en',
       },
       ip: '192.168.1.100',

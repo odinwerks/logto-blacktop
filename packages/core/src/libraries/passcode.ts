@@ -108,6 +108,9 @@ export const createPasscodeLibrary = (queries: Queries, connectorLibrary: Connec
       type: templateType,
       payload: {
         code: passcode.code,
+        ...(passcode.email && { email: passcode.email }),
+        ...(passcode.phone && { phone: passcode.phone }),
+        ip,
         ...payloadContext,
       },
       ...(ip && { ip }),

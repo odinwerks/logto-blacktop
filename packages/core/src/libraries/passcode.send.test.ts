@@ -71,6 +71,8 @@ describe('sendPasscode', () => {
       type: TemplateType.ForgotPassword,
       payload: {
         code: '1234',
+        email: 'foo@example.com',
+        ip: undefined,
         locale: 'en',
       },
     });

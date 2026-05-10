@@ -112,6 +112,18 @@ export class AdaptiveMfaValidator {
       ip,
       ...conditional(userAgent && { userAgent }),
       ...getInjectedHeaderValues(headers),
+      ...conditional(headers['sec-ch-ua-model'] && { CHUAModel: headers['sec-ch-ua-model'] }),
+      ...conditional(
+        headers['sec-ch-ua-platform-version'] && {
+          CHUAPlatformVersion: headers['sec-ch-ua-platform-version'],
+        }
+      ),
+      ...conditional(headers['sec-ch-ua-platform'] && { CHUAPlatform: headers['sec-ch-ua-platform'] }),
+      ...conditional(
+        headers['sec-ch-ua-full-version-list'] && {
+          CHUAFullVersionList: headers['sec-ch-ua-full-version-list'],
+        }
+      ),
     };
   }
 

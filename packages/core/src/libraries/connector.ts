@@ -109,7 +109,9 @@ export const createConnectorLibrary = (
             },
             dbEntry: databaseConnector,
           };
-        } catch {}
+        } catch (error: unknown) {
+          console.warn('Failed to load connector:', error instanceof Error ? error.message : error);
+        }
       })
     );
 

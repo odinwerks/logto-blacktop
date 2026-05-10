@@ -20,6 +20,6 @@ type OssUpsellEntry = (typeof ossUpsellEntries)[keyof typeof ossUpsellEntries];
 export const buildCloudUpsellUrl = (_entry: OssUpsellEntry) => '#';
 
 // Cloud upsell disabled in self-hosted fork
-export const openCloudUpsell = ({ entry: _entry, target: _target = '_blank' }: OpenCloudUpsellOptions) => {
-  return '#';
+export const openCloudUpsell = () => {
+  // No-op: cloud upsell removed
 };
