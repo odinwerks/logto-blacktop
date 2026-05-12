@@ -41,6 +41,18 @@ const isWebP = (buffer: Uint8Array) =>
   buffer[10] === 0x42 &&
   buffer[11] === 0x50;
 
+/**
+ * Inspects the first bytes of a file buffer to determine its image type and
+ * file extension. Detects JPEG, PNG, GIF, BMP, and WebP.
+ *
+ * Unlike the browser's `Content-Type` header (which can be spoofed), this
+ * reads the actual file signature (magic bytes) from the raw binary data.
+ *
+ * @param buffer The first bytes of the file (at least 12 bytes for WebP
+ * detection). A larger buffer is fine; only the relevant bytes are checked.
+ * @returns The detected MIME type and extension, or `undefined` if the
+ * buffer does not match any known image format.
+ */
 export const detectImageType = (buffer: Uint8Array): ImageDetectionResult | undefined => {
   for (const [signature, mime, extension] of IMAGE_MAGIC_BYTES) {
     if (

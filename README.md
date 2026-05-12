@@ -203,7 +203,41 @@ This is a self-hosted fork. You already chose to self-host. You do not need to b
 
 ### Dark theme modified 
 
-I did not like the color scheme. So I changed the theme to darker colores, tinted blue instead of violet and purple.  
+I did not like the color scheme. So I changed the theme to darker colores, tinted blue instead of violet and purple.
+
+## S3 Storage Overhaul
+
+The stock Logto S3 provider only does PutObject. No delete, no list, no way to check if a file even exists. Every upload gets a random date-stamped path like `userId/2025/03/15/Aa1Bb2Cc/file.png` that guarantees the file is never cleaned up. This fork fixes that.
+
+### What changed
+
+The S3 provider now supports all six operations: upload, delete, list (with pagination), download, copy, and file-existence checks. Upload paths are deterministic: `{tenant}/{userId}/{originalFilename}`. Same-name files overwrite. No orphans.
+
+### Account API: Avatar Upload
+
+Instead of the old two-step dance (upload to `/user-assets`, then PATCH the user record), there's a single endpoint:
+
+```
+POST /api/my-account/avatar
+Authorization: Bearer <access-token>
+Content-Type: multipart/form-data
+
+file: <image binary>
+```
+
+The endpoint validates the image via magic bytes (not the browser's claimed Content-Type), uploads to `admin/{userId}/you.{ext}`, cleans up old avatar files with other extensions, and updates the user record. One call. One response with the updated profile and cache-busted URL.
+
+The old `PATCH /api/my-account` with `{ avatar: url }` still works for custom backends.
+
+### Public File Proxy
+
+Uploaded files are served through Logto itself, not directly from S3:
+
+```
+GET /api/assets/{userId}/{filename}
+```
+
+Public. No auth needed. Files are served with `Cross-Origin-Resource-Policy: cross-origin` so avatars embed cross-domain without extra configuration, and `Cache-Control: immutable` for performance.
 
 ## License
 

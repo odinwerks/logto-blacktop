@@ -94,6 +94,7 @@ export const buildS3Storage = ({
     };
   };
 
+  /** Deletes an object from the S3 bucket. Does not throw if the object does not exist. */
   const deleteFile = async (objectKey: string): Promise<void> => {
     try {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }));
@@ -105,6 +106,7 @@ export const buildS3Storage = ({
     }
   };
 
+  /** Checks whether an object exists in the S3 bucket. Returns `false` rather than throwing on a `NotFound` error. */
   const isFileExisted = async (objectKey: string): Promise<boolean> => {
     try {
       await client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }));
@@ -117,6 +119,11 @@ export const buildS3Storage = ({
     }
   };
 
+  /**
+   * Lists all object keys under a given prefix. Handles pagination
+   * automatically; callers receive the complete list regardless of how many
+   * pages S3 returns.
+   */
   const listFiles = async (prefix: string): Promise<string[]> => {
     const keys: string[] = [];
     let continuationToken: string | undefined;
@@ -152,6 +159,10 @@ export const buildS3Storage = ({
     return keys;
   };
 
+  /**
+   * Downloads an object from the S3 bucket and returns its body as a
+   * `ReadableStream` along with optional content metadata.
+   */
   const downloadFile = async (
     objectKey: string
   ): Promise<{ body: ReadableStream; contentType?: string; contentLength?: number }> => {
@@ -164,6 +175,7 @@ export const buildS3Storage = ({
     };
   };
 
+  /** Copies an object within the same bucket. The copy inherits a `public-read` ACL. */
   const copyFile = async (sourceKey: string, destKey: string): Promise<void> => {
     await client.send(
       new CopyObjectCommand({
