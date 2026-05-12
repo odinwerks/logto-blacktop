@@ -174,6 +174,24 @@ const sign_in_exp = {
       custom_data_description: 'Control access to custom JSON data stored on the user.',
       sessions: 'Sessions',
     },
+    profile_fields: {
+      title: 'Profile fields for prebuilt account center',
+      add_profile_fields: 'Add profile fields',
+      hint: {
+        not_in_list: 'Not in the list?',
+        set_up: 'Set up',
+        go_to: 'other profile fields now.',
+      },
+      disabled_hint: {
+        name: "To add this field, set the 'Name' permission to 'Edit / Read only' in the Profile data above first.",
+        avatar:
+          "To add this field, set the 'Avatar' permission to 'Edit / Read only' in the Profile data above first.",
+        profile:
+          "To add this field, set the 'Profile' permission to 'Edit / Read only' in the Profile data above first.",
+        custom_data:
+          "To add this field, set the 'Custom data' permission to 'Edit / Read only' in the Profile data above first.",
+      },
+    },
     webauthn_related_origins: 'WebAuthn Related Origins',
     webauthn_related_origins_description:
       'Add the domains of your front-end applications that are allowed to register passkeys via the Account API.',

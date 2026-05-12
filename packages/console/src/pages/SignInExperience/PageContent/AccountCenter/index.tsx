@@ -1,10 +1,11 @@
-import { AccountCenterControlValue, type SignInExperience } from '@logto/schemas';
+import { AccountCenterControlValue, type SignInExperience, userProfileKeys } from '@logto/schemas';
 import { useCallback, useMemo, type ChangeEvent } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { Trans, useTranslation } from 'react-i18next';
 
 import FormCard from '@/components/FormCard';
 import PageMeta from '@/components/PageMeta';
+import { isDevFeaturesEnabled } from '@/consts/env';
 import CodeEditor from '@/ds-components/CodeEditor';
 import FormField from '@/ds-components/FormField';
 import InlineNotification from '@/ds-components/InlineNotification';
@@ -17,6 +18,8 @@ import type {
   AccountCenterFieldKey,
   SignInExperienceForm,
 } from '../../types';
+import { collectUserProfilePathname } from '../CollectUserProfile/consts';
+import ProfileFieldsEditBox from '../components/ProfileFieldsEditBox';
 import SignInExperienceTabWrapper from '../components/SignInExperienceTabWrapper';
 
 import AccountCenterField from './AccountCenterField';
@@ -82,6 +85,48 @@ function AccountCenter({ isActive, data }: Props) {
       setValue(`accountCenter.fields.${field}`, value, { shouldDirty: true });
     },
     [setValue]
+  );
+
+  const profileFieldKeySet = useMemo(() => new Set<string>([...userProfileKeys, 'fullname']), []);
+
+  const getProfileFieldControlKey = useCallback(
+    (fieldName: string): AccountCenterFieldKey => {
+      if (fieldName === 'name' || fieldName === 'avatar') {
+        return fieldName;
+      }
+      if (profileFieldKeySet.has(fieldName)) {
+        return 'profile';
+      }
+      return 'customData';
+    },
+    [profileFieldKeySet]
+  );
+
+  const getProfileFieldDisabledReason = useCallback(
+    (fieldName: string): string | undefined => {
+      const controlKey = getProfileFieldControlKey(fieldName);
+      const controlValue = fields[controlKey];
+
+      if (controlValue !== AccountCenterControlValue.Off) {
+        return undefined;
+      }
+
+      switch (controlKey) {
+        case 'name': {
+          return t('sign_in_exp.account_center.profile_fields.disabled_hint.name');
+        }
+        case 'avatar': {
+          return t('sign_in_exp.account_center.profile_fields.disabled_hint.avatar');
+        }
+        case 'profile': {
+          return t('sign_in_exp.account_center.profile_fields.disabled_hint.profile');
+        }
+        default: {
+          return t('sign_in_exp.account_center.profile_fields.disabled_hint.custom_data');
+        }
+      }
+    },
+    [fields, getProfileFieldControlKey, t]
   );
 
   return (
@@ -155,6 +200,27 @@ function AccountCenter({ isActive, data }: Props) {
                 <WebauthnRelatedOriginsField isAccountApiEnabled={isAccountApiEnabled} />
                 <DeleteAccountUrlField isAccountApiEnabled={isAccountApiEnabled} />
               </>
+            )}
+            {section.key === 'userProfile' && isDevFeaturesEnabled && (
+              <FormField title="sign_in_exp.account_center.profile_fields.title">
+                <ProfileFieldsEditBox<
+                  SignInExperienceForm & { accountCenter: AccountCenterFormValues },
+                  'accountCenter.profileFields'
+                >
+                  name="accountCenter.profileFields"
+                  addProfileFieldsButtonTitle="sign_in_exp.account_center.profile_fields.add_profile_fields"
+                  getFieldDisabledReason={getProfileFieldDisabledReason}
+                  hint={
+                    <>
+                      {t('sign_in_exp.account_center.profile_fields.hint.not_in_list')}
+                      <TextLink to={collectUserProfilePathname}>
+                        {t('sign_in_exp.account_center.profile_fields.hint.set_up')}
+                      </TextLink>
+                      {t('sign_in_exp.account_center.profile_fields.hint.go_to')}
+                    </>
+                  }
+                />
+              </FormField>
             )}
           </div>
         </FormCard>
