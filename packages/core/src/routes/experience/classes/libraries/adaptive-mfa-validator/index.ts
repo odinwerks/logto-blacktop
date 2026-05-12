@@ -1,5 +1,6 @@
 import { InteractionEvent, type User, type UserGeoLocation } from '@logto/schemas';
 import { conditional, type Nullable, type Optional, trySafe } from '@silverhand/essentials';
+import { UAParser } from 'ua-parser-js';
 
 import { type WithLogContext, type LogEntry } from '#src/middleware/koa-audit-log.js';
 import type Queries from '#src/tenants/Queries.js';
@@ -112,16 +113,19 @@ export class AdaptiveMfaValidator {
       ip,
       ...conditional(userAgent && { userAgent }),
       ...getInjectedHeaderValues(headers),
-      ...conditional(headers['sec-ch-ua-model'] && { CHUAModel: headers['sec-ch-ua-model'] }),
       ...conditional(
-        headers['sec-ch-ua-platform-version'] && {
-          CHUAPlatformVersion: headers['sec-ch-ua-platform-version'],
-        }
-      ),
-      ...conditional(headers['sec-ch-ua-platform'] && { CHUAPlatform: headers['sec-ch-ua-platform'] }),
-      ...conditional(
-        headers['sec-ch-ua-full-version-list'] && {
-          CHUAFullVersionList: headers['sec-ch-ua-full-version-list'],
+        headers['sec-ch-ua-model'] && {
+          device: trySafe(() => {
+            const parser = new UAParser(userAgent ?? '', undefined, {
+              'sec-ch-ua-model': headers['sec-ch-ua-model'],
+              'sec-ch-ua-platform-version': headers['sec-ch-ua-platform-version'],
+              'sec-ch-ua-platform': headers['sec-ch-ua-platform'],
+              'sec-ch-ua-full-version-list': headers['sec-ch-ua-full-version-list'],
+            });
+            const { browser, os, device } = parser.getResult().withClientHints();
+            const deviceModel = [device.vendor, device.model].filter(Boolean).join(' ');
+            return [browser.name, os.name, deviceModel].filter(Boolean).join(' on ');
+          }),
         }
       ),
     };

@@ -30,26 +30,14 @@ type SessionDisplayInfo = ParsedUserAgentInfo & {
 };
 
 const getParsedUserAgentInfo = (
-  userAgent?: string,
-  chHeaders?: Record<string, string>
+  userAgent?: string
 ): ParsedUserAgentInfo => {
   if (!userAgent) {
     return {};
   }
 
-  const uaHeaders = chHeaders
-    ? {
-        'sec-ch-ua-model': chHeaders.CHUAModel,
-        'sec-ch-ua-platform-version': chHeaders.CHUAPlatformVersion,
-        'sec-ch-ua-platform': chHeaders.CHUAPlatform,
-        'sec-ch-ua-full-version-list': chHeaders.CHUAFullVersionList,
-      }
-    : undefined;
-
-  const parser = new UAParser(userAgent, undefined, uaHeaders);
-  const { device, browser, os } = (
-    uaHeaders ? parser.withClientHints() : parser
-  ).getResult();
+  const parser = new UAParser(userAgent);
+  const { device, browser, os } = parser.getResult();
 
   const deviceModel = [device.vendor, device.model].filter(Boolean).join(' ') || undefined;
 
@@ -67,8 +55,12 @@ const formatSessionLocation = ({ country, city }: UserSessionSignInContext) => {
 };
 
 const formatSessionDeviceName = (signInContext: UserSessionSignInContext) => {
-  const { userAgent, ...chHeaders } = signInContext;
-  const { browserName, osName, deviceModel } = getParsedUserAgentInfo(userAgent, chHeaders);
+  if (signInContext.device) {
+    return signInContext.device;
+  }
+
+  const { userAgent } = signInContext;
+  const { browserName, osName, deviceModel } = getParsedUserAgentInfo(userAgent);
 
   if (browserName && deviceModel) {
     return `${browserName} on ${deviceModel}`;
@@ -90,8 +82,8 @@ const formatSessionDeviceName = (signInContext: UserSessionSignInContext) => {
 };
 
 const normalizeSessionInfo = (signInContext: UserSessionSignInContext): SessionDisplayInfo => {
-  const { userAgent, ...chHeaders } = signInContext;
-  const { browserName, osName, deviceModel } = getParsedUserAgentInfo(userAgent, chHeaders);
+  const { userAgent } = signInContext;
+  const { browserName, osName, deviceModel } = getParsedUserAgentInfo(userAgent);
 
   return {
     name: formatSessionDeviceName(signInContext),

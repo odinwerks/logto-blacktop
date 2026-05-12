@@ -4,8 +4,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      rustfs-init:
+        condition: service_completed_successfully
     image: svhd/logto:${TAG-latest}
-    entrypoint: ["sh", "-c", "npm run cli db seed -- --swe && npm start"]
+    entrypoint: ["sh", "-c", "npm run cli db seed -- --swe && npm run cli db system set storageProvider '{\"provider\":\"S3Storage\",\"endpoint\":\"http://rustfs:9000\",\"bucket\":\"logto\",\"forcePathStyle\":true,\"accessKeyId\":\"rustfsadmin\",\"accessSecretKey\":\"rustfsadmin\"}' && npm start"]
     ports:
       - 3001:3001
       - 3002:3002
@@ -30,3 +32,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  rustfs:
+    image: rustfs/rustfs:latest
+    ports:
+      - 3003:9000
+      - 3004:9001
+    environment:
+      RUSTFS_ROOT_USER: rustfsadmin
+      RUSTFS_ROOT_PASSWORD: rustfsadmin
+    volumes:
+      - ./data/rustfs/data:/data
+      - ./data/rustfs/logs:/logs
+  rustfs-init:
+    image: minio/mc:latest
+    depends_on:
+      - rustfs
+    entrypoint: |
+      /bin/sh -c "
+      sleep 15;
+      mc alias set rustfs http://rustfs:9000 rustfsadmin rustfsadmin;
+      mc mb --ignore-existing rustfs/logto;
+      "

@@ -188,7 +188,8 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
 
           try {
             const parser = new UAParser(userAgentValue, undefined, hasCh ? chHeaders : undefined);
-            return (hasCh ? parser.withClientHints() : parser).getResult();
+            const result = parser.getResult();
+            return hasCh ? result.withClientHints() : result;
           } catch (error: unknown) {
             console.warn('Failed to parse user-agent:', error instanceof Error ? error.message : error);
           }

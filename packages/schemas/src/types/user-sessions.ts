@@ -14,6 +14,7 @@ export const userSessionSignInContextGuard = z
     longitude: z.string().optional(),
     botScore: z.string().optional(),
     botVerified: z.string().optional(),
+    device: z.string().optional(),
   })
   .catchall(z.string());
 
