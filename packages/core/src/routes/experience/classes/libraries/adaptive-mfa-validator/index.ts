@@ -116,11 +116,38 @@ export class AdaptiveMfaValidator {
       ...conditional(
         userAgent && {
           device: trySafe(() => {
-            const result = UAParser(headers).withClientHints();
-            const model = [result.device.vendor, result.device.model]
-              .filter(Boolean)
-              .join(' ') || undefined;
-            return [result.browser.name, model || result.os.name]
+            const userAgentValue =
+              typeof userAgent === 'string' ? userAgent : userAgent?.[0];
+            if (!userAgentValue) {
+              return undefined;
+            }
+
+            const {
+              'sec-ch-ua-model': chUaModel,
+              'sec-ch-ua-platform-version': chUaPlatformVersion,
+            } = headers;
+
+            const chHeaders = {
+              'sec-ch-ua-model': chUaModel,
+              'sec-ch-ua-platform-version': chUaPlatformVersion,
+            };
+            const hasCh = Object.values(chHeaders).some(Boolean);
+
+            const parser = new UAParser(
+              userAgentValue,
+              undefined,
+              hasCh ? chHeaders : undefined
+            );
+            const parsed = parser.getResult();
+            const result = hasCh ? parsed.withClientHints() : parsed;
+
+            if (result instanceof Promise) {
+              return undefined;
+            }
+
+            const modelParts = [result.device.vendor, result.device.model].filter(Boolean);
+            const model = modelParts.length > 0 ? modelParts.join(' ') : undefined;
+            return [result.browser.name, model ?? result.os.name]
               .filter(Boolean)
               .join(' on ');
           }),

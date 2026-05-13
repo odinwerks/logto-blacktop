@@ -168,6 +168,7 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
           'sec-ch-ua-platform-version': chUaPlatformVersion,
           'sec-ch-ua-platform': chUaPlatform,
           'sec-ch-ua-full-version-list': chUaFullVersionList,
+          'sec-ch-ua-mobile': chUaMobile,
         },
       } = ctx.request;
       const signInContext = conditional(getInjectedHeaderValues(ctx.request.headers));
@@ -178,6 +179,7 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
         'sec-ch-ua-platform-version': chUaPlatformVersion,
         'sec-ch-ua-platform': chUaPlatform,
         'sec-ch-ua-full-version-list': chUaFullVersionList,
+        'sec-ch-ua-mobile': chUaMobile,
       };
       const hasCh = Object.values(chHeaders).some(Boolean);
       const userAgentParsed: Optional<UAParser.IResult> = conditional(
@@ -191,6 +193,7 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
             const result = parser.getResult();
             return hasCh ? result.withClientHints() : result;
           } catch (error: unknown) {
+            // eslint-disable-next-line no-console
             console.warn('Failed to parse user-agent:', error instanceof Error ? error.message : error);
           }
         })()

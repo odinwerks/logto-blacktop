@@ -237,6 +237,11 @@ export default class Tenant implements TenantContext {
     app.use(
       compose([
         koaExperienceSecurityHeaders(id, queries, mountedApps),
+        async (ctx, next) => {
+          ctx.set('Accept-CH', 'sec-ch-ua-model, sec-ch-ua-platform-version');
+          ctx.set('Critical-CH', 'sec-ch-ua-model');
+          await next();
+        },
         koaExperienceSsr(libraries, queries),
         koaSpaSessionGuard(provider, queries),
         mount(
