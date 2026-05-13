@@ -99,7 +99,7 @@ Full end-to-end password expiration feature. Configure a maximum password age an
 
 ### S3 Storage Overhaul + Account API Avatar Upload
 
-> **Upstream status:** Submitted as [PR #8801](https://github.com/logto-io/logto/pull/8801). Pending review.
+> **Upstream status:** Submitted as [PR #8801](https://github.com/logto-io/logto/pull/8801). Closed. Logto is building a similar feature internally. Rather than maintain two competing designs, I closed this PR and kept the implementation in Blacktop.
 
 The stock Logto S3 provider only does PutObject. No delete, no list, no way to check if a file even exists. Every upload gets a random date-stamped path like `userId/2025/03/15/Aa1Bb2Cc/file.png` that guarantees the file is never cleaned up.
 
@@ -136,6 +136,56 @@ GET /api/assets/{userId}/{filename}
 ```
 
 Public. No auth needed. Files are served with `Cross-Origin-Resource-Policy: cross-origin` so avatars embed cross-domain without extra configuration, and `Cache-Control: immutable` for performance.
+
+#### Client integration
+
+`POST /api/my-account/avatar` is a standard REST endpoint on the user Account API. Any client with an access token and `profile` scope can call it. No special SDK needed.
+
+**Browser / Node.js (any JS framework)**
+
+```ts
+const token = await getAccessToken(); // your existing auth flow
+const formData = new FormData();
+formData.append('file', file);
+
+const res = await fetch(`${endpoint}/api/my-account/avatar`, {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${token}` },
+  body: formData,
+});
+
+const profile = await res.json();
+// { id: "user123", name: "Jane", avatar: "https://...you.png?v=...", ... }
+```
+
+**curl (testing)**
+
+```bash
+curl -X POST https://auth.example.com/api/my-account/avatar \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@avatar.png"
+```
+
+**Server Action (Next.js)**
+
+FormData preserves the file binary, and server-side auth keeps the access token out of client bundles:
+
+```ts
+// logto-kit/logic/actions/avatar.ts
+'use server';
+import { getAccessToken } from '@logto/next/server-actions';
+
+export async function uploadAvatar(formData: FormData): Promise<{ avatar: string }> {
+  const token = await getAccessToken('<endpoint>', 'profile');
+  const res = await fetch(`${process.env.ENDPOINT}/api/my-account/avatar`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Upload failed');
+  return res.json();
+}
+```
 
 ### Session Last Active Tracking + Heartbeat API (built on top of PRs #8728, #8729, and #8731.)
 
