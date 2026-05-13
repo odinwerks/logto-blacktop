@@ -116,31 +116,13 @@ export class AdaptiveMfaValidator {
       ...conditional(
         userAgent && {
           device: trySafe(() => {
-            const chHeaders = {
-              'sec-ch-ua-model': headers['sec-ch-ua-model'],
-              'sec-ch-ua-platform-version': headers['sec-ch-ua-platform-version'],
-              'sec-ch-ua-platform': headers['sec-ch-ua-platform'],
-              'sec-ch-ua-full-version-list': headers['sec-ch-ua-full-version-list'],
-              'sec-ch-ua-mobile': headers['sec-ch-ua-mobile'],
-            };
-            const hasCh = Object.values(chHeaders).some(Boolean);
-            const parser = new UAParser(userAgent, undefined, hasCh ? chHeaders : undefined);
-            const { browser, os, device } = hasCh
-              ? parser.getResult().withClientHints()
-              : parser.getResult();
-
-            // Desktop-mode spoofed UAs claim "Linux" when CH platform says otherwise
-            const platformName =
-              os.name === 'Linux' &&
-              headers['sec-ch-ua-platform'] === '"Android"'
-                ? 'Android'
-                : os.name;
-
-            const model = [device.vendor, device.model]
+            const result = UAParser(headers).withClientHints();
+            const model = [result.device.vendor, result.device.model]
               .filter(Boolean)
               .join(' ') || undefined;
-
-            return [browser.name, model || platformName].filter(Boolean).join(' on ');
+            return [result.browser.name, model || result.os.name]
+              .filter(Boolean)
+              .join(' on ');
           }),
         }
       ),
