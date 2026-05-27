@@ -364,6 +364,38 @@
             "description": "The identity was added successfully."
           }
         }
+      },
+      "put": {
+        "operationId": "ReplaceMyAccountIdentity",
+        "summary": "Replace a user identity",
+        "description": "Replace (upsert) an identity (social identity) for the user. Creates the identity if absent, replaces it otherwise. Idempotent. Unlike POST, this allows replacing an existing identity for the same social target. When replacing with a different social user ID, previously stored third-party tokens for the old identity are cleared. A logto-verification-id header is required for checking sensitive permissions, and a verification record for the social identity is required.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "newIdentifierVerificationRecordId": {
+                    "description": "The identifier verification record ID for the new social identity ownership verification."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The identity was replaced successfully."
+          },
+          "400": {
+            "description": "The request body is invalid or the social identity field is not editable."
+          },
+          "401": {
+            "description": "Permission denied, identity verification is required or insufficient scope."
+          },
+          "422": {
+            "description": "The new verification record is invalid or the identity is already in use."
+          }
+        }
       }
     },
     "/api/my-account/identities/{target}": {
@@ -714,6 +746,44 @@
           },
           "401": {
             "description": "Permission denied, the verification record is invalid or the session does not have the required scope to revoke sessions."
+          }
+        }
+      }
+    },
+    "/api/my-account/user-assets/avatar": {
+      "post": {
+        "tags": ["Dev feature"],
+        "operationId": "UploadAccountAvatar",
+        "summary": "Upload account avatar",
+        "description": "Upload a single avatar image to the configured storage provider and return the public URL of the uploaded asset. Requires the `profile` scope and the `avatar` field to be editable in the account center configuration. The returned URL can then be used as the value for the avatar field via `PATCH /api/my-account`.",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "description": "The avatar image file to upload. Must be an allowed image type and not exceed the maximum upload file size."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The asset was uploaded successfully."
+          },
+          "400": {
+            "description": "The request is invalid (e.g. file too large, image type not allowed, storage is not configured, or the avatar field is not editable)."
+          },
+          "401": {
+            "description": "Permission denied, the access token does not include the `profile` scope."
+          },
+          "403": {
+            "description": "Permission denied for the current account center state."
+          },
+          "500": {
+            "description": "Failed to upload the file to the storage provider."
           }
         }
       }

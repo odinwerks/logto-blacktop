@@ -1,8 +1,20 @@
+import { protectedAppAdditionalScopes } from '@logto/core-kit';
 import {
   applicationCreateGuard as originalApplicationCreateGuard,
   applicationPatchGuard as originalApplicationPatchGuard,
 } from '@logto/schemas';
 import { z } from 'zod';
+
+import { EnvSet } from '#src/env-set/index.js';
+
+const protectedAppAdditionalScopeGuard = z.enum(protectedAppAdditionalScopes);
+
+const appLevelAccessControlEnabledGuard = z
+  .boolean()
+  .refine(() => EnvSet.values.isDevFeaturesEnabled, {
+    message: 'appLevelAccessControlEnabled is not available when dev features are disabled',
+  })
+  .optional();
 
 export const applicationCreateGuard = originalApplicationCreateGuard
   .omit({
@@ -22,6 +34,7 @@ export const applicationPatchGuard = originalApplicationPatchGuard
     protectedAppMetadata: true,
   })
   .extend({
+    appLevelAccessControlEnabled: appLevelAccessControlEnabledGuard,
     protectedAppMetadata: z
       .object({
         origin: z.string().optional(),
@@ -34,6 +47,7 @@ export const applicationPatchGuard = originalApplicationPatchGuard
             })
           )
           .optional(),
+        additionalScopes: z.array(protectedAppAdditionalScopeGuard).optional(),
       })
       .nullish(),
   });

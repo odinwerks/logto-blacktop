@@ -5,7 +5,17 @@ import {
   translationGuard,
   customContentGuard,
 } from '@logto/schemas';
-import { string, boolean, number, object, nativeEnum, unknown, literal, union } from 'zod';
+import {
+  string,
+  boolean,
+  number,
+  object,
+  nativeEnum,
+  unknown,
+  literal,
+  union,
+  preprocess,
+} from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
 
@@ -17,6 +27,7 @@ describe('zodTypeToSwagger', () => {
     expect(zodTypeToSwagger(jsonObjectGuard)).toEqual({
       type: 'object',
       description: 'arbitrary',
+      additionalProperties: true,
     });
   });
 
@@ -138,6 +149,18 @@ describe('zodTypeToSwagger', () => {
 
   it('optional type', () => {
     expect(zodTypeToSwagger(string().optional())).toEqual({ type: 'string' });
+  });
+
+  it('preprocess type', () => {
+    expect(zodTypeToSwagger(preprocess(String, string()))).toEqual({ type: 'string' });
+  });
+
+  it('refinement type', () => {
+    expect(zodTypeToSwagger(string().refine(() => true))).toEqual({
+      type: 'object',
+      description: 'Validator function',
+      additionalProperties: true,
+    });
   });
 
   it('nullable type', () => {

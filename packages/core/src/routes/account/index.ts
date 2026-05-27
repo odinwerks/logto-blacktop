@@ -32,6 +32,7 @@ import mfaVerificationsRoutes from './mfa-verifications.js';
 import koaAccountCenter from './middlewares/koa-account-center.js';
 import accountSessionRoutes from './sessions.js';
 import thirdPartyTokensRoutes from './third-party-tokens.js';
+import accountUserAssetsRoutes from './user-assets.js';
 import { getAccountCenterFilteredProfile, getScopedProfile } from './utils/get-scoped-profile.js';
 
 const hasSecurityVerificationMethod = ({
@@ -320,4 +321,5 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
   accountSessionRoutes(...args);
   heartbeatRoutes(...args);
   accountGrantRoutes(...args);
+  accountUserAssetsRoutes(...args);
 }

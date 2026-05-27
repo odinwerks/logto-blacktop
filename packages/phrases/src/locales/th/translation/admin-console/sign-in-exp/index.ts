@@ -82,12 +82,14 @@ const sign_in_exp = {
     title: 'ปรับแต่ง UI',
     cloud_tag: 'Cloud',
     css_code_editor_title: 'CSS ที่กำหนดเอง',
+    css_code_editor_field_title: 'การเขียนทับ CSS',
     css_code_editor_description1: 'ดูตัวอย่าง CSS ที่กำหนดเอง',
     css_code_editor_description2: '<a>{{link}}</a>',
     css_code_editor_description_link_content: 'เรียนรู้เพิ่มเติม',
     css_code_editor_content_placeholder:
-      'ใส่ CSS ที่คุณกำหนดเองเพื่อตกแต่งสไตล์ได้ตามที่คุณต้องการ แสดงความคิดสร้างสรรค์และทำให้ UI ของคุณโดดเด่น',
+      'ป้อน CSS overrides ของคุณที่นี่เพื่อปรับแต่งสไตล์ของทุกองค์ประกอบให้ตรงตามความต้องการของคุณ แสดงความคิดสร้างสรรค์และทำให้ UI ของคุณโดดเด่น',
     bring_your_ui_title: 'นำ UI ของคุณมาเอง',
+    bring_your_ui_upload_title: 'อัปโหลดไฟล์ UI แบบกำหนดเอง',
     bring_your_ui_description:
       'อัปโหลดไฟล์บีบอัด (.zip) เพื่อแทนที่ UI สำเร็จรูปของ Logto ด้วยโค้ดของคุณเอง <a>เรียนรู้เพิ่มเติม</a>',
     bring_your_ui_oss_description: 'ปรับแต่ง UI สำหรับการลงชื่อเข้าใช้ด้วยโค้ดของคุณเอง',
@@ -95,6 +97,17 @@ const sign_in_exp = {
     bring_your_ui_oss_try_cloud: '',
     preview_with_bring_your_ui_description:
       'ไฟล์ UI ที่คุณกำหนดเองถูกอัปโหลดเรียบร้อยแล้วและกำลังใช้งานอยู่ ดังนั้นหน้าต่างตัวอย่างแบบฝังจึงถูกปิดใช้งาน\nหากต้องการทดสอบหน้าเข้าสู่ระบบแบบกำหนดเอง ให้คลิกปุ่ม "แสดงตัวอย่างสด" เพื่อเปิดในแท็บใหม่',
+    csp_description:
+      'อนุญาต source expression เพิ่มเติมสำหรับ UI เข้าสู่ระบบแบบกำหนดเองของคุณ ค่านี้จะใช้เฉพาะเมื่อมีการให้บริการไฟล์ UI แบบกำหนดเองเท่านั้น',
+    csp_script_src: 'script-src ที่อนุญาต',
+    csp_script_src_tip:
+      'อนุญาต source expression แบบ HTTPS สำหรับสคริปต์ที่โหลดโดย UI แบบกำหนดเองของคุณ เช่น https://scripts.example.com หรือ https://*.example.com',
+    csp_connect_src: 'connect-src ที่อนุญาต',
+    csp_connect_src_tip:
+      'อนุญาต source expression แบบ HTTPS หรือ WSS สำหรับคำขอเครือข่ายที่ส่งจาก UI แบบกำหนดเองของคุณ เช่น https://api.example.com หรือ wss://events.example.com',
+    csp_source_invalid_error:
+      'ป้อน source expression ที่ถูกต้อง ใช้ URL แบบ https://; connect-src รองรับ wss:// ด้วย ไม่รองรับคีย์เวิร์ด CSP และเครื่องหมายอัฒภาค',
+    csp_source_duplicate_error: 'source expression นี้อยู่ในรายการแล้ว',
   },
   account_center: {
     title: 'ศูนย์บัญชี',
@@ -217,6 +230,7 @@ const sign_in_exp = {
         username: 'อัปเดตชื่อผู้ใช้ของคุณ',
         password: 'ตั้งรหัสผ่านใหม่',
         social: 'เชื่อมโยงบัญชีโซเชียลเพื่อใช้ลงชื่อเข้าใช้',
+        social_change: 'เปลี่ยนไปใช้บัญชีโซเชียลที่เชื่อมโยงไว้อื่น',
         social_remove: 'ลบบัญชีโซเชียลที่เชื่อมโยงแล้ว',
         authenticator_app: 'ตั้งค่าแอปยืนยันตัวตนใหม่สำหรับการยืนยันตัวตนหลายปัจจัย',
         authenticator_app_replace: 'แทนที่แอปยืนยันตัวตนที่มีอยู่ของคุณด้วยแอปใหม่',

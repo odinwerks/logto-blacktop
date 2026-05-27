@@ -22,6 +22,24 @@ const mapToUriFormatArrays = (value?: string[]) =>
 const mapToUriOriginFormatArrays = (value?: string[]) =>
   value?.filter(Boolean).map((uri) => decodeURIComponent(uri.replace(/\/*$/, '')));
 
+const parseProtectedAppMetadataFromResponse = (
+  protectedAppMetadata: NonNullable<ProtectedAppMetadataType>
+): ApplicationForm['protectedAppMetadata'] => {
+  return {
+    ...protectedAppMetadata,
+    sessionDuration: protectedAppMetadata.sessionDuration / 3600 / 24,
+  };
+};
+
+const parseProtectedAppMetadataToPayload = (
+  protectedAppMetadata: NonNullable<ApplicationForm['protectedAppMetadata']>
+): NonNullable<DeepPartial<ApplicationResponse>['protectedAppMetadata']> => {
+  return {
+    ...protectedAppMetadata,
+    sessionDuration: protectedAppMetadata.sessionDuration * 3600 * 24,
+  };
+};
+
 export const applicationFormDataParser = {
   fromResponse: (data: ApplicationResponse): ApplicationForm => {
     const {
@@ -51,10 +69,7 @@ export const applicationFormDataParser = {
       ),
       ...cond(
         protectedAppMetadata && {
-          protectedAppMetadata: {
-            ...protectedAppMetadata,
-            sessionDuration: protectedAppMetadata.sessionDuration / 3600 / 24,
-          },
+          protectedAppMetadata: parseProtectedAppMetadataFromResponse(protectedAppMetadata),
         }
       ),
     };
@@ -100,10 +115,7 @@ export const applicationFormDataParser = {
       ),
       ...cond(
         protectedAppMetadata && {
-          protectedAppMetadata: {
-            ...protectedAppMetadata,
-            sessionDuration: protectedAppMetadata.sessionDuration * 3600 * 24,
-          },
+          protectedAppMetadata: parseProtectedAppMetadataToPayload(protectedAppMetadata),
         }
       ),
     };

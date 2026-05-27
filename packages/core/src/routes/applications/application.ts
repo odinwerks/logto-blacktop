@@ -6,6 +6,7 @@ import {
   Applications,
   ApplicationType,
   buildBuiltInApplicationDataForTenant,
+  defaultApplicationSecretName,
   hasSecrets,
   InternalRole,
   ProductEvent,
@@ -15,6 +16,7 @@ import { generateStandardId, generateStandardSecret } from '@logto/shared';
 import { conditional } from '@silverhand/essentials';
 import { boolean, object, string, z } from 'zod';
 
+import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import koaPagination from '#src/middleware/koa-pagination.js';
@@ -25,6 +27,7 @@ import { parseSearchParamsForSearch } from '#src/utils/search.js';
 import { captureEvent } from '../../utils/posthog.js';
 import type { ManagementApiRouter, RouterInitArgs } from '../types.js';
 
+import applicationAccessControlRoutes from './application-access-control.js';
 import applicationCustomDataRoutes from './application-custom-data.js';
 import { generateInternalSecret } from './application-secret.js';
 import { applicationCreateGuard, applicationPatchGuard } from './types.js';
@@ -53,16 +56,14 @@ const assertThirdPartyApplicationTokenExchangeDisabled = (
   }
 };
 
-const hideOidcClientMetadataForSamlApp = (application: Application) => {
-  return {
-    ...application,
-    ...conditional(
-      application.type === ApplicationType.SAML && {
-        oidcClientMetadata: buildOidcClientMetadata(),
-      }
-    ),
-  };
-};
+const hideOidcClientMetadataForSamlApp = (application: Application) => ({
+  ...application,
+  ...conditional(
+    application.type === ApplicationType.SAML && {
+      oidcClientMetadata: buildOidcClientMetadata(),
+    }
+  ),
+});
 
 const hideOidcClientMetadataForSamlApps = (applications: readonly Application[]) => {
   return applications.map((application) => hideOidcClientMetadataForSamlApp(application));
@@ -234,7 +235,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
 
       if (hasSecrets(application.type)) {
         await queries.applicationSecrets.insert({
-          name: 'Default secret',
+          name: defaultApplicationSecretName,
           applicationId: application.id,
           value: generateStandardSecret(),
         });
@@ -413,10 +414,12 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
         }
       }
 
-      ctx.body =
+      const updatedApplication =
         Object.keys(rest).length > 0
           ? await queries.applications.updateApplicationById(id, rest, 'replace')
           : pendingUpdateApplication;
+
+      ctx.body = updatedApplication;
 
       return next();
     }
@@ -468,5 +471,9 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
   );
 
   applicationCustomDataRoutes(router, tenant);
+
+  if (EnvSet.values.isDevFeaturesEnabled) {
+    applicationAccessControlRoutes(router, tenant);
+  }
 }
 /* eslint-enable max-lines */

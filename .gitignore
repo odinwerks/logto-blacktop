@@ -38,6 +38,8 @@ dump.rdb
 
 # Claude local files
 .claude/
+docs/superpowers/
+CLAUDE.md
 
 # connectors
 /packages/core/connectors

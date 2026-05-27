@@ -20,6 +20,7 @@ import { generateStandardId } from '@logto/shared';
 import { condArray, conditional, conditionalArray, trySafe } from '@silverhand/essentials';
 
 import { EnvSet } from '#src/env-set/index.js';
+import { truncateMembershipDelta } from '#src/libraries/hook/utils.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 import { buildAppInsightsTelemetry } from '#src/utils/request.js';
 import { getTenantId } from '#src/utils/tenant.js';
@@ -160,6 +161,7 @@ export class ProvisionLibrary {
     for (const { organizationId } of provisionedOrganizations) {
       this.ctx.appendDataHookContext('Organization.Membership.Updated', {
         organizationId,
+        ...truncateMembershipDelta({ addedUserIds: [payload.userId] }),
       });
     }
 

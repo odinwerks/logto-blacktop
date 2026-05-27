@@ -7,6 +7,7 @@ import {
 import { z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
+import { buildManagementApiContext, truncateMembershipDelta } from '#src/libraries/hook/utils.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import SchemaRouter from '#src/utils/SchemaRouter.js';
 import assertThat from '#src/utils/assert-that.js';
@@ -158,14 +159,32 @@ export default function organizationInvitationRoutes<T extends ManagementApiRout
         })
       );
 
+      // Snapshot pre-existing membership before `updateStatus` runs the insert (which
+      // uses ON CONFLICT DO NOTHING); afterwards the row is always present and we cannot
+      // distinguish a real addition from a re-accept of an existing member.
+      const invitation = await invitations.findById(id);
+      const existingUserIds = await queries.organizations.relations.users.getExistingUserIds(
+        invitation.organizationId,
+        [acceptedUserId]
+      );
+      const addedUserIds = existingUserIds.length > 0 ? [] : [acceptedUserId];
+
       const result = await organizationInvitations.updateStatus(id, status, acceptedUserId);
 
+      ctx.body = result;
+      // Set explicitly so `buildManagementApiContext(ctx)` captures 200 rather than the
+      // koa-default 404 in the webhook payload.
+      ctx.status = 200;
+
+      // Always emit, matching every other Organization.Membership.Updated trigger. The
+      // helper omits empty arrays, so a re-accept (no real change) reduces to the legacy
+      // `{ organizationId }`-only shape.
       const { organizationId } = result;
       ctx.appendDataHookContext('Organization.Membership.Updated', {
+        ...buildManagementApiContext(ctx),
         organizationId,
+        ...truncateMembershipDelta({ addedUserIds }),
       });
-
-      ctx.body = result;
 
       return next();
     }

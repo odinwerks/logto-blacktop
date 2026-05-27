@@ -82,12 +82,14 @@ const sign_in_exp = {
     title: 'UI personalizada',
     cloud_tag: 'Cloud',
     css_code_editor_title: 'CSS personalizado',
+    css_code_editor_field_title: 'Substituição de CSS',
     css_code_editor_description1: 'Veja um exemplo de CSS personalizado.',
     css_code_editor_description2: '<a>{{link}}</a>',
     css_code_editor_description_link_content: 'Saiba mais',
     css_code_editor_content_placeholder:
-      'Insira o seu CSS personalizado para adaptar os estilos de qualquer coisa às suas especificações exatas. Exprima a sua criatividade e faça o seu UI se destacar.',
+      'Introduza aqui as suas substituições de CSS para adaptar os estilos de qualquer elemento exatamente às suas necessidades. Exprima a sua criatividade e faça o seu UI destacar-se.',
     bring_your_ui_title: 'Traga o seu UI',
+    bring_your_ui_upload_title: 'Carregar recursos de UI personalizados',
     bring_your_ui_description:
       'Carregue um pacote comprimido (.zip) para substituir o UI predefinido do Logto pelo seu próprio código. <a>Saiba mais</a>',
     bring_your_ui_oss_description:
@@ -96,6 +98,17 @@ const sign_in_exp = {
     bring_your_ui_oss_try_cloud: '',
     preview_with_bring_your_ui_description:
       'Os seus recursos de UI personalizados foram carregados com êxito e agora estão sendo servidos. Consequentemente, a janela de visualização incorporada foi desativada.\nPara testar o seu UI de início de sessão personalizado, clique no botão "Visualização ao vivo" para abri-lo num novo separador do navegador.',
+    csp_description:
+      'Permita expressões de origem adicionais para a sua interface de início de sessão personalizada. Estes valores são aplicados apenas quando os recursos de UI personalizados são servidos.',
+    csp_script_src: 'script-src permitido',
+    csp_script_src_tip:
+      'Permita expressões de origem HTTPS para scripts carregados pelo seu UI personalizado, como https://scripts.example.com ou https://*.example.com.',
+    csp_connect_src: 'connect-src permitido',
+    csp_connect_src_tip:
+      'Permita expressões de origem HTTPS ou WSS para pedidos de rede feitos pelo seu UI personalizado, como https://api.example.com ou wss://events.example.com.',
+    csp_source_invalid_error:
+      'Introduza uma expressão de origem válida. Use URLs https://; connect-src também suporta wss://. Palavras-chave CSP e pontos e vírgulas não são suportados.',
+    csp_source_duplicate_error: 'Esta expressão de origem já está listada.',
   },
   account_center: {
     title: 'CENTRO DE CONTA',
@@ -220,6 +233,7 @@ const sign_in_exp = {
         username: 'Atualize seu nome de utilizador',
         password: 'Defina uma nova palavra-passe',
         social: 'Ligue uma conta social para iniciar sessão',
+        social_change: 'Mude para outra conta social ligada',
         social_remove: 'Remova uma conta social ligada',
         authenticator_app:
           'Configure um novo aplicativo autenticador para a autenticação multifator',
