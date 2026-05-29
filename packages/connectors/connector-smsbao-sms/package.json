@@ -17,7 +17,8 @@
   "files": [
     "lib",
     "docs",
-    "logo.png"
+    "logo.svg",
+    "logo-dark.svg"
   ],
   "scripts": {
     "precommit": "lint-staged",
