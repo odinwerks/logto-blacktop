@@ -12,7 +12,6 @@ import RegexIcon from '@/assets/icons/field-type-regex.svg?react';
 import TextIcon from '@/assets/icons/field-type-text.svg?react';
 import UrlIcon from '@/assets/icons/field-type-url.svg?react';
 import FormField from '@/ds-components/FormField';
-import InlineNotification from '@/ds-components/InlineNotification';
 import Select from '@/ds-components/Select';
 import Switch from '@/ds-components/Switch';
 import TextInput from '@/ds-components/TextInput';
@@ -22,7 +21,6 @@ import Textarea from '@/ds-components/Textarea';
 import { type ProfileFieldForm } from '../../CollectUserProfile/types';
 import useI18nFieldLabel from '../../CollectUserProfile/use-i18n-field-label';
 import {
-  isAvatarProfileField,
   isBuiltInAddressComponentKey,
   isBuiltInCustomProfileFieldKey,
 } from '../../CollectUserProfile/utils';
@@ -60,7 +58,6 @@ function ProfileFieldPartSubForm({ index }: Props) {
 
   const name = watch(`${fieldPrefix}name`);
   const type = watch(`${fieldPrefix}type`);
-  const isAvatarField = isAvatarProfileField(name);
   const isBuiltInAddressComponent = isBuiltInAddressComponentKey(name);
   const isBuiltInFieldName = isBuiltInCustomProfileFieldKey(name) || isBuiltInAddressComponent;
   const formErrors = index === undefined ? errors : errors.parts?.[index];
@@ -82,33 +79,30 @@ function ProfileFieldPartSubForm({ index }: Props) {
           }}
         />
       </FormField>
-      {/* TODO: Placeholder field layout until end-user avatar upload UI is implemented. */}
-      {!isAvatarField && (
-        <FormField title="sign_in_exp.custom_profile_fields.details.field_type">
-          <Controller
-            name={`${fieldPrefix}type`}
-            control={control}
-            render={({ field: { onChange, value } }) => {
-              const options = Object.values(CustomProfileFieldType)
-                .filter(
-                  (type) =>
-                    type !== CustomProfileFieldType.Address &&
-                    type !== CustomProfileFieldType.Fullname
-                )
-                .map((type) => ({
-                  value: type,
-                  title: (
-                    <div className={styles.dropdownTitleWrapper}>
-                      {fieldTypeIconMappings[type]}
-                      {t(`sign_in_exp.custom_profile_fields.type.${type}`)}
-                    </div>
-                  ),
-                }));
-              return <Select options={options} value={value} onChange={onChange} />;
-            }}
-          />
-        </FormField>
-      )}
+      <FormField title="sign_in_exp.custom_profile_fields.details.field_type">
+        <Controller
+          name={`${fieldPrefix}type`}
+          control={control}
+          render={({ field: { onChange, value } }) => {
+            const options = Object.values(CustomProfileFieldType)
+              .filter(
+                (type) =>
+                  type !== CustomProfileFieldType.Address &&
+                  type !== CustomProfileFieldType.Fullname
+              )
+              .map((type) => ({
+                value: type,
+                title: (
+                  <div className={styles.dropdownTitleWrapper}>
+                    {fieldTypeIconMappings[type]}
+                    {t(`sign_in_exp.custom_profile_fields.type.${type}`)}
+                  </div>
+                ),
+              }));
+            return <Select options={options} value={value} onChange={onChange} />;
+          }}
+        />
+      </FormField>
       {type === CustomProfileFieldType.Date && (
         <FormField title="sign_in_exp.custom_profile_fields.details.date_format">
           <DateFormatSelector />
@@ -150,13 +144,7 @@ function ProfileFieldPartSubForm({ index }: Props) {
           }}
         />
       </FormField>
-      {/* TODO: Replace placeholder avatar help text once Experience and Account Center avatar upload is implemented. */}
-      {isAvatarField && (
-        <InlineNotification hasIcon variant="plain">
-          {t('sign_in_exp.custom_profile_fields.details.avatar_upload_description')}
-        </InlineNotification>
-      )}
-      {!isAvatarField && type !== CustomProfileFieldType.Checkbox && (
+      {type !== CustomProfileFieldType.Checkbox && (
         <FormField
           title="sign_in_exp.custom_profile_fields.details.placeholder"
           tip={t('sign_in_exp.custom_profile_fields.details.placeholder_tooltip')}
