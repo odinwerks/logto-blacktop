@@ -59,7 +59,7 @@ describe('sign-in-experience query', () => {
       expectSqlAssert(sql, expectSql);
       expect(values).toEqual([id]);
 
-      return createMockQueryResult([databaseValue]);
+      return createMockQueryResult([databaseValue as unknown as import('@silverhand/slonik').QueryResultRow]);
     });
 
     await expect(findDefaultSignInExperience()).resolves.toEqual(databaseValue);
@@ -81,7 +81,7 @@ describe('sign-in-experience query', () => {
       expectSqlAssert(sql, expectSql);
       expect(values).toEqual([termsOfUseUrl, id]);
 
-      return createMockQueryResult([databaseValue]);
+      return createMockQueryResult([databaseValue as unknown as import('@silverhand/slonik').QueryResultRow]);
     });
 
     await expect(updateDefaultSignInExperience({ termsOfUseUrl })).resolves.toEqual(databaseValue);

@@ -175,12 +175,12 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
       const userAgentValue: Optional<string> =
         typeof userAgent === 'string' ? userAgent : userAgent?.[0];
       const chHeaders = {
-        'sec-ch-ua-model': chUaModel,
-        'sec-ch-ua-platform-version': chUaPlatformVersion,
-        'sec-ch-ua-platform': chUaPlatform,
-        'sec-ch-ua-full-version-list': chUaFullVersionList,
-        'sec-ch-ua-mobile': chUaMobile,
-      };
+        'sec-ch-ua-model': typeof chUaModel === 'string' ? chUaModel : undefined,
+        'sec-ch-ua-platform-version': typeof chUaPlatformVersion === 'string' ? chUaPlatformVersion : undefined,
+        'sec-ch-ua-platform': typeof chUaPlatform === 'string' ? chUaPlatform : undefined,
+        'sec-ch-ua-full-version-list': typeof chUaFullVersionList === 'string' ? chUaFullVersionList : undefined,
+        'sec-ch-ua-mobile': typeof chUaMobile === 'string' ? chUaMobile : undefined,
+      } satisfies Record<string, string | undefined>;
       const hasCh = Object.values(chHeaders).some(Boolean);
       const userAgentParsed: Optional<UAParser.IResult> = conditional(
         (() => {
@@ -189,9 +189,17 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
           }
 
           try {
-            const parser = new UAParser(userAgentValue, undefined, hasCh ? chHeaders : undefined);
+            const parser = new UAParser(userAgentValue, undefined, hasCh ? chHeaders as Record<string, string> : undefined);
             const result = parser.getResult();
-            return hasCh ? result.withClientHints() : result;
+            if (!hasCh) {
+              return result;
+            }
+            const withHints = result.withClientHints();
+            // withClientHints() may return a PromiseLike when client hints are async; fall back to sync result
+            if (typeof (withHints as Partial<PromiseLike<UAParser.IResult>>).then === 'function') {
+              return result;
+            }
+            return withHints as UAParser.IResult;
           } catch (error: unknown) {
             // eslint-disable-next-line no-console
             console.warn('Failed to parse user-agent:', error instanceof Error ? error.message : error);

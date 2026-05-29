@@ -128,21 +128,27 @@ export class AdaptiveMfaValidator {
             } = headers;
 
             const chHeaders = {
-              'sec-ch-ua-model': chUaModel,
-              'sec-ch-ua-platform-version': chUaPlatformVersion,
-            };
+              'sec-ch-ua-model': typeof chUaModel === 'string' ? chUaModel : undefined,
+              'sec-ch-ua-platform-version': typeof chUaPlatformVersion === 'string' ? chUaPlatformVersion : undefined,
+            } satisfies Record<string, string | undefined>;
             const hasCh = Object.values(chHeaders).some(Boolean);
 
             const parser = new UAParser(
               userAgentValue,
               undefined,
-              hasCh ? chHeaders : undefined
+              hasCh ? chHeaders as Record<string, string> : undefined
             );
             const parsed = parser.getResult();
-            const result = hasCh ? parsed.withClientHints() : parsed;
-
-            if (result instanceof Promise) {
-              return undefined;
+            let result: UAParser.IResult;
+            if (hasCh) {
+              const withHints = parsed.withClientHints();
+              // withClientHints() may return a PromiseLike; fall back to sync result
+              result =
+                typeof (withHints as Partial<PromiseLike<UAParser.IResult>>).then === 'function'
+                  ? parsed
+                  : (withHints as UAParser.IResult);
+            } else {
+              result = parsed;
             }
 
             const modelParts = [result.device.vendor, result.device.model].filter(Boolean);

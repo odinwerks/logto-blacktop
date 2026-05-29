@@ -2,8 +2,6 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
-  type AvatarMimeType,
-  isAvatarMimeType,
   maxUploadFileSize,
   mimeTypeToFileExtensionMappings,
   type uploadFileGuard,
@@ -20,6 +18,16 @@ import { buildUploadFile } from '#src/utils/storage/index.js';
 
 type UploadedFile = z.infer<typeof uploadFileGuard>;
 
+type AllowedAvatarMimeType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'image/bmp';
+
+const allowedAvatarMimeTypes = new Set<AllowedAvatarMimeType>([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+]);
+
 const maxSafeFilenameLength = 128;
 
 const startsWith = (buffer: Uint8Array, bytes: number[]) =>
@@ -32,7 +40,7 @@ const readUint32Le = (buffer: Uint8Array, offset: number) =>
   new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength).getUint32(offset, true);
 
 const binaryAvatarMimeTypeDetectors: ReadonlyArray<{
-  mimeType: AvatarMimeType;
+  mimeType: AllowedAvatarMimeType;
   matches: (buffer: Uint8Array) => boolean;
 }> = [
   { mimeType: 'image/jpeg', matches: (buffer) => startsWith(buffer, [0xff, 0xd8, 0xff]) },
@@ -52,7 +60,7 @@ const binaryAvatarMimeTypeDetectors: ReadonlyArray<{
 
 export const detectAvatarMimeType = (
   buffer: Uint8Array
-): AvatarMimeType | 'image/svg+xml' | undefined => {
+): AllowedAvatarMimeType | 'image/svg+xml' | undefined => {
   const detector = binaryAvatarMimeTypeDetectors.find(({ matches }) => matches(buffer));
 
   if (detector) {
@@ -81,7 +89,7 @@ const hasValidWebpEndMarker = (buffer: Uint8Array) =>
 const hasValidBmpEndMarker = (buffer: Uint8Array) =>
   buffer.length >= 6 && buffer.length === readUint32Le(buffer, 2);
 
-const avatarEndMarkerValidators: Record<AvatarMimeType, (buffer: Uint8Array) => boolean> = {
+const avatarEndMarkerValidators: Record<AllowedAvatarMimeType, (buffer: Uint8Array) => boolean> = {
   'image/jpeg': hasValidJpegEndMarker,
   'image/png': hasValidPngEndMarker,
   'image/gif': hasValidGifEndMarker,
@@ -89,14 +97,26 @@ const avatarEndMarkerValidators: Record<AvatarMimeType, (buffer: Uint8Array) => 
   'image/bmp': hasValidBmpEndMarker,
 };
 
-const hasValidAvatarEndMarker = (buffer: Uint8Array, mimeType: AvatarMimeType) =>
+const hasValidAvatarEndMarker = (buffer: Uint8Array, mimeType: AllowedAvatarMimeType) =>
   buffer.length > 0 && avatarEndMarkerValidators[mimeType](buffer);
 
 export const isAllowedAvatarMimeType = (
-  mimeType: AvatarMimeType | 'image/svg+xml' | undefined
-): mimeType is AvatarMimeType => mimeType !== undefined && isAvatarMimeType(mimeType);
+  mimeType: AllowedAvatarMimeType | 'image/svg+xml' | undefined
+): mimeType is AllowedAvatarMimeType => {
+  if (mimeType === undefined) {
+    return false;
+  }
 
-export const sanitizeFilename = (filename: string, mimeType: AvatarMimeType) => {
+  for (const allowed of allowedAvatarMimeTypes) {
+    if (allowed === mimeType) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+export const sanitizeFilename = (filename: string, mimeType: AllowedAvatarMimeType) => {
   const [extension] = mimeTypeToFileExtensionMappings[mimeType];
   const fallbackFilename = `${generateStandardId(8)}.${extension}`;
   const basename = path.basename(filename).replaceAll(/[^\w.-]/g, '-');
@@ -126,13 +146,13 @@ export const uploadAvatar = async ({
   assertThat(hasValidAvatarEndMarker(fileContent, avatarMimeType), 'guard.mime_type_not_allowed');
   assertThat(storageProviderConfig, 'storage.not_configured');
 
-  const uploadFile = buildUploadFile(storageProviderConfig);
+  const storage = buildUploadFile(storageProviderConfig);
   const objectKey = `${objectKeyPrefix}/${format(new Date(), 'yyyy/MM/dd')}/${generateStandardId(
     8
   )}-${sanitizeFilename(file.originalFilename, avatarMimeType)}`;
 
   try {
-    return await uploadFile(fileContent, objectKey, {
+    return await storage.uploadFile(fileContent, objectKey, {
       contentType: avatarMimeType,
       publicUrl: storageProviderConfig.publicUrl,
     });

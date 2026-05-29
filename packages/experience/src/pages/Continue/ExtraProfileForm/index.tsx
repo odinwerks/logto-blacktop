@@ -1,10 +1,8 @@
 import { CustomProfileFieldType, type CustomProfileField } from '@logto/schemas';
 import { condString } from '@silverhand/essentials';
-import { useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import * as s from 'superstruct';
 
-import AvatarUploadField from '@/components/InputFields/AvatarUploadField';
 import PrimitiveProfileInputField from '@/components/InputFields/PrimitiveProfileInputField';
 import Button from '@/shared/components/Button';
 
@@ -23,7 +21,6 @@ type Props = {
 const ExtraProfileForm = ({ customProfileFields, defaultValues, onSubmit }: Props) => {
   const getFieldLabel = useFieldLabel();
   const validateField = useValidateField();
-  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const methods = useForm<Record<string, unknown>>({
     reValidateMode: 'onBlur',
     defaultValues,
@@ -36,10 +33,6 @@ const ExtraProfileForm = ({ customProfileFields, defaultValues, onSubmit }: Prop
   } = methods;
 
   const submit = handleSubmit(async (value) => {
-    if (isAvatarUploading) {
-      return;
-    }
-
     await onSubmit(value);
   });
 
@@ -65,24 +58,6 @@ const ExtraProfileForm = ({ customProfileFields, defaultValues, onSubmit }: Prop
                   return <AddressSubForm field={field} />;
                 }
 
-                if (name === 'avatar' && type === CustomProfileFieldType.Url) {
-                  s.assert(value, s.optional(s.string()));
-
-                  return (
-                    <AvatarUploadField
-                      name={name}
-                      label={label || getFieldLabel(name)}
-                      description={condString(description)}
-                      isRequired={required}
-                      value={value}
-                      errorMessage={errors[name]?.message}
-                      onChange={onChange}
-                      onBlur={onBlur}
-                      onUploadingChange={setIsAvatarUploading}
-                    />
-                  );
-                }
-
                 s.assert(value, s.optional(s.string()));
                 return (
                   <PrimitiveProfileInputField
@@ -102,13 +77,8 @@ const ExtraProfileForm = ({ customProfileFields, defaultValues, onSubmit }: Prop
             />
           );
         })}
-        <Button
-          title="action.continue"
-          htmlType="submit"
-          isLoading={isSubmitting}
-          isDisabled={isAvatarUploading}
-        />
-        <input hidden type="submit" disabled={isAvatarUploading} />
+        <Button title="action.continue" htmlType="submit" isLoading={isSubmitting} />
+        <input hidden type="submit" />
       </form>
     </FormProvider>
   );

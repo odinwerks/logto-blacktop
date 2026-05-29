@@ -9,8 +9,10 @@ import { createMockUtils, pickDefault } from '@logto/shared/esm';
 
 import { mockUser } from '#src/__mocks__/index.js';
 import SystemContext from '#src/tenants/SystemContext.js';
+import type TenantContext from '#src/tenants/TenantContext.js';
 import { MockTenant, type Partial2 } from '#src/test-utils/tenant.js';
 import { createRequester } from '#src/utils/test-utils.js';
+import type { ManagementApiRouter } from '#src/routes/types.js';
 
 import type Queries from '#src/tenants/Queries.js';
 import koaAccountCenter from './middlewares/koa-account-center.js';
@@ -67,6 +69,7 @@ const mockedQueries = {
         webauthnRelatedOrigins: [],
         deleteAccountUrl: null,
         customCss: null,
+        profileFields: null,
       })
     ),
   },
@@ -79,11 +82,11 @@ const avatarRoutes = await pickDefault(import('./avatar.js'));
 const avatarRequest = createRequester({
   authedRoutes: [
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    (router, tenant) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      router.use(koaAccountCenter(tenant.queries));
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      avatarRoutes(router, tenant);
+    (router: ManagementApiRouter, tenant: TenantContext) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      router.use(koaAccountCenter(tenant.queries) as any);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      avatarRoutes(router as any, tenant);
     },
   ] as never[],
   tenantContext,
@@ -158,6 +161,7 @@ describe('POST /my-account/avatar', () => {
       webauthnRelatedOrigins: [],
       deleteAccountUrl: null,
       customCss: null,
+      profileFields: null,
     });
 
     const response = await avatarRequest
@@ -172,7 +176,7 @@ describe('POST /my-account/avatar', () => {
     // Need to create a new requester without UserScope.Profile in scopes
     const noProfileRequest = createRequester({
       authedRoutes: [
-        (router) => {
+        (router: ManagementApiRouter) => {
           // Override the default auth to set specific scopes
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           router.use(async (ctx, next) => {
@@ -186,11 +190,11 @@ describe('POST /my-account/avatar', () => {
           });
         },
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        (router, tenant) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          router.use(koaAccountCenter(tenant.queries));
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          avatarRoutes(router, tenant);
+        (router: ManagementApiRouter, tenant: TenantContext) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+          router.use(koaAccountCenter(tenant.queries) as any);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+          avatarRoutes(router as any, tenant);
         },
       ] as never[],
       tenantContext,

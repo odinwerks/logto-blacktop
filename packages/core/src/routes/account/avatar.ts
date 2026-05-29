@@ -94,12 +94,14 @@ export default function avatarRoutes<T extends UserRouter>(
         throw new RequestError({ code: 'storage.upload_error', status: 500 });
       }
 
-      // Cleanup old files with other extensions (best-effort, don't fail)
+        // Cleanup old files with other extensions (best-effort, don't fail)
       try {
-        const existingFiles = await storage.listFiles(userPrefix);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const existingFiles = await storage.listFiles!(userPrefix);
         for (const existingKey of existingFiles) {
           if (existingKey !== finalKey) {
-            await storage.deleteFile(existingKey);
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            await storage.deleteFile!(existingKey);
           }
         }
       } catch (error: unknown) {

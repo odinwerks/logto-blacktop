@@ -55,6 +55,7 @@ const mockedQueries = {
         webauthnRelatedOrigins: [],
         deleteAccountUrl: null,
         customCss: null,
+        profileFields: null,
       })
     ),
   },
