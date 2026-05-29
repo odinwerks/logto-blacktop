@@ -2,34 +2,24 @@ import { readFile } from 'node:fs/promises';
 
 import { uploadFileGuard, maxUploadFileSize, adminTenantId } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
-import pRetry, { AbortError } from 'p-retry';
+import AdmZip from 'adm-zip';
 import { object, z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
-import { koaQuotaGuard } from '#src/middleware/koa-quota-guard.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
-import { streamToString } from '#src/utils/file.js';
-import { buildAzureStorage } from '#src/utils/storage/azure-storage.js';
+import { buildUploadFile } from '#src/utils/storage/index.js';
 import { getTenantId } from '#src/utils/tenant.js';
 
 import { type ManagementApiRouter, type RouterInitArgs } from '../../types.js';
 
-const maxRetryCount = 5;
-
 export default function customUiAssetsRoutes<T extends ManagementApiRouter>(
-  ...[
-    router,
-    {
-      libraries: { quota },
-    },
-  ]: RouterInitArgs<T>
+  ...[router]: RouterInitArgs<T>
 ) {
   router.post(
     '/sign-in-exp/default/custom-ui-assets',
-    koaQuotaGuard({ key: 'bringYourUiEnabled', quota }),
     koaGuard({
       files: object({
         file: uploadFileGuard.array().min(1).max(1),
@@ -51,63 +41,29 @@ export default function customUiAssetsRoutes<T extends ManagementApiRouter>(
       assertThat(tenantId, 'guard.can_not_get_tenant_id');
       assertThat(tenantId !== adminTenantId, 'guard.not_allowed_for_admin_tenant');
 
-      const { experienceZipsProviderConfig } = SystemContext.shared;
-      assertThat(
-        experienceZipsProviderConfig?.provider === 'AzureStorage',
-        'storage.not_configured'
-      );
-      const { connectionString, container } = experienceZipsProviderConfig;
+      const { storageProviderConfig } = SystemContext.shared;
+      assertThat(storageProviderConfig, 'storage.not_configured', 500);
 
-      const { uploadFile, downloadFile, isFileExisted } = buildAzureStorage(
-        connectionString,
-        container
-      );
-
+      const storage = buildUploadFile(storageProviderConfig);
       const customUiAssetId = generateStandardId(8);
-      const objectKey = `${tenantId}/${customUiAssetId}/assets.zip`;
-      const errorLogObjectKey = `${tenantId}/${customUiAssetId}/error.log`;
 
       try {
-        // Upload the zip file to `experience-zips` container, in which a blob trigger is configured,
-        // and an azure function will be executed automatically to unzip the file on blob received.
-        // If the unzipping process succeeds, the zip file will be removed and assets will be stored in
-        // `experience-blobs` container. If it fails, the error message will be written to `error.log` file.
-        await uploadFile(await readFile(file.filepath), objectKey, {
-          contentType: file.mimetype,
-        });
+        const zipBuffer = await readFile(file.filepath);
+        const zip = new AdmZip(zipBuffer);
+        const entries = zip.getEntries().filter((entry) => !entry.isDirectory);
 
-        const hasUnzipCompleted = async (retryTimes: number) => {
-          if (retryTimes > maxRetryCount) {
-            throw new AbortError('Unzip timeout. Max retry count reached.');
-          }
-          const [hasZip, hasError] = await Promise.all([
-            isFileExisted(objectKey),
-            isFileExisted(errorLogObjectKey),
-          ]);
-          if (hasZip) {
-            throw new Error('Unzip in progress...');
-          }
-          if (hasError) {
-            const errorLogBlob = await downloadFile(errorLogObjectKey);
-            const errorLog = await streamToString(errorLogBlob.readableStreamBody);
-            throw new AbortError(errorLog || 'Unzipping failed.');
-          }
-        };
-
-        await pRetry(hasUnzipCompleted, {
-          retries: maxRetryCount,
-        });
+        await Promise.all(
+          entries.map(async (entry) => {
+            const objectKey = `${tenantId}/${customUiAssetId}/${entry.entryName}`;
+            const content = entry.getData();
+            await storage.uploadFile(content, objectKey, {
+              publicUrl: storageProviderConfig.publicUrl,
+            });
+          })
+        );
       } catch (error: unknown) {
         getConsoleLogFromContext(ctx).error(error);
-        throw new RequestError(
-          {
-            code: 'storage.upload_error',
-            status: 500,
-          },
-          {
-            details: error instanceof Error ? error.message : String(error),
-          }
-        );
+        throw new RequestError({ code: 'storage.upload_error', status: 500 });
       }
 
       ctx.body = { customUiAssetId };

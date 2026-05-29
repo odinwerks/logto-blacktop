@@ -1,14 +1,6 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { Readable } from 'node:stream';
-import { fileURLToPath } from 'node:url';
-
 import { StorageProvider } from '@logto/schemas';
-import { generateStandardId } from '@logto/shared';
 import { createMockUtils, pickDefault } from '@logto/shared/esm';
 import AdmZip from 'adm-zip';
-import pRetry from 'p-retry';
-import { type Response } from 'supertest';
 
 import SystemContext from '#src/tenants/SystemContext.js';
 import { MockTenant } from '#src/test-utils/tenant.js';
@@ -17,117 +9,101 @@ import { createRequester } from '#src/utils/test-utils.js';
 const { jest } = import.meta;
 const { mockEsmWithActual } = createMockUtils(jest);
 
-const experienceZipsProviderConfig = {
-  provider: StorageProvider.AzureStorage,
-  connectionString: 'connectionString',
-  container: 'container',
-} satisfies {
-  provider: StorageProvider.AzureStorage;
-  connectionString: string;
-  container: string;
+const storageProviderConfig = {
+  provider: StorageProvider.S3Storage as StorageProvider.S3Storage,
+  bucket: 'test-bucket',
+  accessKeyId: 'key',
+  accessSecretKey: 'secret',
+  endpoint: 'http://localhost:9000',
+  region: 'us-east-1',
 };
 
 // eslint-disable-next-line @silverhand/fp/no-mutation
-SystemContext.shared.experienceZipsProviderConfig = experienceZipsProviderConfig;
+SystemContext.shared.storageProviderConfig = storageProviderConfig;
 
-const mockedIsFileExisted = jest.fn(async (filename: string) => false);
-const mockedDownloadFile = jest.fn();
+const mockUploadFile = jest.fn(async () => ({ url: 'http://localhost:9000/test-bucket/key' }));
 
-await mockEsmWithActual('#src/utils/storage/azure-storage.js', () => ({
-  buildAzureStorage: () => ({
-    uploadFile: jest.fn(async () => 'https://fake.url'),
-    downloadFile: mockedDownloadFile,
-    isFileExisted: mockedIsFileExisted,
-  }),
+await mockEsmWithActual('#src/utils/storage/index.js', () => ({
+  buildUploadFile: jest.fn(() => ({
+    uploadFile: mockUploadFile,
+  })),
+}));
+
+await mockEsmWithActual('@logto/shared', () => ({
+  generateStandardId: jest.fn().mockReturnValue('testid12'),
 }));
 
 await mockEsmWithActual('#src/utils/tenant.js', () => ({
   getTenantId: jest.fn().mockResolvedValue(['default']),
 }));
 
-await mockEsmWithActual('p-retry', () => ({
-  // Stub pRetry by overriding the default "exponential backoff",
-  // in order to make the test run faster.
-  default: async (input: <T>(retries: number) => T | PromiseLike<T>) =>
-    pRetry(input, { factor: 0 }),
-}));
+const customUiAssetsRoutes = await pickDefault(import('./index.js'));
 
-const mockedGenerateStandardId = jest.fn(generateStandardId);
-
-await mockEsmWithActual('@logto/shared', () => ({
-  generateStandardId: mockedGenerateStandardId,
-}));
-
-const tenantContext = new MockTenant();
-
-const signInExperiencesRoutes = await pickDefault(import('./index.js'));
-const signInExperienceRequester = createRequester({
-  authedRoutes: signInExperiencesRoutes,
-  tenantContext,
-});
-
-const currentPath = path.dirname(fileURLToPath(import.meta.url));
-const testFilesPath = path.join(currentPath, 'test-files');
-const pathToZip = path.join(testFilesPath, 'assets.zip');
-
-const uploadCustomUiAssets = async (filePath: string): Promise<Response> => {
-  const response = await signInExperienceRequester
-    .post('/sign-in-exp/default/custom-ui-assets')
-    .field('name', 'file')
-    .attach('file', filePath);
-
-  return response;
+const buildZipBuffer = (entries: Record<string, string>) => {
+  const zip = new AdmZip();
+  for (const [name, content] of Object.entries(entries)) {
+    zip.addFile(name, Buffer.from(content));
+  }
+  return zip.toBuffer();
 };
 
 describe('POST /sign-in-exp/default/custom-ui-assets', () => {
-  beforeAll(async () => {
-    await fs.mkdir(testFilesPath);
+  const tenantContext = new MockTenant();
+  const request = createRequester({ authedRoutes: customUiAssetsRoutes, tenantContext });
+
+  beforeEach(() => {
+    mockUploadFile.mockClear();
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  it('should upload each file extracted from the zip', async () => {
+    const zipBuffer = buildZipBuffer({
+      'index.html': '<html></html>',
+      'scripts/main.js': 'console.log("hi")',
+    });
+
+    const response = await request
+      .post('/sign-in-exp/default/custom-ui-assets')
+      .attach('file', zipBuffer, { filename: 'ui.zip', contentType: 'application/zip' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('customUiAssetId');
+    expect(mockUploadFile).toHaveBeenCalledTimes(2);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const uploadedKeys = mockUploadFile.mock.calls.map((args: any[]) => args[1]);
+    expect(uploadedKeys).toContain('default/testid12/index.html');
+    expect(uploadedKeys).toContain('default/testid12/scripts/main.js');
   });
 
-  afterAll(async () => {
-    void fs.rm(testFilesPath, { force: true, recursive: true });
-  });
-
-  it('should fail if upload file is not a zip', async () => {
-    const pathToTxt = path.join(testFilesPath, 'foo.txt');
-    await fs.writeFile(pathToTxt, 'foo');
-    const response = await uploadCustomUiAssets(pathToTxt);
+  it('should reject non-zip files', async () => {
+    const response = await request
+      .post('/sign-in-exp/default/custom-ui-assets')
+      .attach('file', Buffer.from('not a zip'), { filename: 'ui.txt', contentType: 'text/plain' });
 
     expect(response.status).toBe(400);
   });
 
-  it('should upload custom ui assets', async () => {
-    mockedGenerateStandardId.mockReturnValue('custom-ui-asset-id');
-    const zip = new AdmZip();
-    zip.addFile('index.html', Buffer.from('<html></html>'));
-    await zip.writeZipPromise(pathToZip);
-    const response = await uploadCustomUiAssets(pathToZip);
+  it('should reject files exceeding maxUploadFileSize', async () => {
+    const largeBuffer = Buffer.alloc(1024 * 1024 * 21); // 21 MB (> 20 MB limit)
+    const response = await request
+      .post('/sign-in-exp/default/custom-ui-assets')
+      .attach('file', largeBuffer, { filename: 'ui.zip', contentType: 'application/zip' });
 
-    expect(response.status).toBe(200);
-    expect(response.body.customUiAssetId).toBe('custom-ui-asset-id');
+    expect(response.status).toBe(400);
   });
 
-  it('should fail if the error.log file exists', async () => {
-    mockedIsFileExisted.mockImplementation(async (filename: string) =>
-      filename.endsWith('error.log')
-    );
-    mockedDownloadFile.mockImplementation(async () => ({
-      readableStreamBody: Readable.from('Failed to unzip files!'),
-    }));
-    const response = await uploadCustomUiAssets(pathToZip);
-    expect(response.status).toBe(500);
-    expect(response.text).toBe('Failed to upload file to the storage provider.');
-  });
+  it('should return 500 if storage not configured', async () => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    SystemContext.shared.storageProviderConfig = undefined;
 
-  it('should fail if the upload zip always persists (unzipping azure function does not trigger)', async () => {
-    mockedIsFileExisted.mockImplementation(async (filename) => filename.endsWith('assets.zip'));
-    const response = await uploadCustomUiAssets(pathToZip);
+    const zipBuffer = buildZipBuffer({ 'index.html': '<html></html>' });
+    const response = await request
+      .post('/sign-in-exp/default/custom-ui-assets')
+      .attach('file', zipBuffer, { filename: 'ui.zip', contentType: 'application/zip' });
+
     expect(response.status).toBe(500);
-    expect(response.text).toBe('Failed to upload file to the storage provider.');
-    expect(mockedIsFileExisted).toHaveBeenCalledTimes(10);
+
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    SystemContext.shared.storageProviderConfig = storageProviderConfig;
   });
 });
