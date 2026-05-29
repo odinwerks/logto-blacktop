@@ -1,70 +1,50 @@
-import { isFileAssetPath, parseRange } from '@logto/core-kit';
-import { tryThat } from '@silverhand/essentials';
+import { Readable } from 'node:stream';
+
+import { isFileAssetPath } from '@logto/core-kit';
 import type { MiddlewareType } from 'koa';
 
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
-import { buildAzureStorage } from '#src/utils/storage/azure-storage.js';
+import { buildUploadFile } from '#src/utils/storage/index.js';
 import { getTenantId } from '#src/utils/tenant.js';
 
-import RequestError from '../errors/RequestError/index.js';
-
 const noCache = 'no-cache, no-store, must-revalidate';
-const maxAgeSevenDays = 'max-age=604_800_000';
+const maxAgeSevenDays = 'max-age=604800';
 
 /**
- * Middleware that serves custom UI assets user uploaded previously through sign-in experience settings.
- * If the request path contains a dot, consider it as a file and will try to serve the file directly.
- * Otherwise, redirect the request to the `index.html` page.
+ * Middleware that serves custom UI assets uploaded via the sign-in experience settings.
+ * Requests with a file extension are served directly; all other paths serve `index.html`
+ * to support SPA client-side routing.
  */
 export default function koaServeCustomUiAssets(customUiAssetId: string) {
-  const { experienceBlobsProviderConfig } = SystemContext.shared;
-  assertThat(experienceBlobsProviderConfig?.provider === 'AzureStorage', 'storage.not_configured');
-
   const serve: MiddlewareType = async (ctx, next) => {
     const [tenantId] = await getTenantId(ctx.URL);
     assertThat(tenantId, 'session.not_found', 404);
 
-    const { container, connectionString } = experienceBlobsProviderConfig;
-    const { downloadFile, isFileExisted, getFileProperties } = buildAzureStorage(
-      connectionString,
-      container
-    );
+    const { storageProviderConfig } = SystemContext.shared;
+    assertThat(storageProviderConfig, 'storage.not_configured');
 
-    const contextPath = `${tenantId}/${customUiAssetId}`;
+    const storage = buildUploadFile(storageProviderConfig);
+    assertThat(storage.downloadFile && storage.isFileExisted, 'storage.not_configured');
+
     const requestPath = ctx.request.path;
     const isFileAssetRequest = isFileAssetPath(requestPath);
+    const filePath = isFileAssetRequest ? requestPath : '/index.html';
+    const objectKey = `${tenantId}/${customUiAssetId}${filePath}`;
 
-    const fileObjectKey = `${contextPath}${isFileAssetRequest ? requestPath : '/index.html'}`;
-    const isExisted = await isFileExisted(fileObjectKey);
-    assertThat(isExisted, 'entity.not_found', 404);
+    const exists = await storage.isFileExisted(objectKey);
+    assertThat(exists, 'entity.not_found', 404);
 
-    const range = ctx.get('range');
-    const { start, end, count } = tryThat(
-      () => parseRange(range),
-      new RequestError({ code: 'request.range_not_satisfiable', status: 416 })
-    );
+    const result = await storage.downloadFile(objectKey);
 
-    const [
-      { contentLength = 0, readableStreamBody, contentType },
-      { contentLength: totalFileSize = 0 },
-    ] = await Promise.all([
-      downloadFile(fileObjectKey, start, count),
-      getFileProperties(fileObjectKey),
-    ]);
-
-    ctx.body = readableStreamBody;
-    ctx.type = contentType ?? 'application/octet-stream';
-    ctx.status = range ? 206 : 200;
-
+    // eslint-disable-next-line no-restricted-syntax, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+    ctx.body = result.body instanceof Readable ? result.body : Readable.fromWeb(result.body as any);
+    ctx.type = result.contentType ?? 'application/octet-stream';
+    ctx.status = 200;
     ctx.set('Cache-Control', isFileAssetRequest ? maxAgeSevenDays : noCache);
-    ctx.set('Content-Length', contentLength.toString());
-    if (range) {
-      ctx.set('Accept-Ranges', 'bytes');
-      ctx.set(
-        'Content-Range',
-        `bytes ${start ?? 0}-${end ?? Math.max(totalFileSize - 1, 0)}/${totalFileSize}`
-      );
+
+    if (result.contentLength) {
+      ctx.set('Content-Length', String(result.contentLength));
     }
 
     return next();

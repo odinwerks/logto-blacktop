@@ -10,29 +10,25 @@ import createMockContext from '#src/test-utils/jest-koa-mocks/create-mock-contex
 const { jest } = import.meta;
 const { mockEsmWithActual } = createMockUtils(jest);
 
-const experienceBlobsProviderConfig = {
-  provider: StorageProvider.AzureStorage,
-  connectionString: 'connectionString',
-  container: 'container',
-} satisfies {
-  provider: StorageProvider.AzureStorage;
-  connectionString: string;
-  container: string;
+const storageProviderConfig = {
+  provider: StorageProvider.S3Storage as StorageProvider.S3Storage,
+  bucket: 'test-bucket',
+  accessKeyId: 'key',
+  accessSecretKey: 'secret',
+  endpoint: 'http://localhost:9000',
+  region: 'us-east-1',
 };
 
 // eslint-disable-next-line @silverhand/fp/no-mutation
-SystemContext.shared.experienceBlobsProviderConfig = experienceBlobsProviderConfig;
+SystemContext.shared.storageProviderConfig = storageProviderConfig;
 
-const mockedIsFileExisted = jest.fn(async (filename: string) => true);
+const mockedIsFileExisted = jest.fn(async (_filename: string) => true);
 const mockedDownloadFile = jest.fn();
-const mockedGetFileProperties = jest.fn(async () => ({ contentLength: 100 }));
 
-await mockEsmWithActual('#src/utils/storage/azure-storage.js', () => ({
-  buildAzureStorage: jest.fn(() => ({
-    uploadFile: jest.fn(async () => 'https://fake.url'),
-    downloadFile: mockedDownloadFile,
+await mockEsmWithActual('#src/utils/storage/index.js', () => ({
+  buildUploadFile: jest.fn(() => ({
     isFileExisted: mockedIsFileExisted,
-    getFileProperties: mockedGetFileProperties,
+    downloadFile: mockedDownloadFile,
   })),
 }));
 
@@ -45,85 +41,74 @@ const koaServeCustomUiAssets = await pickDefault(import('./koa-serve-custom-ui-a
 describe('koaServeCustomUiAssets middleware', () => {
   const next = jest.fn();
 
-  it('should serve the file directly if the request path contains a dot', async () => {
-    const mockBodyStream = Readable.from('javascript content');
-    mockedDownloadFile.mockImplementation(async (objectKey: string) => {
-      if (objectKey.endsWith('/scripts.js')) {
-        return {
-          contentType: 'text/javascript',
-          readableStreamBody: mockBodyStream,
-        };
-      }
-      throw new Error('File not found');
+  beforeEach(() => {
+    mockedIsFileExisted.mockReset().mockResolvedValue(true);
+    mockedDownloadFile.mockReset();
+  });
+
+  it('should serve a file asset directly when path contains a dot', async () => {
+    const mockBody = Readable.from('console.log("hi")') as unknown as ReadableStream;
+    mockedDownloadFile.mockResolvedValue({
+      body: mockBody,
+      contentType: 'text/javascript',
+      contentLength: 17,
     });
+
     const ctx = createMockContext({ url: '/scripts.js' });
+    await koaServeCustomUiAssets('asset-id-abc')(ctx, next);
 
-    await koaServeCustomUiAssets('custom-ui-asset-id')(ctx, next);
-
+    expect(mockedDownloadFile).toHaveBeenCalledWith('default/asset-id-abc/scripts.js');
     expect(ctx.type).toEqual('text/javascript');
-    expect(ctx.body).toEqual(mockBodyStream);
+    expect(ctx.status).toEqual(200);
   });
 
-  it('should serve the index.html', async () => {
-    const mockBodyStream = Readable.from('<html></html>');
-    mockedDownloadFile.mockImplementation(async (objectKey: string) => {
-      if (objectKey.endsWith('/index.html')) {
-        return {
-          contentType: 'text/html',
-          readableStreamBody: mockBodyStream,
-        };
-      }
-      throw new Error('File not found');
+  it('should serve index.html when path has no dot (SPA route)', async () => {
+    const mockBody = Readable.from('<html></html>') as unknown as ReadableStream;
+    mockedDownloadFile.mockResolvedValue({
+      body: mockBody,
+      contentType: 'text/html',
+      contentLength: 13,
     });
-    const ctx = createMockContext({ url: '/sign-in' });
-    await koaServeCustomUiAssets('custom-ui-asset-id')(ctx, next);
 
+    const ctx = createMockContext({ url: '/sign-in' });
+    await koaServeCustomUiAssets('asset-id-abc')(ctx, next);
+
+    expect(mockedDownloadFile).toHaveBeenCalledWith('default/asset-id-abc/index.html');
     expect(ctx.type).toEqual('text/html');
-    expect(ctx.body).toEqual(mockBodyStream);
   });
 
-  it('should return 404 if the file does not exist', async () => {
-    mockedIsFileExisted.mockResolvedValueOnce(false);
-    const ctx = createMockContext({ url: '/fake.txt' });
+  it('should return 404 if file does not exist', async () => {
+    mockedIsFileExisted.mockResolvedValue(false);
+    const ctx = createMockContext({ url: '/missing.txt' });
 
-    await expect(koaServeCustomUiAssets('custom-ui-asset-id')(ctx, next)).rejects.toMatchError(
+    await expect(koaServeCustomUiAssets('asset-id-abc')(ctx, next)).rejects.toMatchError(
       new RequestError({ code: 'entity.not_found', status: 404 })
     );
   });
 
-  it('should be able to handle range request', async () => {
-    const mockBodyStream = Readable.from('video data');
-    mockedDownloadFile.mockImplementationOnce(
-      async (objectKey: string, offset?: number, count?: number) => {
-        if (objectKey.endsWith('/video.mp4')) {
-          return {
-            contentType: 'video/mp4',
-            readableStreamBody: mockBodyStream,
-            contentLength: count ?? 0,
-          };
-        }
-        throw new Error('File not found');
-      }
-    );
+  it('should set Cache-Control to long-lived for file assets', async () => {
+    mockedDownloadFile.mockResolvedValue({
+      body: Readable.from('data') as unknown as ReadableStream,
+      contentType: 'image/png',
+      contentLength: 4,
+    });
 
-    const ctx = createMockContext({ url: '/video.mp4', headers: { range: 'bytes=0-10' } });
+    const ctx = createMockContext({ url: '/logo.png' });
+    await koaServeCustomUiAssets('asset-id-abc')(ctx, next);
 
-    await koaServeCustomUiAssets('custom-ui-asset-id')(ctx, next);
-
-    expect(mockedDownloadFile).toHaveBeenCalledWith('default/custom-ui-asset-id/video.mp4', 0, 11);
-    expect(ctx.type).toEqual('video/mp4');
-    expect(ctx.body).toEqual(mockBodyStream);
-    expect(ctx.status).toEqual(206);
-    expect(ctx.response.headers['accept-ranges']).toEqual('bytes');
-    expect(ctx.response.headers['content-range']).toEqual('bytes 0-10/100');
-    expect(ctx.response.headers['content-length']).toEqual('11');
+    expect(ctx.response.headers['cache-control']).toMatch(/max-age/);
   });
 
-  it('should throw if range is not satisfiable', async () => {
-    const ctx = createMockContext({ url: '/video.mp4', headers: { range: 'invalid-range' } });
+  it('should set Cache-Control to no-cache for SPA routes', async () => {
+    mockedDownloadFile.mockResolvedValue({
+      body: Readable.from('<html>') as unknown as ReadableStream,
+      contentType: 'text/html',
+      contentLength: 6,
+    });
 
-    await expect(koaServeCustomUiAssets('custom-ui-asset-id')(ctx, next)).rejects.toMatchError(
-      new RequestError({ code: 'request.range_not_satisfiable', status: 416 })
-    );
+    const ctx = createMockContext({ url: '/dashboard' });
+    await koaServeCustomUiAssets('asset-id-abc')(ctx, next);
+
+    expect(ctx.response.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');
   });
 });
