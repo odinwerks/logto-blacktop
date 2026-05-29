@@ -135,7 +135,6 @@ const PageContextProvider = ({ children }: Props) => {
           getAccountCenterSettings(),
         ]);
         await changeLanguage(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           getPreferredLanguage({
             languageSettings: settings.languageInfo,
             uiLocales: getUiLocales(),

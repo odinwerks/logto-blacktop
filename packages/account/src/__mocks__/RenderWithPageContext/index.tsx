@@ -124,6 +124,7 @@ export const mockSignInExperienceSettings = {
   passkeySignIn: {},
   isDevelopmentTenant: false,
   signUpProfileFields: null,
+  passwordExpiration: { enabled: false },
 } satisfies SignInExperienceResponse;
 
 export const mockUserInfo = {

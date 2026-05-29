@@ -186,6 +186,9 @@ const renderProfile = ({
           ...mockSignInExperienceSettings,
           customProfileFields: [favoriteColorField],
           ...experienceSettings,
+          passwordExpiration:
+            experienceSettings?.passwordExpiration ??
+            mockSignInExperienceSettings.passwordExpiration,
         },
         userInfo: {
           ...mockUserInfo,

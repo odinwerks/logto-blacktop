@@ -132,6 +132,9 @@ const renderSecurity = ({
             ...mfa,
           },
           ...experienceSettingsOverrides,
+          passwordExpiration:
+            experienceSettingsOverrides.passwordExpiration ??
+            mockSignInExperienceSettings.passwordExpiration,
         },
         userInfo: {
           ...mockUserInfo,

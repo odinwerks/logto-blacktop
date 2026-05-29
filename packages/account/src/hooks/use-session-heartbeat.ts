@@ -15,6 +15,7 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 export const useSessionHeartbeat = (enabled: boolean): void => {
   const { getAccessToken } = useLogto();
   const getAccessTokenRef = useRef(getAccessToken);
+  // eslint-disable-next-line @silverhand/fp/no-mutation
   getAccessTokenRef.current = getAccessToken;
 
   useEffect(() => {
