@@ -1,5 +1,19 @@
 # Change Log
 
+## 1.13.3
+
+### Patch Changes
+
+- Updated dependencies [e4eaa5aef5]
+  - @logto/core-kit@2.10.0
+
+## 1.13.2
+
+### Patch Changes
+
+- 32c40b1ad: clarify Account Center 2-step verification toggle label
+- 6b9944d01f: correct Chinese translation of Passkey in MFA experience phrases
+
 ## 1.13.1
 
 ### Patch Changes

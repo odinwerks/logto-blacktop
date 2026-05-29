@@ -10,6 +10,7 @@ import {
 } from '@logto/schemas';
 import { object } from 'zod';
 
+import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import SystemContext from '#src/tenants/SystemContext.js';
@@ -30,14 +31,17 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
     }),
     async (ctx, next) => {
       const { storageProviderConfig } = SystemContext.shared;
+      const isExperienceAvatarUploadEnabled = EnvSet.values.isDevFeaturesEnabled;
       const status = storageProviderConfig
         ? {
             status: 'ready',
             allowUploadMimeTypes,
             maxUploadFileSize,
+            isExperienceAvatarUploadEnabled,
           }
         : {
             status: 'not_configured',
+            isExperienceAvatarUploadEnabled,
           };
 
       ctx.body = status;
