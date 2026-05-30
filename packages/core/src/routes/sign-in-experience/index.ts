@@ -12,7 +12,6 @@ import {
 import { conditional, type Optional, tryThat } from '@silverhand/essentials';
 import { literal, object, string, z } from 'zod';
 
-import { EnvSet } from '#src/env-set/index.js';
 import {
   validateSignUp,
   validateSignIn,
@@ -261,15 +260,6 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
         );
       }
 
-      if (hasCustomUiCsp) {
-        assertThat(
-          EnvSet.values.isCloud,
-          new RequestError({
-            code: 'request.invalid_input',
-            details: 'Custom UI CSP configuration is not available',
-          })
-        );
-      }
       if (hasCustomUiCsp) {
         await quota.guardTenantUsageByKey('bringYourUiEnabled');
       }

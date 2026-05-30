@@ -67,12 +67,6 @@ export default function logtoConfigJwtCustomizerRoutes<T extends ManagementApiRo
     koaQuotaGuard({ key: 'customJwtEnabled', quota: libraries.quota }),
     async (ctx, next) => {
       const { isCloud, isIntegrationTest } = EnvSet.values;
-      if (tenantId === adminTenantId && isCloud && !isIntegrationTest) {
-        throw new RequestError({
-          code: 'jwt_customizer.can_not_create_for_admin_tenant',
-          status: 422,
-        });
-      }
 
       const {
         params: { tokenTypePath },

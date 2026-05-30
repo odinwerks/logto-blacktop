@@ -12,12 +12,12 @@ import {
 } from '@logto/schemas';
 import { object } from 'zod';
 
-import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import type { RouterInitArgs } from '#src/routes/types.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
+import { getConsoleLogFromContext } from '#src/utils/console.js';
 import { buildUploadFile } from '#src/utils/storage/index.js';
 
 import type { AuthedMeRouter } from './types.js';
@@ -38,17 +38,14 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
     }),
     async (ctx, next) => {
       const { storageProviderConfig } = SystemContext.shared;
-      const isExperienceAvatarUploadEnabled = EnvSet.values.isDevFeaturesEnabled;
       const status = storageProviderConfig
         ? {
             status: 'ready',
             allowUploadMimeTypes,
             maxUploadFileSize,
-            isExperienceAvatarUploadEnabled,
           }
         : {
             status: 'not_configured',
-            isExperienceAvatarUploadEnabled,
           };
 
       ctx.body = status;
@@ -80,8 +77,13 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
       assertThat(storageProviderConfig, 'storage.not_configured');
 
       const userId = ctx.auth.id;
+      const isImage = file.mimetype.startsWith('image/');
+      const extension = file.mimetype.split('/')[1] ?? 'bin';
+
       const storage = buildUploadFile(storageProviderConfig);
-      const objectKey = `${adminTenantId}/app-assets/${file.originalFilename}`;
+      const objectKey = isImage
+        ? `${adminTenantId}/user-assets/${userId}/you.${extension}`
+        : `${adminTenantId}/app-assets/${file.originalFilename}`;
 
       try {
         if (storageProviderConfig.publicUrl) {
@@ -89,14 +91,20 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
             contentType: file.mimetype,
             publicUrl: storageProviderConfig.publicUrl,
           });
-          ctx.body = { url } satisfies UserAssets;
+
+          ctx.body = isImage ? { url: `${url}?v=${Date.now()}` } : ({ url } satisfies UserAssets);
         } else {
           await storage.uploadFile(await readFile(file.filepath), objectKey, {
             contentType: file.mimetype,
           });
-          ctx.body = {
-            url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}`,
-          } satisfies UserAssets;
+
+          ctx.body = isImage
+            ? {
+                url: `${tenant.envSet.endpoint.origin}/api/user-assets/${userId}/you.${extension}?v=${Date.now()}`,
+              }
+            : ({
+                url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}`,
+              } satisfies UserAssets);
         }
       } catch (error: unknown) {
         consoleLog.error(error);
@@ -104,6 +112,21 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
           code: 'storage.upload_error',
           status: 500,
         });
+      }
+
+      // Self-clean old avatar files with different extensions
+      const { deleteFile } = storage;
+
+      if (isImage && storage.listFiles && deleteFile) {
+        try {
+          const prefix = `${adminTenantId}/user-assets/${userId}/you.`;
+          const existingFiles = await storage.listFiles(prefix);
+          await Promise.all(
+            existingFiles.filter((key) => key !== objectKey).map(async (key) => deleteFile(key))
+          );
+        } catch (error: unknown) {
+          getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
+        }
       }
 
       return next();

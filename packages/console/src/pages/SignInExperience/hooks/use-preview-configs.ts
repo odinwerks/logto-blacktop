@@ -1,7 +1,6 @@
 import type { SignInExperience } from '@logto/schemas';
 import { useEffect, useState, useMemo } from 'react';
 
-import { isCloud } from '@/consts/env';
 import useDebounce from '@/hooks/use-debounce';
 
 import { sieFormDataParser } from '../PageContent/utils/parser';
@@ -28,13 +27,10 @@ const usePreviewConfigs = (
       return data;
     }
 
-    return sieFormDataParser.toSignInExperience(
-      {
-        ...restFormData,
-        customCss: debouncedCustomCss,
-      },
-      { isCloud }
-    );
+    return sieFormDataParser.toSignInExperience({
+      ...restFormData,
+      customCss: debouncedCustomCss,
+    });
   }, [restFormData, debouncedCustomCss, isDirty, data]);
 };
 

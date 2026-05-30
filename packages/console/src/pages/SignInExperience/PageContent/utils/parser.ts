@@ -202,10 +202,7 @@ export const sieFormDataParser = {
   },
   toSignInExperience: (
     formData: SignInExperienceForm,
-    {
-      isCloud = true,
-      isCustomUiCspEnabled = false,
-    }: { isCloud?: boolean; isCustomUiCspEnabled?: boolean } = {}
+    { isCustomUiCspEnabled = false }: { isCustomUiCspEnabled?: boolean } = {}
   ): SignInExperiencePageManagedData => {
     const {
       branding,
@@ -262,10 +259,7 @@ export const sieFormDataParser = {
  */
 export const signInExperienceToUpdatedDataParser = (
   data: SignInExperience,
-  {
-    isCloud = true,
-    isCustomUiCspEnabled = false,
-  }: { isCloud?: boolean; isCustomUiCspEnabled?: boolean } = {}
+  { isCustomUiCspEnabled = false }: { isCustomUiCspEnabled?: boolean } = {}
 ): SignInExperiencePageManagedData => {
   const {
     signUp,

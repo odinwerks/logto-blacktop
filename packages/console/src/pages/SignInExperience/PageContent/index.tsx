@@ -73,7 +73,7 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
   const { isUploading, cancelUpload } = useContext(SignInExperienceContext);
   const { currentSubscriptionQuota } = useContext(SubscriptionDataContext);
   const { isConnectorTypeEnabled, ready: isConnectorsReady } = useEnabledConnectorTypes();
-  const isCustomUiCspEnabled = isCloud && currentSubscriptionQuota.bringYourUiEnabled;
+  const isCustomUiCspEnabled = currentSubscriptionQuota.bringYourUiEnabled || !isCloud;
 
   const [dataToCompare, setDataToCompare] = useState<SignInExperiencePageManagedData>();
 
@@ -111,7 +111,6 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
       const updatedData = await api
         .patch('api/sign-in-exp', {
           json: sieFormDataParser.toSignInExperience(formValues, {
-            isCloud,
             isCustomUiCspEnabled,
           }),
         })
@@ -163,11 +162,9 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
         }
 
         const formatted = sieFormDataParser.toSignInExperience(formData, {
-          isCloud,
           isCustomUiCspEnabled,
         });
         const original = signInExperienceToUpdatedDataParser(data, {
-          isCloud,
           isCustomUiCspEnabled,
         });
 

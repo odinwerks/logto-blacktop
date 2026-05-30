@@ -10,7 +10,6 @@ import {
 } from '@logto/schemas';
 import { object } from 'zod';
 
-import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import SystemContext from '#src/tenants/SystemContext.js';
@@ -31,17 +30,14 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
     }),
     async (ctx, next) => {
       const { storageProviderConfig } = SystemContext.shared;
-      const isExperienceAvatarUploadEnabled = EnvSet.values.isDevFeaturesEnabled;
       const status = storageProviderConfig
         ? {
             status: 'ready',
             allowUploadMimeTypes,
             maxUploadFileSize,
-            isExperienceAvatarUploadEnabled,
           }
         : {
             status: 'not_configured',
-            isExperienceAvatarUploadEnabled,
           };
 
       ctx.body = status;
@@ -77,7 +73,8 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
 
       const userId = ctx.auth.id;
       const storage = buildUploadFile(storageProviderConfig);
-      const objectKey = `${tenantId}/app-assets/${file.originalFilename}`;
+      const objectKey = `${tenantId}/app-assets/branding/${file.originalFilename}`;
+      const cacheBust = Date.now();
 
       try {
         if (storageProviderConfig.publicUrl) {
@@ -85,13 +82,13 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
             contentType: file.mimetype,
             publicUrl: storageProviderConfig.publicUrl,
           });
-          ctx.body = { url } satisfies UserAssets;
+          ctx.body = { url: `${url}?v=${cacheBust}` } satisfies UserAssets;
         } else {
           await storage.uploadFile(await readFile(file.filepath), objectKey, {
             contentType: file.mimetype,
           });
           ctx.body = {
-            url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}`,
+            url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}?v=${cacheBust}`,
           } satisfies UserAssets;
         }
       } catch (error: unknown) {

@@ -470,9 +470,7 @@ export default function initOidc(
   oidc.use(koaJwksCacheControl());
   oidc.use(koaBodyEtag());
 
-  if (EnvSet.values.isCloud) {
-    oidc.use(koaTokenUsageGuard(subscription));
-  }
+  oidc.use(koaTokenUsageGuard(subscription));
 
   return oidc;
 }

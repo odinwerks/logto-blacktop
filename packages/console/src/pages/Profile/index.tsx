@@ -10,7 +10,6 @@ import FormCard from '@/components/FormCard';
 import PageMeta from '@/components/PageMeta';
 import Topbar from '@/components/Topbar';
 import { adminTenantEndpoint, meApi } from '@/consts';
-import { isCloud } from '@/consts/env';
 import AppBoundary from '@/containers/AppBoundary';
 import Button from '@/ds-components/Button';
 import CardTitle from '@/ds-components/CardTitle';
@@ -81,9 +80,7 @@ function Profile() {
             {user && !showLoadingSkeleton && (
               <div className={styles.content}>
                 <BasicUserInfoSection user={user} onUpdate={reload} />
-                {isCloud && (
-                  <LinkAccountSection user={user} connectors={connectors} onUpdate={reload} />
-                )}
+                <LinkAccountSection user={user} connectors={connectors} onUpdate={reload} />
                 <FormCard title="profile.password.title">
                   <CardContent
                     title="profile.password.password_setting"
@@ -104,17 +101,15 @@ function Profile() {
                   />
                 </FormCard>
                 <MfaSection user={user} signInExperience={signInExperience} />
-                {isCloud && (
-                  <FormCard title="profile.delete_account.title">
-                    <div className={styles.deleteAccount}>
-                      <div className={styles.description}>
-                        {t('profile.delete_account.description')}
-                      </div>
-                      <Button title="profile.delete_account.button" onClick={show} />
+                <FormCard title="profile.delete_account.title">
+                  <div className={styles.deleteAccount}>
+                    <div className={styles.description}>
+                      {t('profile.delete_account.description')}
                     </div>
-                    <DeleteAccountModal isOpen={showDeleteAccountModal} onClose={hide} />
-                  </FormCard>
-                )}
+                    <Button title="profile.delete_account.button" onClick={show} />
+                  </div>
+                  <DeleteAccountModal isOpen={showDeleteAccountModal} onClose={hide} />
+                </FormCard>
               </div>
             )}
           </div>

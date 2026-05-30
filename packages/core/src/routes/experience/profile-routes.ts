@@ -1,13 +1,17 @@
 /* eslint-disable max-lines */
+import { readFile } from 'node:fs/promises';
+
 import {
   InteractionEvent,
+  maxUploadFileSize,
   MfaFactor,
   SignInIdentifier,
+  StorageProvider,
   updateProfileApiPayloadGuard,
   uploadFileGuard,
   userAssetsGuard,
+  imageExtensionMap,
 } from '@logto/schemas';
-import { addDays, format } from 'date-fns';
 import { type MiddlewareType } from 'koa';
 import type Router from 'koa-router';
 import { object, z } from 'zod';
@@ -20,20 +24,16 @@ import SystemContext from '#src/tenants/SystemContext.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
+import { buildUploadFile } from '#src/utils/storage/index.js';
 
-import { uploadAvatar } from '../avatar-upload.js';
+import { detectAvatarMimeType, isAllowedAvatarMimeType } from '../avatar-upload.js';
 
 import { createNewMfaCodeVerificationRecord } from './classes/verifications/code-verification.js';
 import { experienceRoutes } from './const.js';
 import { type ExperienceInteractionRouterContext } from './types.js';
 
-const pendingAvatarUploadExpiresInDays = 1;
-
-const buildPendingAvatarUploadObjectKeyPrefix = (tenantId: string, jti: string) => {
-  const expiresAt = format(addDays(new Date(), pendingAvatarUploadExpiresInDays), 'yyyy-MM-dd');
-
-  return `${tenantId}/_pending/${expiresAt}/avatar/${jti}`;
-};
+const buildPendingAvatarUploadObjectKeyPrefix = (tenantId: string, jti: string) =>
+  `${tenantId}/_pending/avatar/${jti}`;
 
 /**
  * This middleware is guards the current interaction status is MFA verified (if MFA is enabled)
@@ -69,7 +69,7 @@ function verifiedInteractionGuard<
 
 export default function interactionProfileRoutes<T extends ExperienceInteractionRouterContext>(
   router: Router<unknown, T>,
-  { id: tenantId, libraries, queries }: TenantContext
+  { id: tenantId, libraries, queries, envSet }: TenantContext
 ) {
   router.post(
     `${experienceRoutes.profile}`,
@@ -179,24 +179,66 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
           new RequestError({ code: 'session.invalid_interaction_type', status: 400 })
         );
 
-        const { storageProviderConfig } = SystemContext.shared;
-
-        const objectKeyPrefix = experienceInteraction.identifiedUserId
-          ? `${tenantId}/${experienceInteraction.identifiedUserId}`
-          : buildPendingAvatarUploadObjectKeyPrefix(tenantId, ctx.interactionDetails.jti);
-
         const [file] = ctx.guard.files.file;
 
         assertThat(file, 'guard.invalid_input');
+        assertThat(file.size <= maxUploadFileSize, 'guard.file_size_exceeded');
 
-        ctx.body = await uploadAvatar({
-          file,
-          storageProviderConfig,
-          objectKeyPrefix,
-          logError: (error) => {
-            getConsoleLogFromContext(ctx).error(error);
-          },
-        });
+        const fileContent = await readFile(file.filepath);
+        const contentType = detectAvatarMimeType(fileContent);
+        const avatarMimeType = isAllowedAvatarMimeType(contentType) ? contentType : undefined;
+
+        assertThat(avatarMimeType, 'guard.mime_type_not_allowed');
+
+        const { storageProviderConfig } = SystemContext.shared;
+        assertThat(storageProviderConfig, 'storage.not_configured');
+        assertThat(
+          storageProviderConfig.provider === StorageProvider.S3Storage,
+          'storage.not_configured'
+        );
+
+        const storage = buildUploadFile(storageProviderConfig);
+
+        const extension = imageExtensionMap[avatarMimeType];
+        const objectKey = experienceInteraction.identifiedUserId
+          ? `${tenantId}/${experienceInteraction.identifiedUserId}/you.${extension}`
+          : `${buildPendingAvatarUploadObjectKeyPrefix(tenantId, ctx.interactionDetails.jti)}/you.${extension}`;
+
+        try {
+          await storage.uploadFile(fileContent, objectKey, {
+            contentType: avatarMimeType,
+            publicUrl: storageProviderConfig.publicUrl,
+          });
+        } catch (error: unknown) {
+          getConsoleLogFromContext(ctx).error(error);
+          throw new RequestError({ code: 'storage.upload_error', status: 500 });
+        }
+
+        // Cleanup old files with other extensions (best-effort, don't fail)
+        const cleanupPrefix = objectKey.slice(0, objectKey.lastIndexOf('.')) + '.';
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          const existingFiles = await storage.listFiles!(cleanupPrefix);
+          await Promise.all(
+            existingFiles
+              .filter((key) => key !== objectKey)
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+              .map(async (key) => storage.deleteFile!(key))
+          );
+        } catch (error: unknown) {
+          getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
+        }
+
+        // Build the final URL
+        const avatarUrl = `${
+          storageProviderConfig.publicUrl
+            ? `${storageProviderConfig.publicUrl}/${objectKey}`
+            : `${envSet.endpoint.origin}/api/assets/${objectKey}`
+        }?v=${Date.now()}`;
+
+        ctx.body = { url: avatarUrl };
+
+        // TODO: After registration completes, move pending avatar from _pending/ to {userId}/
 
         return next();
       }

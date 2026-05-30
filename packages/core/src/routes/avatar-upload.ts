@@ -1,3 +1,9 @@
+/**
+ * @deprecated This helper uses date-stamped paths which accumulate garbage.
+ * Use the Account API avatar endpoint (packages/core/src/routes/account/avatar.ts)
+ * or inline the deterministic key pattern instead.
+ */
+
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
