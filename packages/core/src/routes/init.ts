@@ -27,6 +27,7 @@ import applicationUserConsentOrganizationRoutes from './applications/application
 import applicationUserConsentScopeRoutes from './applications/application-user-consent-scope.js';
 import applicationRoutes from './applications/application.js';
 import authnRoutes from './authn.js';
+import appAssetsServeRoutes from './app-assets-serve.js';
 import assetsServeRoutes from './assets-serve.js';
 import captchaProviderRoutes from './captcha-provider/index.js';
 import connectorRoutes from './connector/index.js';
@@ -136,6 +137,7 @@ const createRouters = (tenant: TenantContext) => {
   authnRoutes(anonymousRouter, tenant);
   samlApplicationAnonymousRoutes(anonymousRouter, tenant);
   assetsServeRoutes(anonymousRouter, tenant);
+  appAssetsServeRoutes(anonymousRouter, tenant);
 
   wellKnownOpenApiRoutes(anonymousRouter, {
     experienceRouters: [experienceRouter],

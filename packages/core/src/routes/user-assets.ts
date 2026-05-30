@@ -22,7 +22,7 @@ import { getTenantId } from '#src/utils/tenant.js';
 import type { ManagementApiRouter, RouterInitArgs } from './types.js';
 
 export default function userAssetsRoutes<T extends ManagementApiRouter>(
-  ...[router]: RouterInitArgs<T>
+  ...[router, tenant]: RouterInitArgs<T>
 ) {
   router.get(
     '/user-assets/service-status',
@@ -77,19 +77,23 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
 
       const userId = ctx.auth.id;
       const storage = buildUploadFile(storageProviderConfig);
-      const objectKey = `${tenantId}/${userId}/${file.originalFilename}`;
+      const objectKey = `${tenantId}/app-assets/${file.originalFilename}`;
 
       try {
-        const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
-          contentType: file.mimetype,
-          publicUrl: storageProviderConfig.publicUrl,
-        });
-
-        const result: UserAssets = {
-          url,
-        };
-
-        ctx.body = result;
+        if (storageProviderConfig.publicUrl) {
+          const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
+            contentType: file.mimetype,
+            publicUrl: storageProviderConfig.publicUrl,
+          });
+          ctx.body = { url } satisfies UserAssets;
+        } else {
+          await storage.uploadFile(await readFile(file.filepath), objectKey, {
+            contentType: file.mimetype,
+          });
+          ctx.body = {
+            url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}`,
+          } satisfies UserAssets;
+        }
       } catch (error: unknown) {
         getConsoleLogFromContext(ctx).error(error);
         throw new RequestError({

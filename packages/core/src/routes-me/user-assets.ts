@@ -28,7 +28,9 @@ import type { AuthedMeRouter } from './types.js';
  *
  * @todo: Refactor to reuse as much code as possible. @Charles
  */
-export default function userAssetsRoutes<T extends AuthedMeRouter>(...[router]: RouterInitArgs<T>) {
+export default function userAssetsRoutes<T extends AuthedMeRouter>(
+  ...[router, tenant]: RouterInitArgs<T>
+) {
   router.get(
     '/user-assets/service-status',
     koaGuard({
@@ -79,19 +81,23 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(...[router]: 
 
       const userId = ctx.auth.id;
       const storage = buildUploadFile(storageProviderConfig);
-      const objectKey = `${adminTenantId}/${userId}/${file.originalFilename}`;
+      const objectKey = `${adminTenantId}/app-assets/${file.originalFilename}`;
 
       try {
-        const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
-          contentType: file.mimetype,
-          publicUrl: storageProviderConfig.publicUrl,
-        });
-
-        const result: UserAssets = {
-          url,
-        };
-
-        ctx.body = result;
+        if (storageProviderConfig.publicUrl) {
+          const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
+            contentType: file.mimetype,
+            publicUrl: storageProviderConfig.publicUrl,
+          });
+          ctx.body = { url } satisfies UserAssets;
+        } else {
+          await storage.uploadFile(await readFile(file.filepath), objectKey, {
+            contentType: file.mimetype,
+          });
+          ctx.body = {
+            url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}`,
+          } satisfies UserAssets;
+        }
       } catch (error: unknown) {
         consoleLog.error(error);
         throw new RequestError({
