@@ -1,6 +1,7 @@
 import { type AdminConsoleKey } from '@logto/phrases';
 import { type ReactNode } from 'react';
 
+import { isCloud } from '@/consts/env';
 import Button from '@/ds-components/Button';
 
 import styles from './index.module.scss';
@@ -20,6 +21,9 @@ function AddOnNoticeFooter({
   isCreateButtonDisabled,
   buttonTitle,
 }: Props) {
+  if (!isCloud) {
+    return null;
+  }
   return (
     <div className={styles.container}>
       <div className={styles.description}>{children}</div>

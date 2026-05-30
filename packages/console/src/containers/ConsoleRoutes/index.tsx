@@ -15,7 +15,6 @@ import TenantAccess from '@/containers/TenantAccess';
 import { GlobalRoute } from '@/contexts/TenantsProvider';
 import useSwrOptions from '@/hooks/use-swr-options';
 import Callback from '@/pages/Callback';
-import CheckoutSuccessCallback from '@/pages/CheckoutSuccessCallback';
 import { dropLeadingSlash } from '@/utils/url';
 
 import { __Internal__ImportError } from './internal';
@@ -57,12 +56,6 @@ export function ConsoleRoutes() {
             <Route element={<TenantAccess />}>
               {!isCloud && isProduction && isDevFeaturesEnabled && (
                 <Route path="onboarding" element={<OssOnboarding />} />
-              )}
-              {isCloud && (
-                <Route
-                  path={dropLeadingSlash(GlobalRoute.CheckoutSuccessCallback)}
-                  element={<CheckoutSuccessCallback />}
-                />
               )}
               <Route element={<OssOnboardingGuard />}>
                 <Route element={<AppContent />}>

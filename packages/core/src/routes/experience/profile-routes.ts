@@ -214,21 +214,6 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
           throw new RequestError({ code: 'storage.upload_error', status: 500 });
         }
 
-        // Cleanup old files with other extensions (best-effort, don't fail)
-        const cleanupPrefix = objectKey.slice(0, objectKey.lastIndexOf('.')) + '.';
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          const existingFiles = await storage.listFiles!(cleanupPrefix);
-          await Promise.all(
-            existingFiles
-              .filter((key) => key !== objectKey)
-              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-              .map(async (key) => storage.deleteFile!(key))
-          );
-        } catch (error: unknown) {
-          getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
-        }
-
         // Build the final URL
         const avatarUrl = `${
           storageProviderConfig.publicUrl
@@ -237,8 +222,6 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
         }?v=${Date.now()}`;
 
         ctx.body = { url: avatarUrl };
-
-        // TODO: After registration completes, move pending avatar from _pending/ to {userId}/
 
         return next();
       }

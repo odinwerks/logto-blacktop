@@ -4,6 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import ContactUsPhraseLink from '@/components/ContactUsPhraseLink';
 import SkuName from '@/components/SkuName';
 import { addOnPricingExplanationLink } from '@/consts';
+import { isCloud } from '@/consts/env';
 import { customDomainAddOnUnitPrice } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import InlineNotification from '@/ds-components/InlineNotification';
@@ -21,6 +22,10 @@ export default function PaywallNotification() {
     currentSubscription: { planId },
     currentSubscriptionQuota,
   } = useContext(SubscriptionDataContext);
+
+  if (!isCloud) {
+    return null;
+  }
 
   if (isFreeTenant) {
     return (

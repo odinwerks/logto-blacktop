@@ -3,6 +3,7 @@ import classNames from 'classnames';
 import { type TFuncKey } from 'i18next';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { isCloud } from '@/consts/env';
 import InlineNotification from '@/ds-components/InlineNotification';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
 
@@ -24,6 +25,10 @@ type Props = {
 function InlineUpsell({ className, for: forFeature, actionButtonText }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console.upsell.paywall' });
   const { navigate } = useTenantPathname();
+
+  if (!isCloud) {
+    return null;
+  }
 
   return (
     <InlineNotification

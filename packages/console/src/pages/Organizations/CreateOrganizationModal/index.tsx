@@ -45,7 +45,7 @@ function CreateOrganizationModal({ isOpen, onClose }: Props) {
   const isOrganizationsDisabled =
     // Check if the organizations feature is disabled except for paid tenants.
     // Paid tenants can create organizations with organization feature add-on applied to their subscription.
-    isCloud && !isFeatureEnabled(currentSubscriptionQuota.organizationsLimit) && !isPaidTenant;
+    !isFeatureEnabled(currentSubscriptionQuota.organizationsLimit) && !isPaidTenant;
 
   const {
     reset,
@@ -87,7 +87,7 @@ function CreateOrganizationModal({ isOpen, onClose }: Props) {
         footer={
           cond(
             // Just in case the enterprise plan has reached the resource limit, we still need to show charge notice.
-            isPaidTenant && !organizationUpsellNoticeAcknowledged && (
+            isCloud && isPaidTenant && !organizationUpsellNoticeAcknowledged && (
               <AddOnNoticeFooter
                 isLoading={isSubmitting}
                 buttonTitle="general.create"

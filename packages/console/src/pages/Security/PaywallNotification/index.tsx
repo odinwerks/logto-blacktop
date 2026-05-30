@@ -1,6 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next';
 
 import ContactUsPhraseLink from '@/components/ContactUsPhraseLink';
+import { isCloud } from '@/consts/env';
 import { securityFeaturesAddOnUnitPrice } from '@/consts/subscriptions';
 import InlineNotification from '@/ds-components/InlineNotification';
 import usePaywall from '@/hooks/use-paywall';
@@ -21,6 +22,10 @@ function PaywallNotification({ className }: Props) {
     data: { securityFeaturesUpsellNoticeAcknowledged },
     update,
   } = useUserPreferences();
+
+  if (!isCloud) {
+    return null;
+  }
 
   if (isFreeTenant) {
     return (

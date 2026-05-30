@@ -90,6 +90,10 @@ function FeatureTag(props: Props) {
 
   const { isVisible } = props;
 
+  if (!isCloud) {
+    return null;
+  }
+
   // Dev tenant should always see the tag since they have access to almost all features, and it's
   // useful for developers to know which features need to be paid for in production.
   if (!isDevTenant && !isVisible) {
@@ -129,13 +133,17 @@ export function CombinedAddOnAndFeatureTag(props: CombinedAddOnAndFeatureTagProp
     currentSubscription: { planId, isEnterprisePlan },
   } = useContext(SubscriptionDataContext);
 
+  if (!isCloud) {
+    return null;
+  }
+
   // We believe that the enterprise plan has already allocated sufficient resource quotas in the deal negotiation, so there is no need for upselling, nor will it trigger the add-on tag prompt.
   if (isEnterprisePlan) {
     return null;
   }
 
   // Show the "Add-on" tag for Pro plan.
-  if (hasAddOnTag && isCloud && isProPlan(planId)) {
+  if (hasAddOnTag && isProPlan(planId)) {
     return (
       <div className={classNames(styles.tag, styles.beta, styles.addOn, className)}>
         {addOnLabel}
@@ -143,7 +151,7 @@ export function CombinedAddOnAndFeatureTag(props: CombinedAddOnAndFeatureTagProp
     );
   }
 
-  if (paywall && isCloud) {
+  if (paywall) {
     return <FeatureTag isVisible plan={paywall} />;
   }
 

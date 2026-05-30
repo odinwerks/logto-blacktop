@@ -4,7 +4,6 @@ import { useCallback, useContext, useState } from 'react';
 import Plus from '@/assets/icons/plus.svg?react';
 import PageMeta from '@/components/PageMeta';
 import { organizationsFeatureLink } from '@/consts';
-import { isCloud } from '@/consts/env';
 import { subscriptionPage } from '@/consts/pages';
 import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
@@ -34,7 +33,7 @@ function Organizations() {
   const isPaidTenant = isPaidPlan(planId, isEnterprisePlan);
 
   const isOrganizationsDisabled =
-    isCloud && !isFeatureEnabled(currentSubscriptionQuota.organizationsLimit) && !isPaidTenant;
+    !isFeatureEnabled(currentSubscriptionQuota.organizationsLimit) && !isPaidTenant;
 
   const upgradePlan = useCallback(() => {
     navigate(subscriptionPage);

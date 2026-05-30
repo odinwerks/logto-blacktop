@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import FormCard, { FormCardSkeleton } from '@/components/FormCard';
 import SubmitFormChangesActionBar from '@/components/SubmitFormChangesActionBar';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
+import { isCloud } from '@/consts/env';
 import { customIdToken } from '@/consts/external-links';
 import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
@@ -33,7 +34,7 @@ function CustomizeJwt() {
 
   const { getDocumentationUrl } = useDocumentationUrl();
 
-  const showPaywall = planId === ReservedPlanId.Free;
+  const showPaywall = isCloud && planId === ReservedPlanId.Free;
 
   const [deleteModalTokenType, setDeleteModalTokenType] = useState<LogtoJwtTokenKeyType>();
 

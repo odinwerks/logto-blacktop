@@ -10,6 +10,7 @@ import DetailsForm from '@/components/DetailsForm';
 import { addOnLabels, CombinedAddOnAndFeatureTag } from '@/components/FeatureTag';
 import FormCard from '@/components/FormCard';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
+import { isCloud } from '@/consts/env';
 import { captcha } from '@/consts/external-links';
 import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
@@ -87,11 +88,11 @@ function CaptchaForm({ captchaProvider, formData }: Props) {
               <div className={styles.description}>
                 {t('security.bot_protection.captcha.placeholder')}
               </div>
-              {isFreeTenant || !captchaProvider ? (
+              {(isFreeTenant && isCloud) || !captchaProvider ? (
                 <Button
                   title="security.bot_protection.captcha.add"
                   icon={<Plus />}
-                  disabled={isFreeTenant}
+                  disabled={isFreeTenant && isCloud}
                   onClick={() => {
                     setIsCreateCaptchaFormOpen(true);
                   }}
@@ -99,7 +100,7 @@ function CaptchaForm({ captchaProvider, formData }: Props) {
               ) : (
                 <CaptchaCard captchaProvider={captchaProvider} />
               )}
-              <EnableCaptcha disabled={isFreeTenant || !captchaProvider} />
+              <EnableCaptcha disabled={(isFreeTenant && isCloud) || !captchaProvider} />
             </FormField>
           </FormCard>
         </DetailsForm>

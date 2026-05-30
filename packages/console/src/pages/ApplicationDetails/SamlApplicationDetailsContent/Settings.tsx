@@ -15,10 +15,8 @@ import useSWR, { type KeyedMutator } from 'swr';
 import CirclePlus from '@/assets/icons/circle-plus.svg?react';
 import Plus from '@/assets/icons/plus.svg?react';
 import DetailsForm from '@/components/DetailsForm';
-import DomainSelector from '@/components/DomainSelector';
 import FormCard from '@/components/FormCard';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
-import { isCloud } from '@/consts/env';
 import { AppDataContext } from '@/contexts/AppDataProvider';
 import Button from '@/ds-components/Button';
 import CopyToClipboard from '@/ds-components/CopyToClipboard';
@@ -234,13 +232,6 @@ function Settings({ data, mutateApplication, isDeleted }: Props) {
           title="application_details.saml_idp_config.title"
           description="application_details.saml_idp_config.description"
         >
-          {isCloud && (
-            <DomainSelector
-              tip={t('domain.switch_saml_app_domain_tip')}
-              value={selectedDomain}
-              onChange={setSelectedDomain}
-            />
-          )}
           {tenantEndpoint && (
             <>
               <FormField title="application_details.saml_idp_config.metadata_url_label">

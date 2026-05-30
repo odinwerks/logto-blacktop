@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 
 import { contactEmailLink } from '@/consts';
+import { isCloud } from '@/consts/env';
 import { LinkButton } from '@/ds-components/Button';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
 
@@ -15,6 +16,10 @@ type Props = {
 
 function QuotaGuardFooter({ children, isLoading, onClickUpgrade, isContactUsPreferred }: Props) {
   const { navigate } = useTenantPathname();
+
+  if (!isCloud) {
+    return null;
+  }
 
   return (
     <div className={styles.container}>

@@ -11,6 +11,7 @@ import { addOnLabels, CombinedAddOnAndFeatureTag } from '@/components/FeatureTag
 import FormCard from '@/components/FormCard';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
 import { sentinel } from '@/consts';
+import { isCloud } from '@/consts/env';
 import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import Button from '@/ds-components/Button';
@@ -105,7 +106,7 @@ function GeneralForm({ formData }: Props) {
         >
           <FormField title="security.sentinel_policy.enable_sentinel_policy.title">
             <Switch
-              disabled={isFreeTenant}
+              disabled={isFreeTenant && isCloud}
               label={t('sentinel_policy.enable_sentinel_policy.description')}
               {...register('sentinelPolicyEnabled')}
             />

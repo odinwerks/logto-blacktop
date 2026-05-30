@@ -12,6 +12,7 @@ import FormCard from '@/components/FormCard';
 import MultiOptionInput from '@/components/MultiOptionInput';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
 import { emailBlocklist } from '@/consts';
+import { isCloud } from '@/consts/env';
 import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import FormField from '@/ds-components/FormField';
@@ -100,14 +101,14 @@ function BlocklistForm({ formData }: Props) {
         >
           <FormField title="security.blocklist.disposable_email.title">
             <Switch
-              disabled={isFreeTenant}
+              disabled={isFreeTenant && isCloud}
               label={t('blocklist.disposable_email.description')}
               {...register('blockDisposableAddresses')}
             />
           </FormField>
           <FormField title="security.blocklist.email_subaddressing.title">
             <Switch
-              disabled={isFreeTenant}
+              disabled={isFreeTenant && isCloud}
               label={t('blocklist.email_subaddressing.description')}
               {...register('blockSubaddressing')}
             />
@@ -121,7 +122,7 @@ function BlocklistForm({ formData }: Props) {
               control={control}
               render={({ field: { onChange, value = [] } }) => (
                 <MultiOptionInput
-                  disabled={isFreeTenant}
+                  disabled={isFreeTenant && isCloud}
                   values={value}
                   placeholder={t('blocklist.custom_email_address.placeholder')}
                   renderValue={(value) => value}

@@ -6,7 +6,6 @@ import {
 import { useCallback, useMemo } from 'react';
 import { z } from 'zod';
 
-import { isCloud } from '@/consts/env';
 import useCurrentUser from '@/hooks/use-current-user';
 
 const useUserOnboardingData = (): {
@@ -28,10 +27,6 @@ const useUserOnboardingData = (): {
   }, [customData]);
 
   const isOnboarding = useMemo(() => {
-    if (!isCloud) {
-      return false;
-    }
-
     return !userOnboardingData.isOnboardingDone;
   }, [userOnboardingData.isOnboardingDone]);
 
