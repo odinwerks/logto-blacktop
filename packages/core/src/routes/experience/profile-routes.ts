@@ -16,7 +16,6 @@ import { type MiddlewareType } from 'koa';
 import type Router from 'koa-router';
 import { object, z } from 'zod';
 
-import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { type WithLogContext } from '#src/middleware/koa-audit-log.js';
 import koaGuard from '#src/middleware/koa-guard.js';
@@ -31,9 +30,6 @@ import { detectAvatarMimeType, isAllowedAvatarMimeType } from '../avatar-upload.
 import { createNewMfaCodeVerificationRecord } from './classes/verifications/code-verification.js';
 import { experienceRoutes } from './const.js';
 import { type ExperienceInteractionRouterContext } from './types.js';
-
-const buildPendingAvatarUploadObjectKeyPrefix = (tenantId: string, jti: string) =>
-  `${tenantId}/_pending/avatar/${jti}`;
 
 /**
  * This middleware is guards the current interaction status is MFA verified (if MFA is enabled)
@@ -155,78 +151,78 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
     }
   );
 
-  // TODO: Remove this dev feature gate when avatar upload is ready for production.
-  if (EnvSet.values.isDevFeaturesEnabled) {
-    router.post(
-      `${experienceRoutes.prefix}/user-assets/avatar`,
-      koaGuard({
-        files: object({
-          file: uploadFileGuard.array().min(1),
-        }),
-        response: userAssetsGuard,
-        status: [200, 400, 403, 404, 500],
+  router.post(
+    `${experienceRoutes.prefix}/user-assets/avatar`,
+    koaGuard({
+      files: object({
+        file: uploadFileGuard.array().min(1),
       }),
-      async (ctx, next) => {
-        const { experienceInteraction } = ctx;
-        const { interactionEvent } = experienceInteraction;
+      response: userAssetsGuard,
+      status: [200, 400, 403, 404, 500],
+    }),
+    async (ctx, next) => {
+      const { experienceInteraction } = ctx;
+      const { interactionEvent } = experienceInteraction;
 
-        assertThat(
-          interactionEvent !== InteractionEvent.ForgotPassword,
-          new RequestError({ code: 'session.not_supported_for_forgot_password', status: 400 })
-        );
-        assertThat(
-          interactionEvent === InteractionEvent.Register,
-          new RequestError({ code: 'session.invalid_interaction_type', status: 400 })
-        );
+      assertThat(
+        interactionEvent !== InteractionEvent.ForgotPassword,
+        new RequestError({ code: 'session.not_supported_for_forgot_password', status: 400 })
+      );
+      assertThat(
+        interactionEvent === InteractionEvent.Register,
+        new RequestError({ code: 'session.invalid_interaction_type', status: 400 })
+      );
 
-        const [file] = ctx.guard.files.file;
+      const [file] = ctx.guard.files.file;
 
-        assertThat(file, 'guard.invalid_input');
-        assertThat(file.size <= maxUploadFileSize, 'guard.file_size_exceeded');
+      assertThat(file, 'guard.invalid_input');
+      assertThat(file.size <= maxUploadFileSize, 'guard.file_size_exceeded');
 
-        const fileContent = await readFile(file.filepath);
-        const contentType = detectAvatarMimeType(fileContent);
-        const avatarMimeType = isAllowedAvatarMimeType(contentType) ? contentType : undefined;
+      const fileContent = await readFile(file.filepath);
+      const contentType = detectAvatarMimeType(fileContent);
+      const avatarMimeType = isAllowedAvatarMimeType(contentType) ? contentType : undefined;
 
-        assertThat(avatarMimeType, 'guard.mime_type_not_allowed');
+      assertThat(avatarMimeType, 'guard.mime_type_not_allowed');
 
-        const { storageProviderConfig } = SystemContext.shared;
-        assertThat(storageProviderConfig, 'storage.not_configured');
-        assertThat(
-          storageProviderConfig.provider === StorageProvider.S3Storage,
-          'storage.not_configured'
-        );
+      const { storageProviderConfig } = SystemContext.shared;
+      assertThat(storageProviderConfig, 'storage.not_configured');
+      assertThat(
+        storageProviderConfig.provider === StorageProvider.S3Storage,
+        'storage.not_configured'
+      );
 
-        const storage = buildUploadFile(storageProviderConfig);
+      const storage = buildUploadFile(storageProviderConfig);
 
-        const extension = imageExtensionMap[avatarMimeType];
-        const objectKey = experienceInteraction.identifiedUserId
-          ? `${tenantId}/${experienceInteraction.identifiedUserId}/you.${extension}`
-          : `${buildPendingAvatarUploadObjectKeyPrefix(tenantId, ctx.interactionDetails.jti)}/you.${extension}`;
+      assertThat(
+        experienceInteraction.identifiedUserId,
+        new RequestError({ code: 'session.not_found', status: 400 })
+      );
 
-        try {
-          await storage.uploadFile(fileContent, objectKey, {
-            contentType: avatarMimeType,
-            publicUrl: storageProviderConfig.publicUrl,
-          });
-        } catch (error: unknown) {
-          getConsoleLogFromContext(ctx).error(error);
-          throw new RequestError({ code: 'storage.upload_error', status: 500 });
-        }
+      const extension = imageExtensionMap[avatarMimeType];
+      const objectKey = `${tenantId}/${experienceInteraction.identifiedUserId}/you.${extension}`;
 
-        // Build the final URL
-        const avatarUrl = `${
-          storageProviderConfig.publicUrl
-            ? `${storageProviderConfig.publicUrl}/${objectKey}`
-            : `${envSet.endpoint.origin}/api/assets/${objectKey}`
-        }?v=${Date.now()}`;
-
-        ctx.body = { url: avatarUrl };
-
-        return next();
+      try {
+        await storage.uploadFile(fileContent, objectKey, {
+          contentType: avatarMimeType,
+          publicUrl: storageProviderConfig.publicUrl,
+        });
+      } catch (error: unknown) {
+        getConsoleLogFromContext(ctx).error(error);
+        throw new RequestError({ code: 'storage.upload_error', status: 500 });
       }
-    );
-  }
+
+      // Build the final URL
+      const avatarUrl = `${
+        storageProviderConfig.publicUrl
+          ? `${storageProviderConfig.publicUrl}/${objectKey}`
+          : `${envSet.endpoint.origin}/api/assets/${objectKey}`
+      }?v=${Date.now()}`;
+
+      ctx.body = { url: avatarUrl };
+
+      return next();
+    }
+  );
 
   router.put(
     `${experienceRoutes.profile}/password`,

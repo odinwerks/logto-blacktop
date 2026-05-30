@@ -1,4 +1,4 @@
-import { type SubscriptionCountBasedUsage } from '@/cloud/types/router';
+import { type SubscriptionCountBasedUsage } from '@/types/cloud-router';
 import { isCloud } from '@/consts/env';
 
 import { type SubscriptionUsageOptions } from './types';

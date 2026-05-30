@@ -1,7 +1,6 @@
 import Tabs from '@/mdx-components/Tabs';
 import TabItem from '@/mdx-components/TabItem';
 import InlineNotification from '@/ds-components/InlineNotification';
-import CustomDomainEndpointNotice from '@/mdx-components/CustomDomainEndpointNotice';
 import Steps from '@/mdx-components/Steps';
 import Step from '@/mdx-components/Step';
 import { appendPath } from '@silverhand/essentials';
@@ -177,7 +176,6 @@ export const authMiddleware = async (req, res, next) => {
 
 <br/>
 
-<CustomDomainEndpointNotice variant="replace" />
 
 You can now employ this middleware to protect your API endpoints:
 

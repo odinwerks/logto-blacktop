@@ -1,6 +1,5 @@
 import type { ConnectorResponse, SignInExperience } from '@logto/schemas';
 import ky from 'ky';
-import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRoutes } from 'react-router-dom';
 import useSWR from 'swr';
@@ -11,7 +10,6 @@ import PageMeta from '@/components/PageMeta';
 import Topbar from '@/components/Topbar';
 import { adminTenantEndpoint, meApi } from '@/consts';
 import AppBoundary from '@/containers/AppBoundary';
-import Button from '@/ds-components/Button';
 import CardTitle from '@/ds-components/CardTitle';
 import OverlayScrollbar from '@/ds-components/OverlayScrollbar';
 import type { RequestError } from '@/hooks/use-api';
@@ -29,12 +27,10 @@ import LinkAccountSection from './components/LinkAccountSection';
 import MfaSection from './components/MfaSection';
 import NotSet from './components/NotSet';
 import Skeleton from './components/Skeleton';
-import DeleteAccountModal from './containers/DeleteAccountModal';
 import { useNavigateToAccountCenter } from './hooks';
 import styles from './index.module.scss';
 
 function Profile() {
-  const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const navigateToAccountCenter = useNavigateToAccountCenter();
   const childrenRoutes = useRoutes(profile);
   usePlausiblePageview(profile, 'profile');
@@ -52,17 +48,6 @@ function Profile() {
     new URL('api/.well-known/sign-in-exp', adminTenantEndpoint).toString(),
     async (url: string) => ky.get(url).json<SignInExperience>()
   );
-  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
-
-  // Avoid unnecessary re-renders in child components
-  const show = useCallback(() => {
-    setShowDeleteAccountModal(true);
-  }, []);
-
-  // Avoid unnecessary re-renders in child components
-  const hide = useCallback(() => {
-    setShowDeleteAccountModal(false);
-  }, []);
 
   const showLoadingSkeleton = isLoadingUser || isLoadingConnectors || isUserAssetServiceLoading;
 
@@ -101,15 +86,6 @@ function Profile() {
                   />
                 </FormCard>
                 <MfaSection user={user} signInExperience={signInExperience} />
-                <FormCard title="profile.delete_account.title">
-                  <div className={styles.deleteAccount}>
-                    <div className={styles.description}>
-                      {t('profile.delete_account.description')}
-                    </div>
-                    <Button title="profile.delete_account.button" onClick={show} />
-                  </div>
-                  <DeleteAccountModal isOpen={showDeleteAccountModal} onClose={hide} />
-                </FormCard>
               </div>
             )}
           </div>

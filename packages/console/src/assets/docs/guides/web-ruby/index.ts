@@ -1,7 +1,5 @@
 import { ApplicationType } from '@logto/schemas';
 
-import { isCloud } from '@/consts/env';
-
 import { type GuideMetadata } from '../types';
 
 const metadata: Readonly<GuideMetadata> = Object.freeze({
@@ -9,7 +7,7 @@ const metadata: Readonly<GuideMetadata> = Object.freeze({
   description:
     'Ruby is a dynamic, open-source programming language with a focus on simplicity and productivity.',
   target: ApplicationType.Traditional,
-  isFeatured: !isCloud,
+  isFeatured: false,
   sample: {
     repo: 'ruby',
     path: 'logto-sample',

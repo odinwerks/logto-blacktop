@@ -29,7 +29,6 @@ import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import useRedirectUri from '@/hooks/use-redirect-uri';
 
 import useSignOut from './use-sign-out';
-import { useSystemLimitErrorMessage } from './use-system-limit-error-message';
 
 export class RequestError extends Error {
   constructor(
@@ -52,8 +51,6 @@ const useGlobalRequestErrorHandler = (toastDisabledErrorCodes?: LogtoErrorCode[]
   const { signOut } = useSignOut();
   const { show } = useConfirmModal();
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
-  const { parseSystemLimitErrorMessage } = useSystemLimitErrorMessage();
-
   const postSignOutRedirectUri = useRedirectUri('signOut');
 
   const handleError = useCallback(
@@ -89,7 +86,7 @@ const useGlobalRequestErrorHandler = (toastDisabledErrorCodes?: LogtoErrorCode[]
         // Toast system limit exceeded error
         if (data.code === 'system_limit.limit_exceeded') {
           toastWithAction({
-            message: parseSystemLimitErrorMessage(data),
+            message: data.message,
             actionText: 'general.contact_us_action',
             actionHref: contactEmailLink,
             variant: 'error',
@@ -107,14 +104,7 @@ const useGlobalRequestErrorHandler = (toastDisabledErrorCodes?: LogtoErrorCode[]
         toast.error(httpCodeToMessage[response.status] ?? fallbackErrorMessage);
       }
     },
-    [
-      t,
-      toastDisabledErrorCodes,
-      signOut,
-      postSignOutRedirectUri.href,
-      show,
-      parseSystemLimitErrorMessage,
-    ]
+    [t, toastDisabledErrorCodes, signOut, postSignOutRedirectUri.href, show]
   );
 
   return {

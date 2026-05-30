@@ -1,7 +1,6 @@
-import { type TenantResponse } from '@/cloud/types/router';
+import { type TenantResponse } from '@/types/cloud-router';
 import DynamicT from '@/ds-components/DynamicT';
 import Tag from '@/ds-components/Tag';
-import useOverdueInvoices from '@/hooks/use-overdue-invoices';
 import { isPaidPlan } from '@/utils/subscription';
 
 type Props = {
@@ -17,7 +16,7 @@ function TenantStatusTag({ tenantData, className }: Props) {
     subscription: { planId, isEnterprisePlan },
   } = tenantData;
 
-  const { hasOverdueInvoices } = useOverdueInvoices(tenantData);
+  const hasOverdueInvoices = false;
 
   /**
    * Tenant status priority:

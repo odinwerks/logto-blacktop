@@ -2,7 +2,6 @@ import UriInputField from '@/mdx-components/UriInputField';
 import Steps from '@/mdx-components/Steps';
 import Step from '@/mdx-components/Step';
 import InlineNotification from '@/ds-components/InlineNotification';
-import CustomDomainEndpointNotice from '@/mdx-components/CustomDomainEndpointNotice';
 import RedirectUrisWeb, {defaultBaseUrl, defaultRedirectUri} from '../../fragments/_redirect-uris-web.mdx';
 import Checkpoint from '../../fragments/_checkpoint.md';
 
@@ -160,7 +159,6 @@ First, create a Logto config:
 
 <br/>
 
-<CustomDomainEndpointNotice />
 
 Then, you can create a `LogtoClient` for each user request with the Logto config above:
 

@@ -6,11 +6,12 @@ import {
   type LogtoSkuResponse,
   type TenantResponse,
   type SubscriptionCountBasedUsage,
-} from '@/cloud/types/router';
-import { defaultRegionName } from '@/components/Region';
+} from '@/types/cloud-router';
 import { LogtoSkuType } from '@/types/skus';
 
 import { adminEndpoint, isCloud } from './env';
+
+const defaultRegionName = 'default';
 
 const { tenantId, indicator } = defaultManagementApi.resource;
 

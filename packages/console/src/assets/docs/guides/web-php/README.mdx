@@ -4,7 +4,6 @@ import TabItem from '@/mdx-components/TabItem';
 import InlineNotification from '@/ds-components/InlineNotification';
 import Steps from '@/mdx-components/Steps';
 import Step from '@/mdx-components/Step';
-import CustomDomainEndpointNotice from '@/mdx-components/CustomDomainEndpointNotice';
 import Checkpoint from '../../fragments/_checkpoint.md';
 import RedirectUrisWeb, { defaultRedirectUri, defaultPostSignOutUri } from '../../fragments/_redirect-uris-web.mdx';
 
@@ -43,7 +42,6 @@ $client = new LogtoClient(
 
 <br/>
 
-<CustomDomainEndpointNotice />
 
 By default, the SDK uses the built-in PHP session to store the Logto data. If you want to use other storage, you can pass a custom storage object as the second parameter:
 

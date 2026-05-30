@@ -1,7 +1,7 @@
 import { type RoleResponse, RoleType, ApplicationType } from '@logto/schemas';
 import classNames from 'classnames';
 
-import type { GetArrayElementType } from '@/cloud/types/router';
+type GetArrayElementType<T> = T extends Array<infer U> ? U : never;
 import ApplicationIcon from '@/components/ApplicationIcon';
 import UserAvatar from '@/components/UserAvatar';
 import DynamicT from '@/ds-components/DynamicT';

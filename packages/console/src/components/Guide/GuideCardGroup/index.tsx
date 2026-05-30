@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import { type Ref, forwardRef, useContext } from 'react';
 
 import { type GuideMetadata, type Guide } from '@/assets/docs/guides/types';
-import { type SubscriptionQuota } from '@/cloud/types/router';
+import { type SubscriptionQuota } from '@/types/cloud-router';
 import { CombinedAddOnAndFeatureTag } from '@/components/FeatureTag';
 import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';

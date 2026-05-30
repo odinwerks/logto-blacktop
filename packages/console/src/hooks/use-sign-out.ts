@@ -1,5 +1,4 @@
 import { useLogto } from '@logto/react';
-import { usePostHog } from 'posthog-js/react';
 import { useCallback } from 'react';
 
 /**
@@ -9,15 +8,12 @@ import { useCallback } from 'react';
  */
 const useSignOut = () => {
   const { signOut: logtoSignOut } = useLogto();
-  const postHog = usePostHog();
 
   const signOut = useCallback<ReturnType<typeof useLogto>['signOut']>(
     async (postSignOutRedirectUri) => {
-      postHog.resetGroups(); // Not sure if this is needed, but just in case.
-      postHog.reset();
       return logtoSignOut(postSignOutRedirectUri);
     },
-    [logtoSignOut, postHog]
+    [logtoSignOut]
   );
   return {
     /** A wrapped version of `useLogto`'s `signOut` with necessary cleanup logic. */

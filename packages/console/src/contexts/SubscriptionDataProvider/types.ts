@@ -5,7 +5,7 @@ import {
   type SubscriptionCountBasedUsage,
   type SubscriptionResourceScopeUsage,
   type SubscriptionRoleScopeUsage,
-} from '@/cloud/types/router';
+} from '@/types/cloud-router';
 
 type BaseContext = {
   currentSubscription: Subscription;

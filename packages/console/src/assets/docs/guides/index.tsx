@@ -13,7 +13,6 @@ import nativeDeviceFlow from './native-device-flow/index';
 import nativeExpo from './native-expo/index';
 import nativeFlutter from './native-flutter/index';
 import nativeIosSwift from './native-ios-swift/index';
-import protectedApp from './protected-app/index';
 import samlIdp from './saml-idp/index';
 import spaAngular from './spa-angular/index';
 import spaChromeExtension from './spa-chrome-extension/index';
@@ -152,14 +151,6 @@ export const guides: Readonly<Guide[]> = Object.freeze([
     DarkLogo: undefined,
     Component: safeLazy(async () => import('./web-next-auth/README.mdx')),
     metadata: webNextAuth,
-  },
-  {
-    order: 1.4,
-    id: 'protected-app',
-    Logo: safeLazy(async () => import('./protected-app/logo.svg?react')),
-    DarkLogo: safeLazy(async () => import('./protected-app/logo-dark.svg?react')),
-    Component: safeLazy(async () => import('./protected-app/README.mdx')),
-    metadata: protectedApp,
   },
   {
     order: 1.5,

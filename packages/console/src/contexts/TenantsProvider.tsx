@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useMemo, createContext, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router-dom';
 
-import { type TenantResponse } from '@/cloud/types/router';
+import { type TenantResponse } from '@/types/cloud-router';
 import { defaultTenantResponse } from '@/consts';
 import { isCloud } from '@/consts/env';
 
