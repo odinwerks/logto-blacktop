@@ -7,4 +7,5 @@ export const defaultConfig = Object.freeze({
   dts: false,
   sourcemap: true,
   clean: true,
+  external: ['adm-zip'],
 } satisfies Options);
