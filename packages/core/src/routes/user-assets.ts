@@ -81,11 +81,13 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
           const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
             contentType: file.mimetype,
             publicUrl: storageProviderConfig.publicUrl,
+            isPublic: true,
           });
           ctx.body = { url: `${url}?v=${cacheBust}` } satisfies UserAssets;
         } else {
           await storage.uploadFile(await readFile(file.filepath), objectKey, {
             contentType: file.mimetype,
+            isPublic: true,
           });
           ctx.body = {
             url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}?v=${cacheBust}`,

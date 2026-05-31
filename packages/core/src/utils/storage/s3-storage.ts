@@ -52,13 +52,13 @@ export const buildS3Storage = ({
     },
   });
 
-  const uploadFile: UploadFile = async (data, objectKey, { contentType, publicUrl } = {}) => {
+  const uploadFile: UploadFile = async (data, objectKey, { contentType, publicUrl, isPublic = true } = {}) => {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: objectKey,
       Body: data,
       ContentType: contentType,
-      ACL: 'public-read',
+      ...(isPublic ? { ACL: 'public-read' } : {}),
     });
 
     await client.send(command);
@@ -150,7 +150,11 @@ export const buildS3Storage = ({
       } catch (error: unknown) {
         // fast-xml-parser < 5.8 can't parse RustFS/MinIO XML entity refs like &#xD;
         if (error instanceof Error && error.message.includes('Invalid character')) {
-          break;
+          throw new Error(
+            `S3 listFiles failed due to XML parsing error for prefix "${prefix}". ` +
+              'This may be caused by RustFS/MinIO XML entity references. ' +
+              `Original error: ${error.message}`
+          );
         }
         throw error;
       }
@@ -168,21 +172,25 @@ export const buildS3Storage = ({
   ): Promise<{ body: ReadableStream; contentType?: string; contentLength?: number }> => {
     const result = await client.send(new GetObjectCommand({ Bucket: bucket, Key: objectKey }));
 
+    if (!result.Body) {
+      throw new Error(`S3 returned empty body for object ${objectKey}`);
+    }
+
     return {
-      body: result.Body!.transformToWebStream(),
+      body: result.Body.transformToWebStream(),
       contentType: result.ContentType,
       contentLength: result.ContentLength,
     };
   };
 
-  /** Copies an object within the same bucket. The copy inherits a `public-read` ACL. */
-  const copyFile = async (sourceKey: string, destKey: string): Promise<void> => {
+  /** Copies an object within the same bucket. The copy inherits a `public-read` ACL by default. */
+  const copyFile = async (sourceKey: string, destKey: string, isPublic = true): Promise<void> => {
     await client.send(
       new CopyObjectCommand({
         Bucket: bucket,
         CopySource: `${bucket}/${sourceKey}`,
         Key: destKey,
-        ACL: 'public-read',
+        ...(isPublic ? { ACL: 'public-read' } : {}),
       })
     );
   };

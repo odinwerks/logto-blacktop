@@ -161,6 +161,7 @@ export const uploadAvatar = async ({
     return await storage.uploadFile(fileContent, objectKey, {
       contentType: avatarMimeType,
       publicUrl: storageProviderConfig.publicUrl,
+      isPublic: true,
     });
   } catch (error: unknown) {
     logError(error);

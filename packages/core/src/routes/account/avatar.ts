@@ -81,28 +81,29 @@ export default function avatarRoutes<T extends UserRouter>(
 
       // Build storage keys
       const extension = detected.extension;
-      const finalKey = `${adminTenantId}/${userId}/you.${extension}`;
-      const userPrefix = `${adminTenantId}/${userId}/you`;
+      const finalKey = `${adminTenantId}/user-assets/${userId}/you.${extension}`;
+      const userPrefix = `${adminTenantId}/user-assets/${userId}/you`;
 
       // Upload directly to final key (PutObject overwrites same-key atomically)
       try {
         await storage.uploadFile(fileBuffer, finalKey, {
           contentType: detected.mime,
           publicUrl: storageProviderConfig.publicUrl,
+          isPublic: true,
         });
       } catch {
         throw new RequestError({ code: 'storage.upload_error', status: 500 });
       }
 
-        // Cleanup old files with other extensions (best-effort, don't fail)
+      // Cleanup old files with other extensions (best-effort, don't fail)
       try {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const existingFiles = await storage.listFiles!(userPrefix);
-        for (const existingKey of existingFiles) {
-          if (existingKey !== finalKey) {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            await storage.deleteFile!(existingKey);
-          }
+        if (storage.listFiles && storage.deleteFile) {
+          const existingFiles = await storage.listFiles(userPrefix);
+          await Promise.all(
+            existingFiles
+              .filter(key => key !== finalKey)
+              .map(key => storage.deleteFile!(key))
+          );
         }
       } catch (error: unknown) {
         getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
@@ -113,8 +114,8 @@ export default function avatarRoutes<T extends UserRouter>(
       if (storageProviderConfig.publicUrl) {
         avatarUrl = `${storageProviderConfig.publicUrl}/${finalKey}`;
       } else {
-        // Use the assets serve route via the current request endpoint
-        avatarUrl = `${envSet.endpoint.origin}/api/assets/${userId}/you.${extension}`;
+        // Use the user-assets serve route via the current request endpoint
+        avatarUrl = `${envSet.endpoint.origin}/api/user-assets/${userId}/you.${extension}`;
       }
       // Add cache-busting
       avatarUrl = `${avatarUrl}?v=${Date.now()}`;

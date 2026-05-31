@@ -60,12 +60,12 @@ const validateDisposableEmailDomain = async (email: string) => {
     return;
   }
 
-  try {
-    assertThat(
-      EnvSet.values.azureFunctionAppEndpoint,
-      new Error('Environment variable AZURE_FUNCTION_APP_ENDPOINT is not set')
-    );
+  // Skip validation if Azure Function endpoint is not configured (OSS)
+  if (!EnvSet.values.azureFunctionAppEndpoint) {
+    return;
+  }
 
+  try {
     const result = await got
       .post(
         new URL('/api/disposable-email-domain-validation', EnvSet.values.azureFunctionAppEndpoint),

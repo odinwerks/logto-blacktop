@@ -52,12 +52,27 @@ export default function customUiAssetsRoutes<T extends ManagementApiRouter>(
         const zip = new AdmZip(zipBuffer);
         const entries = zip.getEntries().filter((entry) => !entry.isDirectory);
 
+        // Guard against zip-bomb: check total uncompressed size before extracting
+        const maxUncompressedSize = 50 * 1024 * 1024; // 50MB
+        const totalUncompressedSize = entries.reduce(
+          (sum, entry) => sum + entry.header.size,
+          0
+        );
+        assertThat(
+          totalUncompressedSize <= maxUncompressedSize,
+          new RequestError({
+            code: 'guard.file_size_exceeded',
+            status: 400,
+          })
+        );
+
         await Promise.all(
           entries.map(async (entry) => {
             const objectKey = `${tenantId}/${customUiAssetId}/${entry.entryName}`;
             const content = entry.getData();
             await storage.uploadFile(content, objectKey, {
               publicUrl: storageProviderConfig.publicUrl,
+              isPublic: true,
             });
           })
         );

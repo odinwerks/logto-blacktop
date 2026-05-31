@@ -1,6 +1,7 @@
 type UploadFileOptions = {
   contentType?: string;
   publicUrl?: string;
+  isPublic?: boolean;
 };
 
 export type UploadFile<T extends Uint8Array = Uint8Array> = (

@@ -17,6 +17,7 @@ import koaGuard from '#src/middleware/koa-guard.js';
 import type { RouterInitArgs } from '#src/routes/types.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
+import { getConsoleLogFromContext } from '#src/utils/console.js';
 import { buildUploadFile } from '#src/utils/storage/index.js';
 
 import type { AuthedMeRouter } from './types.js';
@@ -89,12 +90,14 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
           const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
             contentType: file.mimetype,
             publicUrl: storageProviderConfig.publicUrl,
+            isPublic: true,
           });
 
           ctx.body = isImage ? { url: `${url}?v=${Date.now()}` } : ({ url } satisfies UserAssets);
         } else {
           await storage.uploadFile(await readFile(file.filepath), objectKey, {
             contentType: file.mimetype,
+            isPublic: true,
           });
 
           ctx.body = isImage
@@ -111,6 +114,23 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
           code: 'storage.upload_error',
           status: 500,
         });
+      }
+
+      // Upload succeeded — clean up old avatars with different extensions (images only)
+      if (isImage) {
+        try {
+          if (storage.listFiles && storage.deleteFile) {
+            const prefix = `${adminTenantId}/user-assets/${userId}/you.`;
+            const existingFiles = await storage.listFiles(prefix);
+            await Promise.all(
+              existingFiles
+                .filter((key) => key !== objectKey)
+                .map((key) => storage.deleteFile!(key))
+            );
+          }
+        } catch (error: unknown) {
+          getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
+        }
       }
 
       return next();

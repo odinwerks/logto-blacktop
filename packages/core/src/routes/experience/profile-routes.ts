@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 import {
   InteractionEvent,
+  adminTenantId,
   maxUploadFileSize,
   MfaFactor,
   SignInIdentifier,
@@ -51,7 +52,7 @@ function verifiedInteractionGuard<
       experienceInteraction.interactionEvent !== InteractionEvent.ForgotPassword,
       new RequestError({
         code: 'session.not_supported_for_forgot_password',
-        statue: 400,
+        status: 400,
       })
     );
 
@@ -85,7 +86,7 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
         interactionEvent !== InteractionEvent.ForgotPassword,
         new RequestError({
           code: 'session.not_supported_for_forgot_password',
-          statue: 400,
+          status: 400,
         })
       );
 
@@ -199,23 +200,39 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
       );
 
       const extension = imageExtensionMap[avatarMimeType];
-      const objectKey = `${tenantId}/${experienceInteraction.identifiedUserId}/you.${extension}`;
+      const objectKey = `${adminTenantId}/user-assets/${experienceInteraction.identifiedUserId}/you.${extension}`;
 
       try {
         await storage.uploadFile(fileContent, objectKey, {
           contentType: avatarMimeType,
           publicUrl: storageProviderConfig.publicUrl,
+          isPublic: true,
         });
       } catch (error: unknown) {
         getConsoleLogFromContext(ctx).error(error);
         throw new RequestError({ code: 'storage.upload_error', status: 500 });
       }
 
+      // Upload succeeded — clean up old avatars with different extensions
+      try {
+        if (storage.listFiles && storage.deleteFile) {
+          const prefix = `${adminTenantId}/user-assets/${experienceInteraction.identifiedUserId}/you.`;
+          const existingFiles = await storage.listFiles(prefix);
+          await Promise.all(
+            existingFiles
+              .filter((key) => key !== objectKey)
+              .map((key) => storage.deleteFile!(key))
+          );
+        }
+      } catch (error: unknown) {
+        getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
+      }
+
       // Build the final URL
       const avatarUrl = `${
         storageProviderConfig.publicUrl
           ? `${storageProviderConfig.publicUrl}/${objectKey}`
-          : `${envSet.endpoint.origin}/api/assets/${objectKey}`
+          : `${envSet.endpoint.origin}/api/user-assets/${experienceInteraction.identifiedUserId}/you.${extension}`
       }?v=${Date.now()}`;
 
       ctx.body = { url: avatarUrl };
