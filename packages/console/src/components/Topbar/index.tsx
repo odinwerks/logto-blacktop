@@ -44,7 +44,7 @@ function Topbar({ className, hideTenantSelector, hideTitle }: Props) {
           navigate('/');
         }}
       />
-      {!hideTenantSelector && <TenantSelector />}
+      {isCloud && !hideTenantSelector && <TenantSelector />}
       {!isCloud && !hideTitle && (
         <>
           <div className={styles.line} />
