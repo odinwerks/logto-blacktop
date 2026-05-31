@@ -5,6 +5,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import LogoAndFavicon from '@/components/ImageInputs/LogoAndFavicon';
+import { isCloud } from '@/consts/env';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import Button from '@/ds-components/Button';
 import Card from '@/ds-components/Card';
@@ -28,7 +29,7 @@ function BrandingForm() {
     formState: { errors, isDirty },
   } = useFormContext<SignInExperienceForm>();
   const { currentSubscriptionQuota } = useContext(SubscriptionDataContext);
-  const isHideLogtoBrandingEnabled = currentSubscriptionQuota.bringYourUiEnabled;
+  const isHideLogtoBrandingEnabled = currentSubscriptionQuota.bringYourUiEnabled || !isCloud;
 
   const isDarkModeEnabled = watch('color.isDarkModeEnabled');
   const primaryColor = watch('color.primaryColor');

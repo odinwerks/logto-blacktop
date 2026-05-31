@@ -110,7 +110,7 @@ export const defaultSubscriptionQuota: SubscriptionQuota = {
   hooksLimit: 1,
   auditLogsRetentionDays: 3,
   mfaEnabled: false,
-  organizationsLimit: 0,
+  organizationsLimit: null,
   enterpriseSsoLimit: 0,
   thirdPartyApplicationsLimit: 0,
   tenantMembersLimit: 1,
