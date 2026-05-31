@@ -1,22 +1,12 @@
-<p align="center">
-  <a href="https://logto.io/?utm_source=github&utm_medium=readme" target="_blank" align="center" alt="Go to Logto website">
-    <picture>
-      <source width="200" media="(prefers-color-scheme: dark)" srcset="https://github.com/logto-io/.github/raw/master/profile/logto-logo-dark.svg">
-      <source width="200" media="(prefers-color-scheme: light)" srcset="https://github.com/logto-io/.github/raw/master/profile/logto-logo-light.svg">
-      <img width="200" src="https://github.com/logto-io/logto/raw/master/logo.png" alt="Logto logo">
-    </picture>
-  </a>
-</p>
-
 # Logto Blacktop
 
 [Logto](https://github.com/logto-io/logto) is an amazing platform. OIDC/OAuth 2.1/SAML, multi-tenancy, enterprise SSO, RBAC, all out of the box. I love it.
 
-I wanted to add more features. So... I did.
+I wanted to add more features. So I did.
 
-Everything added in this fork gets submitted back to upstream Logto as a PR (Unless it is something I KNOW they will not pull into their repo). They merge it if they want to. This fork has stuff I need, you may need the same things too. So the fork is public instead of private. 
+Everything added in this fork gets submitted back to upstream Logto as a PR (Unless it is something I KNOW they will not pull into their repo). They merge it if they want to. This fork has stuff I need, you may need the same things too, and hence I made the fork public, also to serve features of this components-kit/starter-app amalgamation https://github.com/odinwerks/logto-components-next better:
 
-Why Blacktop? Toyota's 4A-GE Blacktop is a cool motor. And I needed a name for this to differentiate my modded version from the offical one. 
+I called it Blacktop because Toyota's 4A-GE Blacktop is a cool motor. And I needed a name to differentiate my fork version from the official one.
 
 ---
 
@@ -101,13 +91,15 @@ Full end-to-end password expiration feature. Configure a maximum password age an
 
 > **Upstream status:** Submitted as [PR #8801](https://github.com/logto-io/logto/pull/8801). Closed. Logto is building a similar feature internally. Rather than maintain two competing designs, I closed this PR and kept the implementation in Blacktop.
 
-The stock Logto S3 provider only does PutObject. No delete, no list, no way to check if a file even exists. Every upload gets a random date-stamped path like `userId/2025/03/15/Aa1Bb2Cc/file.png` that guarantees the file is never cleaned up.
+The stock Logto S3 provider only does `PutObject`. No delete, no list, no way to check if a file even exists. Every upload gets a random date-stamped path like `userId/2025/03/15/Aa1Bb2Cc/file.png` that guarantees the file is never cleaned up. Custom UI assets require Azure Functions (blob trigger + polling). No proxy routes -- you must configure `publicUrl` or expose your S3 bucket directly.
 
 #### What changed
 
-The S3 provider now supports all six operations: upload, delete, list (with pagination), download, copy, and file-existence checks. Upload paths are deterministic: `{tenant}/{userId}/{originalFilename}`. Same-name files overwrite. No orphans.
+The S3 provider now supports all six operations: upload, delete, list (with pagination), download, copy, and file-existence checks. Upload paths are deterministic: `{tenant}/user-assets/{userId}/you.{ext}` for avatars, `{tenant}/app-assets/branding/{filename}` for logos/favicons. Same-name files atomically overwrite. Different extensions trigger cleanup of old files. No orphans.
 
-Magic-byte image detection validates the actual file content, not the browser's claimed Content-Type (JPEG, PNG, GIF, BMP, WebP).
+Magic-byte image detection validates the actual file content, not the browser's claimed Content-Type (JPEG, PNG, GIF, BMP, WebP). Uploads include `?v=${Date.now()}` cache-busting. S3 ACL is configurable per-upload via `isPublic` flag (defaults to `true` for backward compatibility).
+
+Custom UI assets are unzipped in-process via AdmZip -- no Azure Functions required. A 50MB cumulative size cap prevents zip-bomb DoS.
 
 #### Account API: Avatar Upload
 
@@ -121,18 +113,24 @@ Content-Type: multipart/form-data
 file: <image binary>
 ```
 
-The endpoint validates the image via magic bytes, uploads to `admin/{userId}/you.{ext}`, cleans up old avatar files with other extensions, and updates the user record. One call. One response with the updated profile and cache-busted URL.
+The endpoint validates the image via magic bytes, uploads to `admin/user-assets/{userId}/you.{ext}`, cleans up old avatar files with other extensions, and updates the user record. One call. One response with the updated profile and cache-busted URL.
 
 Accepts JPEG, PNG, GIF, WebP, BMP. Maximum 20 MB. Requires `profile` scope. Requires account center `avatar` field set to `Edit`.
 
 The old `PATCH /api/my-account` with `{ avatar: url }` still works for custom backends.
 
-#### Public File Proxy
+#### Proxy Routes
 
-Uploaded files are served through Logto itself, not directly from S3:
+Uploaded files are served through Logto itself, not directly from S3.
 
+**User avatars:**
 ```
-GET /api/assets/{userId}/{filename}
+GET /api/user-assets/{userId}/{filename}
+```
+
+**App assets (logos, favicons):**
+```
+GET /api/app-assets/{filename}
 ```
 
 Public. No auth needed. Files are served with `Cross-Origin-Resource-Policy: cross-origin` so avatars embed cross-domain without extra configuration, and `Cache-Control: immutable` for performance.
@@ -186,6 +184,13 @@ export async function uploadAvatar(formData: FormData): Promise<{ avatar: string
   return res.json();
 }
 ```
+
+#### Why upstream's design fails self-hosters
+
+1. **Date-stamped paths are wasteful.** Every upload creates a new S3 object. No cleanup mechanism. Over time, a single user's avatar becomes 5+ orphaned files.
+2. **No proxy routes mean `publicUrl` is mandatory.** Self-hosters behind reverse proxies often don't have public S3 URLs. Blacktop's proxy routes (`/api/user-assets/`, `/api/app-assets/`) just work.
+3. **Custom UI requires Azure Functions.** The zip upload goes to Azure blob storage, a trigger unzips it, polling checks completion. Impossible on self-hosted infrastructure. Blacktop's AdmZip works anywhere.
+4. **No cache-busting means stale images.** Same URL after re-upload means browser serves old cached image.
 
 ### Session Last Active Tracking + Heartbeat API (built on top of PRs #8728, #8729, and #8731.)
 
@@ -285,7 +290,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ## Other Changes from Upstream
 
-### Cloud upsell content removed
+
+- **Hide Logto Branding** unlocked, Toggle in Sign-In Experience > Branding
+- **Custom UI / BYUI** unlocked, Upload ZIP files, configure CSP
 
 All "Try Cloud", "Explore Logto Cloud", "Logto Cloud Pricing", and similar SaaS upsell messaging has been stripped from the Admin Console across all 17 locales. The i18n keys are preserved with empty or neutral self-hosted values so nothing breaks at runtime. The `oss-upsell` utility now returns `#` instead of building `cloud.logto.io` URLs, and `openCloudUpsell` is a no-op.
 
@@ -293,7 +300,7 @@ This is a self-hosted fork. You already chose to self-host. You do not need to b
 
 ### Dark theme modified 
 
-I did not like the color scheme. So I changed the theme to darker colores, tinted blue instead of violet and purple.
+I did not like the color scheme. So I changed the theme to darker colors, tinted blue instead of violet and purple. Me like.
 
 ## License
 
