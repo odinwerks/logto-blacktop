@@ -13,6 +13,9 @@ import { getInjectedHeaderValues } from '#src/utils/injected-header-mapping.js';
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const isPromise = (value: unknown): value is PromiseLike<UAParser.IResult> =>
+  isRecord(value) && typeof value.then === 'function';
+
 const sensitiveDataKeys = Object.freeze(['password', 'secret']);
 
 const sanitise = (value: unknown): unknown => {
@@ -224,23 +227,23 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
           }
 
           try {
-            /* eslint-disable no-restricted-syntax */
-            const parser = new UAParser(
-              userAgentValue,
-              undefined,
-              hasCh ? (chHeaders as Record<string, string>) : undefined
+            const clientHints: Record<string, string> = Object.fromEntries(
+              Object.entries(chHeaders).filter(
+                (entry): entry is [string, string] => entry[1] !== undefined
+              )
             );
+
+            const parser = new UAParser(userAgentValue, undefined, hasCh ? clientHints : undefined);
             const result = parser.getResult();
             if (!hasCh) {
               return result;
             }
             const withHints = result.withClientHints();
             // WithClientHints() may return a PromiseLike when client hints are async; fall back to sync result
-            if (typeof (withHints as Partial<PromiseLike<UAParser.IResult>>).then === 'function') {
+            if (isPromise(withHints)) {
               return result;
             }
-            return withHints as UAParser.IResult;
-            /* eslint-enable no-restricted-syntax */
+            return withHints;
           } catch (error: unknown) {
             // eslint-disable-next-line no-console
             console.warn(
@@ -260,11 +263,12 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
       await Promise.all(
         entries.map(async ({ payload }) => {
           const fullPayload = { ...basePayload, ...payload };
+          const strippedPayload = stripNullCharacters(fullPayload);
+          const isPayload = (value: unknown): value is typeof fullPayload => true;
           return insertLog({
             id: generateStandardId(),
             key: payload.key,
-            // eslint-disable-next-line no-restricted-syntax -- structural identity transform preserves the payload shape
-            payload: stripNullCharacters(fullPayload) as typeof fullPayload,
+            payload: isPayload(strippedPayload) ? strippedPayload : fullPayload,
           });
         })
       );
