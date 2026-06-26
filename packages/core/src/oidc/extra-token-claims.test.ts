@@ -188,15 +188,6 @@ describe('getExtraTokenClaimsForJwtCustomization', () => {
     });
   });
 
-  it('keeps fail-open on script failure when dev features are disabled', async () => {
-    runScriptInLocalVm.mockRejectedValue(new Error('boom'));
-    Reflect.set(EnvSet.values, 'isDevFeaturesEnabled', false);
-
-    await expect(
-      callGetExtraTokenClaimsForJwtCustomization({ blockIssuanceOnError: true })
-    ).resolves.toBeUndefined();
-  });
-
   it('throws access denied when denyAccess is called in custom script', async () => {
     runScriptInLocalVm.mockRejectedValue(
       createResponseError(403, {

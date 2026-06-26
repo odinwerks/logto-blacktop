@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import {
   InteractionEvent,
   adminTenantId,
+  allowAvatarMimeTypes,
   maxUploadFileSize,
   MfaFactor,
   SignInIdentifier,
@@ -11,7 +12,6 @@ import {
   updateProfileApiPayloadGuard,
   uploadFileGuard,
   userAssetsGuard,
-  imageExtensionMap,
 } from '@logto/schemas';
 import { type MiddlewareType } from 'koa';
 import type Router from 'koa-router';
@@ -24,9 +24,8 @@ import SystemContext from '#src/tenants/SystemContext.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
+import { detectImageType } from '#src/utils/file.js';
 import { buildUploadFile } from '#src/utils/storage/index.js';
-
-import { detectAvatarMimeType, isAllowedAvatarMimeType } from '../avatar-upload.js';
 
 import { createNewMfaCodeVerificationRecord } from './classes/verifications/code-verification.js';
 import { experienceRoutes } from './const.js';
@@ -180,10 +179,19 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
       assertThat(file.size <= maxUploadFileSize, 'guard.file_size_exceeded');
 
       const fileContent = await readFile(file.filepath);
-      const contentType = detectAvatarMimeType(fileContent);
-      const avatarMimeType = isAllowedAvatarMimeType(contentType) ? contentType : undefined;
+      const detected = detectImageType(fileContent);
+      assertThat(detected, 'guard.mime_type_not_allowed');
 
-      assertThat(avatarMimeType, 'guard.mime_type_not_allowed');
+      function assertIsAvatarMimeType(
+        mime: string
+      ): asserts mime is (typeof allowAvatarMimeTypes)[number] {
+        const list: readonly string[] = allowAvatarMimeTypes;
+        assertThat(list.includes(mime), 'guard.mime_type_not_allowed');
+      }
+
+      assertIsAvatarMimeType(detected.mime);
+
+      const avatarMimeType = detected.mime;
 
       const { storageProviderConfig } = SystemContext.shared;
       assertThat(storageProviderConfig, 'storage.not_configured');
@@ -199,7 +207,7 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
         new RequestError({ code: 'session.not_found', status: 400 })
       );
 
-      const extension = imageExtensionMap[avatarMimeType];
+      const { extension } = detected;
       const objectKey = `${adminTenantId}/user-assets/${experienceInteraction.identifiedUserId}/you.${extension}`;
 
       try {
@@ -216,12 +224,11 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
       // Upload succeeded — clean up old avatars with different extensions
       try {
         if (storage.listFiles && storage.deleteFile) {
+          const { deleteFile } = storage;
           const prefix = `${adminTenantId}/user-assets/${experienceInteraction.identifiedUserId}/you.`;
           const existingFiles = await storage.listFiles(prefix);
           await Promise.all(
-            existingFiles
-              .filter((key) => key !== objectKey)
-              .map((key) => storage.deleteFile!(key))
+            existingFiles.filter((key) => key !== objectKey).map(async (key) => deleteFile(key))
           );
         }
       } catch (error: unknown) {

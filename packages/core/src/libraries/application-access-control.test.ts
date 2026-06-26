@@ -75,17 +75,6 @@ afterEach(() => {
 });
 
 describe('assertUserHasApplicationAccess()', () => {
-  it('allows without querying the application when dev features are disabled', async () => {
-    setDevFeaturesEnabled(false);
-
-    await expect(
-      createLibrary().assertUserHasApplicationAccess(applicationId, userId)
-    ).resolves.not.toThrow();
-
-    expect(findApplicationById).not.toHaveBeenCalled();
-    expect(findApplicationAccessControl).not.toHaveBeenCalled();
-  });
-
   it('allows without querying rule tables when app-level access control is disabled', async () => {
     findApplicationById.mockResolvedValueOnce(disabledApplication);
 

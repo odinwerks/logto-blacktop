@@ -3,7 +3,6 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { guides } from '@/assets/docs/guides';
 import { type Guide } from '@/assets/docs/guides/types';
-import { isDevFeaturesEnabled } from '@/consts/env';
 import { thirdPartyApp } from '@/consts/external-links';
 import TextLink from '@/ds-components/TextLink';
 import useDocumentationUrl from '@/hooks/use-documentation-url';
@@ -43,11 +42,7 @@ export const useAppGuideMetadata = (): {
   const { getDocumentationUrl } = useDocumentationUrl();
 
   const appGuides = useMemo(
-    () =>
-      guides.filter(
-        ({ metadata: { target, isDevFeature } }) =>
-          target !== 'API' && (isDevFeaturesEnabled || !isDevFeature)
-      ),
+    () => guides.filter(({ metadata: { target } }) => target !== 'API'),
     []
   );
 

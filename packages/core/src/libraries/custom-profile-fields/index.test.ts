@@ -75,13 +75,6 @@ describe('createCustomProfileFieldsLibrary', () => {
     setDevFeaturesEnabled(originalIsDevFeaturesEnabled);
   });
 
-  it('should drop signUpProfileFields when dev features are disabled', async () => {
-    setDevFeaturesEnabled(false);
-
-    await expect(normalizeProfileFields([{ name: 'company' }])).resolves.toBeUndefined();
-    expect(findCustomProfileFieldsByNames).not.toHaveBeenCalled();
-  });
-
   it('should return null signUpProfileFields without reading the catalog', async () => {
     await expect(normalizeProfileFields(null)).resolves.toBeNull();
     expect(findCustomProfileFieldsByNames).not.toHaveBeenCalled();

@@ -90,7 +90,7 @@ export const defaultLogtoSku: LogtoSkuResponse = {
     bringYourUiEnabled: true,
     collectUserProfileEnabled: true,
     passkeySignInEnabled: true,
-    idpInitiatedSsoEnabled: false,
+    idpInitiatedSsoEnabled: true,
     securityFeaturesEnabled: true,
   },
 };

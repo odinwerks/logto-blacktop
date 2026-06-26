@@ -1,6 +1,5 @@
 import type { ApplicationAccessControl } from '@logto/schemas';
 
-import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import type Queries from '#src/tenants/Queries.js';
 
@@ -25,10 +24,6 @@ export const createApplicationAccessControlLibrary = (queries: Queries) => {
   } = queries;
 
   const assertUserHasApplicationAccess = async (applicationId: string, userId: string) => {
-    if (!EnvSet.values.isDevFeaturesEnabled) {
-      return;
-    }
-
     const { appLevelAccessControlEnabled } = await findApplicationById(applicationId).catch(
       (error: unknown) => {
         if (isApplicationNotFoundError(error)) {

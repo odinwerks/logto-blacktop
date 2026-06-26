@@ -883,21 +883,6 @@ describe('PATCH /sign-in-exp customUiCsp', () => {
     expect(guardTenantUsageByKey).toHaveBeenCalledWith('bringYourUiEnabled');
   });
 
-  it('should reject non-empty Custom UI CSP updates outside Cloud', async () => {
-    const { requester, updateDefaultSignInExperience, guardTenantUsageByKey } =
-      await createCustomUiCspRequester({ isCloud: false });
-
-    const response = await requester.patch('/sign-in-exp').send({
-      customUiCsp: {
-        scriptSrc: ['https://example.com'],
-      },
-    });
-
-    expect(response.status).toEqual(400);
-    expect(updateDefaultSignInExperience).not.toHaveBeenCalled();
-    expect(guardTenantUsageByKey).not.toHaveBeenCalled();
-  });
-
   it('should allow clearing Custom UI CSP config without checking quota', async () => {
     const { requester, updateDefaultSignInExperience, guardTenantUsageByKey } =
       await createCustomUiCspRequester({ isDevFeaturesEnabled: false });

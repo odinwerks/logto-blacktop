@@ -53,7 +53,7 @@ describe('swagger general utils', () => {
     setDevFeaturesEnabled(originalIsDevFeaturesEnabled);
   });
 
-  it('should remove dev feature schema properties when dev features are disabled', () => {
+  it('should preserve dev feature schema properties and strip the internal marker regardless of dev features flag', () => {
     setDevFeaturesEnabled(false);
 
     const document = removeUnnecessaryOperations(createDocument());
@@ -66,10 +66,13 @@ describe('swagger general utils', () => {
               content: {
                 'application/json': {
                   schema: {
-                    required: ['name'],
+                    required: ['name', 'beta'],
                     properties: {
                       name: {
                         type: 'string',
+                      },
+                      beta: {
+                        type: 'boolean',
                       },
                     },
                   },
@@ -80,7 +83,7 @@ describe('swagger general utils', () => {
         },
       },
     });
-    expect(JSON.stringify(document)).not.toContain('beta');
+    expect(JSON.stringify(document)).toContain('beta');
     expect(JSON.stringify(document)).not.toContain(devFeatureSchemaExtension);
   });
 

@@ -21,8 +21,8 @@ import { assertUserHasRemainingIdentifier } from '#src/utils/user.js';
 import { PasswordValidator } from '../experience/classes/libraries/password-validator.js';
 import type { UserRouter, RouterInitArgs } from '../types.js';
 
-import { accountApiPrefix } from './constants.js';
 import avatarRoutes from './avatar.js';
+import { accountApiPrefix } from './constants.js';
 import emailAndPhoneRoutes from './email-and-phone.js';
 import accountGrantRoutes from './grants.js';
 import heartbeatRoutes from './heartbeat.js';
@@ -32,7 +32,6 @@ import mfaVerificationsRoutes from './mfa-verifications.js';
 import koaAccountCenter from './middlewares/koa-account-center.js';
 import accountSessionRoutes from './sessions.js';
 import thirdPartyTokensRoutes from './third-party-tokens.js';
-import accountUserAssetsRoutes from './user-assets.js';
 import { getAccountCenterFilteredProfile, getScopedProfile } from './utils/get-scoped-profile.js';
 
 const hasSecurityVerificationMethod = ({
@@ -78,9 +77,9 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
       body: z.object({
         name: z.string().nullable().optional(),
         avatar: z.string().url().nullable().optional(),
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
         username: z.string().regex(usernameRegEx).nullable().optional(),
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+
         customData: jsonObjectGuard.optional(),
       }),
       response: userProfileResponseGuard.partial(),
@@ -108,10 +107,9 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
         customData === undefined || fields.customData === AccountCenterControlValue.Edit,
         'account_center.field_not_editable'
       );
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
       assertThat(scopes.has(UserScope.Profile), 'auth.unauthorized');
       if (customData !== undefined) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         assertThat(scopes.has(UserScope.CustomData), 'auth.unauthorized');
       }
 
@@ -168,11 +166,10 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
         fields.profile === AccountCenterControlValue.Edit,
         'account_center.field_not_editable'
       );
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
       assertThat(scopes.has(UserScope.Profile), 'auth.unauthorized');
 
       if (body.address !== undefined) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         assertThat(scopes.has(UserScope.Address), 'auth.unauthorized');
       }
 
@@ -243,7 +240,6 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
       const { id: userId, scopes } = ctx.auth;
 
       assertThat(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         scopes.has(UserScope.Identities),
         new RequestError({ code: 'auth.unauthorized', status: 401 })
       );
@@ -281,7 +277,6 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
         new RequestError({ code: 'verification_record.permission_denied', status: 401 })
       );
       assertThat(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         scopes.has(UserScope.Identities),
         new RequestError({ code: 'auth.unauthorized', status: 401 })
       );
@@ -321,5 +316,4 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
   accountSessionRoutes(...args);
   heartbeatRoutes(...args);
   accountGrantRoutes(...args);
-  accountUserAssetsRoutes(...args);
 }

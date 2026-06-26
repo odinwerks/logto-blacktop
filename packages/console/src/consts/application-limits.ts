@@ -1,1 +1,1 @@
-export const ossSamlApplicationsLimit = 3;
+export const ossSamlApplicationsLimit = Number.MAX_SAFE_INTEGER;

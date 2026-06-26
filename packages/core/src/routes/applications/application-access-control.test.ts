@@ -69,7 +69,7 @@ describe('application access-control route', () => {
     replaceApplicationAccessControl.mockClear();
   });
 
-  it('PATCH /applications/:applicationId should gate app-level access control enablement by dev features', async () => {
+  it('PATCH /applications/:applicationId should update app-level access control enablement', async () => {
     const applicationRequest = createApplicationRequest();
 
     const patch = { appLevelAccessControlEnabled: true };
@@ -81,15 +81,6 @@ describe('application access-control route', () => {
     expect(findApplicationAccessControl).toHaveBeenCalledWith('foo');
     expect(updateApplicationById).toHaveBeenCalledWith('foo', patch, 'replace');
     expect(response.body).toMatchObject(patch);
-
-    updateApplicationById.mockClear();
-
-    const disabledResponse = await createApplicationRequest(false)
-      .patch('/applications/foo')
-      .send(patch);
-
-    expect(disabledResponse.status).toEqual(400);
-    expect(updateApplicationById).not.toHaveBeenCalled();
   });
 
   it('PATCH /applications/:applicationId should reject enabling app-level access control with empty rules', async () => {
@@ -112,15 +103,6 @@ describe('application access-control route', () => {
     expect(findApplicationById).toHaveBeenCalledWith('foo');
     expect(findApplicationAccessControl).toHaveBeenCalledWith('foo');
     expect(response.body).toEqual(createDefaultApplicationAccessControl());
-  });
-
-  it('GET /applications/:applicationId/access-control should be unavailable without dev features', async () => {
-    const applicationRequest = createApplicationRequest(false);
-
-    const response = await applicationRequest.get('/applications/foo/access-control');
-
-    expect(response.status).toEqual(404);
-    expect(findApplicationAccessControl).not.toHaveBeenCalled();
   });
 
   it('PUT /applications/:applicationId/access-control should validate and replace deduplicated rules', async () => {
@@ -200,17 +182,6 @@ describe('application access-control route', () => {
     const response = await applicationRequest
       .put('/applications/foo/access-control')
       .send(buildAccessControl({ userIds: ['missing-user'] }));
-
-    expect(response.status).toEqual(404);
-    expect(replaceApplicationAccessControl).not.toHaveBeenCalled();
-  });
-
-  it('PUT /applications/:applicationId/access-control should be unavailable without dev features', async () => {
-    const applicationRequest = createApplicationRequest(false);
-
-    const response = await applicationRequest
-      .put('/applications/foo/access-control')
-      .send(buildAccessControl());
 
     expect(response.status).toEqual(404);
     expect(replaceApplicationAccessControl).not.toHaveBeenCalled();

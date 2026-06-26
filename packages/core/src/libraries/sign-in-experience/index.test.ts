@@ -22,7 +22,6 @@ import {
   wellConfiguredSsoConnector,
 } from '#src/__mocks__/index.js';
 import { WellKnownCache } from '#src/caches/well-known.js';
-import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { ssoConnectorFactories } from '#src/sso/index.js';
 import { mockSsoConnectorLibrary } from '#src/test-utils/mock-libraries.js';
@@ -242,31 +241,23 @@ describe('getFullSignInExperience()', () => {
     });
   });
 
-  it('should return the full custom profile field catalog when dev features are disabled', async () => {
-    const originalIsDevFeaturesEnabled = EnvSet.values.isDevFeaturesEnabled;
-    // eslint-disable-next-line @silverhand/fp/no-mutation
-    (EnvSet.values as { isDevFeaturesEnabled: boolean }).isDevFeaturesEnabled = false;
+  it('should filter custom profile fields by signUpProfileFields selection', async () => {
+    findDefaultSignInExperience.mockResolvedValueOnce({
+      ...mockSignInExperience,
+      signUpProfileFields: [{ name: 'company' }],
+    });
+    getLogtoConnectors.mockResolvedValueOnce(mockSocialConnectors);
+    findAllCustomProfileFields.mockResolvedValueOnce(mockCustomProfileFields);
+    mockSsoConnectorLibrary.getAvailableSsoConnectors.mockResolvedValueOnce([
+      wellConfiguredSsoConnector,
+    ]);
 
-    try {
-      findDefaultSignInExperience.mockResolvedValueOnce({
-        ...mockSignInExperience,
-        signUpProfileFields: [{ name: 'company' }],
-      });
-      getLogtoConnectors.mockResolvedValueOnce(mockSocialConnectors);
-      findAllCustomProfileFields.mockResolvedValueOnce(mockCustomProfileFields);
-      mockSsoConnectorLibrary.getAvailableSsoConnectors.mockResolvedValueOnce([
-        wellConfiguredSsoConnector,
-      ]);
+    const fullSignInExperience = await getFullSignInExperience({ locale: 'en' });
 
-      const fullSignInExperience = await getFullSignInExperience({ locale: 'en' });
-
-      expect(fullSignInExperience.customProfileFields).toStrictEqual(mockCustomProfileFields);
-      expect(fullSignInExperience.customProfileFieldCatalog).toStrictEqual(mockCustomProfileFields);
-    } finally {
-      // eslint-disable-next-line @silverhand/fp/no-mutation
-      (EnvSet.values as { isDevFeaturesEnabled: boolean }).isDevFeaturesEnabled =
-        originalIsDevFeaturesEnabled;
-    }
+    // 'company' is not in the catalog, so it is dropped; result is empty.
+    expect(fullSignInExperience.customProfileFields).toStrictEqual([]);
+    // The full catalog is always returned as-is.
+    expect(fullSignInExperience.customProfileFieldCatalog).toStrictEqual(mockCustomProfileFields);
   });
 });
 

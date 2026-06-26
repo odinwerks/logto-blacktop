@@ -5,7 +5,6 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import FormCard from '@/components/FormCard';
 import PageMeta from '@/components/PageMeta';
-import { isDevFeaturesEnabled } from '@/consts/env';
 import CodeEditor from '@/ds-components/CodeEditor';
 import FormField from '@/ds-components/FormField';
 import InlineNotification from '@/ds-components/InlineNotification';
@@ -201,7 +200,7 @@ function AccountCenter({ isActive, data }: Props) {
                 <DeleteAccountUrlField isAccountApiEnabled={isAccountApiEnabled} />
               </>
             )}
-            {section.key === 'userProfile' && isDevFeaturesEnabled && (
+            {section.key === 'userProfile' && (
               <FormField title="sign_in_exp.account_center.profile_fields.title">
                 <ProfileFieldsEditBox<
                   SignInExperienceForm & { accountCenter: AccountCenterFormValues },
