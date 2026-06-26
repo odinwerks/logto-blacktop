@@ -11,6 +11,12 @@ const error = {
   username_exists: 'Benutzername existiert bereits',
   username_should_not_start_with_number: 'Benutzername darf nicht mit einer Zahl beginnen',
   username_invalid_charset: 'Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten',
+  username_too_short: 'Der Benutzername muss mindestens {{min}} Zeichen lang sein.',
+  username_too_long: 'Der Benutzername darf höchstens {{max}} Zeichen lang sein.',
+  username_uppercase_not_allowed: 'Großbuchstaben sind in Benutzernamen nicht erlaubt.',
+  username_lowercase_not_allowed: 'Kleinbuchstaben sind in Benutzernamen nicht erlaubt.',
+  username_numbers_not_allowed: 'Zahlen sind in Benutzernamen nicht erlaubt.',
+  username_underscore_not_allowed: 'Unterstriche sind in Benutzernamen nicht erlaubt.',
   invalid_email: 'Die Email ist ungültig',
   invalid_phone: 'Die Telefonnummer ist ungültig',
   passwords_do_not_match: 'Passwörter stimmen nicht überein',
@@ -32,6 +38,9 @@ const error = {
   terms_acceptance_required: 'Zustimmung zu den Bedingungen erforderlich',
   terms_acceptance_required_description: 'Du musst den Bedingungen zustimmen, um fortzufahren.',
   something_went_wrong: 'Etwas ist schiefgegangen',
+  access_denied: 'Zugriff verweigert',
+  application_access_denied:
+    'Sie haben keine Berechtigung, auf diese Anwendung zuzugreifen.\nBitte kontaktieren Sie Ihren Administrator um Hilfe.',
   feature_not_enabled:
     'Sie haben keine Berechtigung, auf diese Funktion zuzugreifen. Bitte kontaktieren Sie Ihren Administrator um Hilfe.',
 };

@@ -1,6 +1,7 @@
 import { GoogleConnector } from '@logto/connector-kit';
 import { builtInLanguages } from '@logto/phrases-experience';
 import type {
+  AccountCenterSsrSignInExperience,
   ConnectorMetadata,
   ForgotPasswordMethods,
   FullSignInExperience,
@@ -340,10 +341,18 @@ export const createSignInExperienceLibrary = (
     };
   };
 
+  const getAccountCenterSsrSignInExperience =
+    async (): Promise<AccountCenterSsrSignInExperience> => {
+      const { color } = await findDefaultSignInExperience();
+
+      return { color };
+    };
+
   return {
     validateLanguageInfo,
     removeUnavailableSocialConnectorTargets,
     getFullSignInExperience,
+    getAccountCenterSsrSignInExperience,
     findCaptchaPublicConfig,
   };
 };

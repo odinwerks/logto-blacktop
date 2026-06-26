@@ -10,6 +10,12 @@ const error = {
   username_exists: 'Uživatelské jméno již existuje',
   username_should_not_start_with_number: 'Uživatelské jméno nesmí začínat číslem',
   username_invalid_charset: 'Uživatelské jméno může obsahovat pouze písmena, čísla a podtržítka',
+  username_too_short: 'Uživatelské jméno musí být alespoň {{min}} znaků dlouhé.',
+  username_too_long: 'Uživatelské jméno musí být nejvýše {{max}} znaků dlouhé.',
+  username_uppercase_not_allowed: 'Velká písmena nejsou povolena v uživatelských jménech.',
+  username_lowercase_not_allowed: 'Malá písmena nejsou povolena v uživatelských jménech.',
+  username_numbers_not_allowed: 'Čísla nejsou povolena v uživatelských jménech.',
+  username_underscore_not_allowed: 'Podtržítka nejsou povolena v uživatelských jménech.',
   invalid_email: 'E-mailová adresa je neplatná',
   invalid_phone: 'Telefonní číslo je neplatné',
   passwords_do_not_match: 'Hesla se neshodují. Zkus to prosím znovu.',
@@ -30,6 +36,9 @@ const error = {
   terms_acceptance_required: 'Je nutné souhlasit s podmínkami',
   terms_acceptance_required_description: 'Pro pokračování je nutné souhlasit s podmínkami.',
   something_went_wrong: 'Něco se pokazilo.',
+  access_denied: 'Přístup odepřen',
+  application_access_denied:
+    'Nemáš oprávnění k přístupu k této aplikaci.\nKontaktuj prosím svého administrátora pro pomoc.',
   feature_not_enabled:
     'Nemáš oprávnění k přístupu k této funkci. Kontaktuj prosím svého administrátora pro pomoc.',
 };

@@ -7,14 +7,11 @@ const account_center = {
     title: '계정',
     security_title: '보안',
     security_description: '계정 보안을 위해 여기에서 계정 설정을 변경하세요.',
-    /** UNTRANSLATED */
-    profile_title: 'Personal info',
-    /** UNTRANSLATED */
-    profile_description: 'Change your personal information here.',
-    /** UNTRANSLATED */
-    sidebar_personal_info: 'Personal info',
-    /** UNTRANSLATED */
-    sidebar_security: 'Security',
+    profile_title: '개인 정보',
+    profile_description: '여기에서 개인 정보를 변경하세요.',
+    sidebar_personal_info: '개인 정보',
+    sidebar_security: '보안',
+    sidebar_sessions: '세션',
     support: '지원',
   },
   verification: {
@@ -67,6 +64,7 @@ const account_center = {
   username: {
     title: '사용자 이름 설정',
     description: '사용자 이름은 문자, 숫자, 밑줄(_)만 사용할 수 있습니다.',
+    policy_description: '{{requirements}}',
     success: '사용자 이름이 성공적으로 업데이트되었습니다.',
   },
   security: {
@@ -102,6 +100,9 @@ const account_center = {
     disable_2_step_verification: '비활성화',
     no_verification_method_warning:
       '두 번째 인증 방법을 추가하지 않았습니다. 로그인 시 2단계 인증을 활성화하려면 최소 하나를 추가하세요.',
+    passkey_sign_in_prompt: '패스키 설정 안내 표시',
+    passkey_sign_in_prompt_description:
+      '켜면 더 빠르고 안전한 로그인을 위해 패스키를 설정하라는 안내를 받게 됩니다.',
     account_removal: '계정 삭제',
     delete_your_account: '내 계정 삭제',
     delete_account: '계정 삭제',
@@ -246,6 +247,28 @@ const account_center = {
     name_passkey_description:
       '2단계 인증을 위해 이 기기가 성공적으로 확인되었습니다. 여러 키가 있는 경우 식별할 수 있도록 이름을 사용자 지정하세요.',
     name_input_label: '이름',
+  },
+  sessions: {
+    page_title: '세션',
+    page_description: '활성 세션과 승인된 서드파티 애플리케이션을 관리합니다.',
+    title: '세션',
+    current_session: '현재 세션',
+    signed_in_at: '{{date}}에 로그인',
+    revoke_session: '로그아웃',
+    revoke_session_title: '세션 로그아웃',
+    revoke_session_description:
+      '이 세션에서 로그아웃하고 관련된 모든 액세스를 철회합니다. 계속하시겠습니까?',
+    no_other_sessions: '다른 활성 세션이 없습니다.',
+    loading: '로딩 중...',
+    third_party_apps_title: '서드파티 앱',
+    no_third_party_apps: '승인된 서드파티 애플리케이션이 없습니다.',
+    third_party_apps_load_failed: '서드파티 앱을 불러오지 못했습니다. 다시 시도해 주세요.',
+    granted_at: '{{date}}에 승인',
+    revoke_grant: '제거',
+    revoke_grant_title: '서드파티 앱 액세스 제거',
+    revoke_grant_description:
+      '이 애플리케이션에 부여된 모든 액세스를 철회합니다. 계속하시겠습니까?',
+    revoke_grant_failed: '일부 권한 철회에 실패했습니다. 다시 시도해 주세요.',
   },
 };
 

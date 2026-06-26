@@ -3,14 +3,13 @@ import { LogtoProvider, ReservedScope, useLogto, UserScope } from '@logto/react'
 import { accountCenterApplicationId, SignInIdentifier } from '@logto/schemas';
 import classNames from 'classnames';
 import { useContext, useMemo } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import AppBoundary from '@ac/Providers/AppBoundary';
 import LoadingContextProvider from '@ac/Providers/LoadingContextProvider';
 import MobileTabNav from '@ac/components/MobileTabNav';
 import PageHeader from '@ac/components/PageHeader';
 import Sidebar from '@ac/components/Sidebar';
-import { buildAccountNavItems } from '@ac/components/account-nav-items';
 import { layoutClassNames } from '@ac/constants/layout';
 
 import styles from './App.module.scss';
@@ -23,6 +22,7 @@ import PageContext from './Providers/PageContextProvider/PageContext';
 import GlobalLoading from './components/GlobalLoading';
 import {
   securityRoute,
+  sessionsRoute,
   profileRoute,
   emailRoute,
   emailSuccessRoute,
@@ -59,6 +59,7 @@ import Password from './pages/Password';
 import Phone from './pages/Phone';
 import Profile from './pages/Profile';
 import Security from './pages/Security';
+import Sessions from './pages/Sessions';
 import SocialCallback from './pages/SocialCallback';
 import SocialFlow from './pages/SocialFlow';
 import TotpBinding from './pages/TotpBinding';
@@ -67,8 +68,9 @@ import Username from './pages/Username';
 import VerifiedAction from './pages/VerifiedAction';
 import { useAuthRedirect } from './use-auth-redirect';
 import { accountCenterBasePath, handleAccountCenterRoute } from './utils/account-center-route';
-import { hasVisibleSecuritySection } from './utils/security-page';
+import { getAccountTabSettings } from './utils/account-tabs';
 import '@experience/shared/scss/normalized.scss';
+import './scss/normalized.scss';
 
 handleAccountCenterRoute();
 void initI18n();
@@ -76,15 +78,13 @@ void initI18n();
 export const Main = () => {
   const params = new URLSearchParams(window.location.search);
   const { pathname } = window.location;
+  const isAccountRoot =
+    pathname === accountCenterBasePath || pathname === `${accountCenterBasePath}/`;
   const isSocialCallback = pathname.startsWith(
     `${accountCenterBasePath}${socialCallbackRoutePrefix}/`
   );
-  const isAuthCallback =
-    Boolean(params.get('code')) &&
-    (pathname === accountCenterBasePath || pathname === `${accountCenterBasePath}/`);
-  const isSilentAuthFailed =
-    params.get('error') === 'login_required' &&
-    (pathname === accountCenterBasePath || pathname === `${accountCenterBasePath}/`);
+  const isAuthCallback = Boolean(params.get('code')) && isAccountRoot;
+  const isSilentAuthFailed = params.get('error') === 'login_required' && isAccountRoot;
   const isInCallback = isSocialCallback || isAuthCallback;
   const { isAuthenticated, isLoading } = useLogto();
   const {
@@ -96,7 +96,7 @@ export const Main = () => {
   } = useContext(PageContext);
   const isInitialAuthLoading = !isAuthenticated && isLoading;
 
-  useAuthRedirect({ isInCallback, isSilentAuthFailed });
+  useAuthRedirect({ isInCallback: isInCallback || isAccountRoot, isSilentAuthFailed });
 
   if (isSocialCallback) {
     return (
@@ -110,7 +110,7 @@ export const Main = () => {
     return <Callback />;
   }
 
-  if (isInitialAuthLoading || isLoadingExperience || isLoadingUserInfo) {
+  if (isLoadingExperience || (!isAccountRoot && (isInitialAuthLoading || isLoadingUserInfo))) {
     return <GlobalLoading />;
   }
 
@@ -123,11 +123,33 @@ export const Main = () => {
     );
   }
 
+  const {
+    hasProfile,
+    hasSecurity,
+    hasSessions,
+    navItems: accountNavItems,
+  } = getAccountTabSettings({
+    accountCenterSettings,
+    experienceSettings,
+  });
+
+  if (isAccountRoot) {
+    const [firstAvailableNavItem] = accountNavItems;
+
+    if (!firstAvailableNavItem) {
+      return (
+        <Routes>
+          <Route path="*" element={<Home />} />
+        </Routes>
+      );
+    }
+
+    return <Navigate replace to={firstAvailableNavItem.to} />;
+  }
+
   if (!userInfo) {
     return <GlobalLoading />;
   }
-
-  const showsSecurityPage = hasVisibleSecuritySection(accountCenterSettings, experienceSettings);
 
   return (
     <Routes>
@@ -179,8 +201,9 @@ export const Main = () => {
         path={`${socialRoutePrefix}/:connectorId/remove`}
         element={<SocialFlow mode="remove" />}
       />
-      {showsSecurityPage && <Route path={securityRoute} element={<Security />} />}
-      <Route path={profileRoute} element={<Profile />} />
+      {hasSecurity && <Route path={securityRoute} element={<Security />} />}
+      {hasSessions && <Route path={sessionsRoute} element={<Sessions />} />}
+      {hasProfile && <Route path={profileRoute} element={<Profile />} />}
       <Route index element={<Home />} />
       <Route path="*" element={<Home />} />
     </Routes>
@@ -191,15 +214,11 @@ const Layout = () => {
   const { accountCenterSettings, experienceSettings, theme, platform } = useContext(PageContext);
   const hideLogtoBranding = experienceSettings?.hideLogtoBranding === true;
   const { pathname } = useLocation();
-  const showsSecurityPage = hasVisibleSecuritySection(accountCenterSettings, experienceSettings);
-  const hasProfilePage = true;
-  const isSecurityFullPage = pathname === securityRoute && showsSecurityPage;
-  const isProfileFullPage = pathname === profileRoute && hasProfilePage;
-  const isFullPage = isSecurityFullPage || isProfileFullPage;
   const accountNavItems = useMemo(
-    () => buildAccountNavItems({ hasProfile: hasProfilePage, hasSecurity: showsSecurityPage }),
-    [hasProfilePage, showsSecurityPage]
+    () => getAccountTabSettings({ accountCenterSettings, experienceSettings }).navItems,
+    [accountCenterSettings, experienceSettings]
   );
+  const isFullPage = accountNavItems.some(({ to }) => to === pathname);
   const showsMultiPageNav = isFullPage && accountNavItems.length > 1;
   const showsMobileTabNav = platform === 'mobile' && showsMultiPageNav;
   const showsSidebar = platform !== 'mobile' && showsMultiPageNav;
@@ -273,6 +292,7 @@ const App = () => (
           UserScope.Address,
           UserScope.Identities,
           UserScope.CustomData,
+          UserScope.Sessions,
         ],
       }}
     >

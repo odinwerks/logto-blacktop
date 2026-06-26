@@ -5,8 +5,7 @@ const oidc_configs = {
   session_max_ttl_in_days: 'อายุการใช้งานสูงสุดของเซสชัน (TTL) เป็นวัน',
   session_max_ttl_in_days_tip:
     'ขีดจำกัดอายุการใช้งานแบบตายตัวนับจากเวลาที่สร้างเซสชัน ไม่ว่ามีกิจกรรมหรือไม่ เซสชันจะสิ้นสุดเมื่อครบระยะเวลาคงที่นี้',
-  cloud_private_key_rotation_notice:
-    'การหมุนเวียนคีย์ส่วนตัวจะมีผลหลังจากช่วงผ่อนผัน 4 ชั่วโมง',
+  cloud_private_key_rotation_notice: 'การหมุนเวียนคีย์ส่วนตัวจะมีผลหลังจากช่วงผ่อนผัน 4 ชั่วโมง',
 };
 
 export default Object.freeze(oidc_configs);

@@ -11,6 +11,12 @@ const error = {
   username_exists: 'O nome de usuário já existe',
   username_should_not_start_with_number: 'O nome de usuário não deve começar com um número',
   username_invalid_charset: 'O nome de usuário deve conter apenas letras, números ou sublinhados.',
+  username_too_short: 'O nome de usuário deve ter pelo menos {{min}} caracteres.',
+  username_too_long: 'O nome de usuário deve ter no máximo {{max}} caracteres.',
+  username_uppercase_not_allowed: 'Letras maiúsculas não são permitidas em nomes de usuário.',
+  username_lowercase_not_allowed: 'Letras minúsculas não são permitidas em nomes de usuário.',
+  username_numbers_not_allowed: 'Números não são permitidos em nomes de usuário.',
+  username_underscore_not_allowed: 'Sublinhados não são permitidos em nomes de usuário.',
   invalid_email: 'O e-mail é inválido',
   invalid_phone: 'O número de telefone é inválido',
   passwords_do_not_match: 'Suas senhas não correspondem.',
@@ -31,6 +37,9 @@ const error = {
   terms_acceptance_required: 'Aceitação dos termos obrigatória',
   terms_acceptance_required_description: 'Você deve aceitar os termos para continuar.',
   something_went_wrong: 'Algo deu errado',
+  access_denied: 'Acesso negado',
+  application_access_denied:
+    'Você não tem permissão para acessar este aplicativo.\nEntre em contato com seu administrador para obter ajuda.',
   feature_not_enabled:
     'Você não tem permissão para acessar esse recurso. Entre em contato com seu administrador para obter ajuda.',
 };

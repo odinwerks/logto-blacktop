@@ -12,6 +12,12 @@ const error = {
   username_should_not_start_with_number: 'El nombre de usuario no debe comenzar con un número',
   username_invalid_charset:
     'El nombre de usuario solo debe contener letras, números o guiones bajos.',
+  username_too_short: 'El nombre de usuario debe tener al menos {{min}} caracteres.',
+  username_too_long: 'El nombre de usuario debe tener como máximo {{max}} caracteres.',
+  username_uppercase_not_allowed: 'No se permiten letras mayúsculas en los nombres de usuario.',
+  username_lowercase_not_allowed: 'No se permiten letras minúsculas en los nombres de usuario.',
+  username_numbers_not_allowed: 'No se permiten números en los nombres de usuario.',
+  username_underscore_not_allowed: 'No se permiten guiones bajos en los nombres de usuario.',
   invalid_email: 'El correo electrónico no es válido',
   invalid_phone: 'El número de teléfono no es válido',
   passwords_do_not_match: 'Las contraseñas no coinciden. Por favor intente de nuevo',
@@ -34,6 +40,9 @@ const error = {
   terms_acceptance_required_description:
     'Debes aceptar los términos para continuar. Por favor, inténtalo de nuevo.',
   something_went_wrong: 'Algo salió mal',
+  access_denied: 'Acceso denegado',
+  application_access_denied:
+    'No tiene permiso para acceder a esta aplicación.\nPor favor, contacte a su administrador para obtener ayuda.',
   feature_not_enabled:
     'No tiene permiso para acceder a esta función. Por favor, contacte a su administrador para obtener ayuda.',
 };

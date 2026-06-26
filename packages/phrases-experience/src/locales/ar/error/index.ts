@@ -10,6 +10,12 @@ const error = {
   username_exists: 'اسم المستخدم موجود بالفعل',
   username_should_not_start_with_number: 'يجب ألا يبدأ اسم المستخدم برقم',
   username_invalid_charset: 'يجب أن يحتوي اسم المستخدم فقط على الحروف والأرقام والشرطات السفلية.',
+  username_too_short: 'يجب أن يكون اسم المستخدم على الأقل {{min}} حرفًا.',
+  username_too_long: 'يجب أن يكون اسم المستخدم بحد أقصى {{max}} حرفًا.',
+  username_uppercase_not_allowed: 'لا يُسمح بالأحرف الكبيرة في أسماء المستخدمين.',
+  username_lowercase_not_allowed: 'لا يُسمح بالأحرف الصغيرة في أسماء المستخدمين.',
+  username_numbers_not_allowed: 'لا يُسمح بالأرقام في أسماء المستخدمين.',
+  username_underscore_not_allowed: 'لا يُسمح بالشرطات السفلية في أسماء المستخدمين.',
   invalid_email: 'البريد الإلكتروني غير صالح',
   invalid_phone: 'رقم الهاتف غير صالح',
   passwords_do_not_match: 'كلمات المرور غير متطابقة. يرجى المحاولة مرة أخرى.',
@@ -31,6 +37,9 @@ const error = {
   terms_acceptance_required_description:
     'يجب أن توافق على الشروط للمتابعة. يرجى المحاولة مرة أخرى.',
   something_went_wrong: 'حدث خطأ ما',
+  access_denied: 'تم رفض الوصول',
+  application_access_denied:
+    'ليس لديك إذن للوصول إلى هذا التطبيق.\nيرجى الاتصال بالمسؤول للحصول على المساعدة.',
   feature_not_enabled:
     'ليس لديك إذن للوصول إلى هذه الميزة. يرجى الاتصال بالمسؤول للحصول على المساعدة.',
 };

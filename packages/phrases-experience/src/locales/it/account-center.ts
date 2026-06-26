@@ -8,14 +8,11 @@ const account_center = {
     security_title: 'Sicurezza',
     security_description:
       'Modifica qui le impostazioni del tuo account per garantirne la sicurezza.',
-    /** UNTRANSLATED */
-    profile_title: 'Personal info',
-    /** UNTRANSLATED */
-    profile_description: 'Change your personal information here.',
-    /** UNTRANSLATED */
-    sidebar_personal_info: 'Personal info',
-    /** UNTRANSLATED */
-    sidebar_security: 'Security',
+    profile_title: 'Informazioni personali',
+    profile_description: 'Modifica qui le tue informazioni personali.',
+    sidebar_personal_info: 'Informazioni personali',
+    sidebar_security: 'Sicurezza',
+    sidebar_sessions: 'Sessioni',
     support: 'Supporto',
   },
   verification: {
@@ -73,6 +70,7 @@ const account_center = {
   username: {
     title: 'Imposta nome utente',
     description: 'Il nome utente può contenere solo lettere, numeri e trattini bassi.',
+    policy_description: '{{requirements}}',
     success: 'Nome utente aggiornato con successo.',
   },
   security: {
@@ -95,7 +93,7 @@ const account_center = {
     email_verification_code: 'Codice di verifica e-mail',
     phone_verification_code: 'Codice di verifica telefonico',
     passkeys_count_one: '{{count}} passkey',
-    passkeys_count_other: '{{count}} passkeys',
+    passkeys_count_other: '{{count}} passkey',
     backup_codes_count_one: '{{count}} codice rimanente',
     backup_codes_count_other: '{{count}} codici rimanenti',
     view: 'Visualizza',
@@ -108,6 +106,9 @@ const account_center = {
     disable_2_step_verification: 'Disattiva',
     no_verification_method_warning:
       "Non hai aggiunto un secondo metodo di verifica. Aggiungine almeno uno per attivare la verifica in due passaggi all'accesso.",
+    passkey_sign_in_prompt: 'Richiedi la configurazione di un passkey',
+    passkey_sign_in_prompt_description:
+      'Quando è attivo, ti verrà chiesto di configurare un passkey per un accesso più rapido e sicuro.',
     account_removal: "Eliminazione dell'account",
     delete_your_account: 'Elimina il tuo account',
     delete_account: "Elimina l'account",
@@ -259,6 +260,29 @@ const account_center = {
     name_passkey_description:
       "Hai verificato con successo questo dispositivo per l'autenticazione a due fattori. Personalizza il nome per riconoscerlo se hai più chiavi.",
     name_input_label: 'Nome',
+  },
+  sessions: {
+    page_title: 'Sessioni',
+    page_description:
+      'Gestisci le tue sessioni attive e le applicazioni di terze parti autorizzate.',
+    title: 'Sessioni',
+    current_session: 'Sessione corrente',
+    signed_in_at: 'Accesso effettuato {{date}}',
+    revoke_session: 'Disconnetti',
+    revoke_session_title: 'Disconnetti sessione',
+    revoke_session_description:
+      'Questo disconnetterà la sessione e revocherà tutti gli accessi associati. Sei sicuro di voler continuare?',
+    no_other_sessions: 'Nessuna altra sessione attiva.',
+    loading: 'Caricamento...',
+    third_party_apps_title: 'App di terze parti',
+    no_third_party_apps: 'Nessuna applicazione di terze parti autorizzata.',
+    third_party_apps_load_failed: 'Impossibile caricare le app di terze parti. Riprova.',
+    granted_at: 'Autorizzato {{date}}',
+    revoke_grant: 'Rimuovi',
+    revoke_grant_title: 'Rimuovi accesso app di terze parti',
+    revoke_grant_description:
+      'Questo revocherà tutti gli accessi concessi a questa applicazione. Sei sicuro di voler continuare?',
+    revoke_grant_failed: 'Revoca di alcune autorizzazioni non riuscita. Riprova.',
   },
 };
 

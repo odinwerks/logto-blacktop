@@ -77,6 +77,7 @@ const {
   validateLanguageInfo,
   removeUnavailableSocialConnectorTargets,
   getFullSignInExperience,
+  getAccountCenterSsrSignInExperience,
   findCaptchaPublicConfig,
 } = createSignInExperienceLibrary(
   'tenant_foo',
@@ -416,5 +417,19 @@ describe('forgot password methods', () => {
       email: false,
       phone: false,
     });
+  });
+});
+
+describe('getAccountCenterSsrSignInExperience()', () => {
+  it('should return default sign-in experience color', async () => {
+    findDefaultSignInExperience.mockResolvedValueOnce({
+      ...mockSignInExperience,
+      color: { primary: '#123456', secondary: '#fedcba' },
+    });
+    const result = await getAccountCenterSsrSignInExperience();
+    expect(result).toEqual({
+      color: { primary: '#123456', secondary: '#fedcba' },
+    });
+    expect(findDefaultSignInExperience).toHaveBeenCalledTimes(1);
   });
 });

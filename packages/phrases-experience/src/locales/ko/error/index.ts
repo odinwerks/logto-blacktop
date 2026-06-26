@@ -10,6 +10,12 @@ const error = {
   username_exists: '사용자 이름이 이미 존재해요.',
   username_should_not_start_with_number: '사용자 이름은 숫자로 시작하면 안 돼요.',
   username_invalid_charset: '사용자 이름은 문자, 숫자, _(밑줄 문자) 로만 이루어져야 해요.',
+  username_too_short: '사용자 이름은 최소 {{min}}자 이상이어야 해요.',
+  username_too_long: '사용자 이름은 최대 {{max}}자 이하여야 해요.',
+  username_uppercase_not_allowed: '사용자 이름에는 대문자가 허용되지 않아요.',
+  username_lowercase_not_allowed: '사용자 이름에는 소문자가 허용되지 않아요.',
+  username_numbers_not_allowed: '사용자 이름에는 숫자가 허용되지 않아요.',
+  username_underscore_not_allowed: '사용자 이름에는 밑줄 문자가 허용되지 않아요.',
   invalid_email: '이메일이 유효하지 않아요.',
   invalid_phone: '휴대전화번호가 유효하지 않아요.',
   passwords_do_not_match: '비밀번호가 일치하지 않아요.',
@@ -30,6 +36,9 @@ const error = {
   terms_acceptance_required: '약관 동의가 필요해요',
   terms_acceptance_required_description: '계속하려면 약관에 동의해야 해요.',
   something_went_wrong: '문제가 발생했어요',
+  access_denied: '접근이 거부되었어요',
+  application_access_denied:
+    '이 애플리케이션에 액세스할 권한이 없습니다.\n관리자에게 도움을 요청하세요.',
   feature_not_enabled: '이 기능에 액세스할 권한이 없습니다. 관리자에게 도움을 요청하세요.',
 };
 

@@ -10,6 +10,12 @@ const error = {
   username_exists: '用戶名已存在',
   username_should_not_start_with_number: '用戶名不能以數字開頭',
   username_invalid_charset: '用戶名只能包含英文字母、數字或下劃線。',
+  username_too_short: '用戶名必須至少有 {{min}} 個字符。',
+  username_too_long: '用戶名最多只能有 {{max}} 個字符。',
+  username_uppercase_not_allowed: '用戶名不允許使用大寫字母。',
+  username_lowercase_not_allowed: '用戶名不允許使用小寫字母。',
+  username_numbers_not_allowed: '用戶名不允許使用數字。',
+  username_underscore_not_allowed: '用戶名不允許使用下劃線。',
   invalid_email: '無效的電子郵件',
   invalid_phone: '無效的手機號碼',
   passwords_do_not_match: '兩次輸入的密碼不一致。',
@@ -30,6 +36,8 @@ const error = {
   terms_acceptance_required: '需要同意條款',
   terms_acceptance_required_description: '必須同意條款後才能繼續。',
   something_went_wrong: '出錯了',
+  access_denied: '拒絕訪問',
+  application_access_denied: '您沒有權限訪問此應用。\n請聯繫管理員尋求幫助。',
   feature_not_enabled: '您沒有權限訪問此功能。請聯繫管理員尋求幫助。',
 };
 

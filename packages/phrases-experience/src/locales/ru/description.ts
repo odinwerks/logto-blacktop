@@ -46,6 +46,8 @@ const description = {
   enter_username: 'Установить имя пользователя',
   enter_username_description:
     'Имя пользователя является альтернативой для входа в систему. Имя пользователя должно содержать только буквы, цифры и символы подчеркивания.',
+  enter_username_policy_description:
+    'Имя пользователя является альтернативой для входа в систему. {{requirements}}',
   link_email: 'Привязать почту',
   link_phone: 'Привязать номер телефона',
   link_email_or_phone: 'Привязать почту или номер телефона',
@@ -86,6 +88,17 @@ const description = {
     character_types_other:
       'должен содержать по крайней мере {{count}} типа прописных букв, строчных букв, цифр и символов',
   },
+  username_requirements: 'Имя пользователя {{items, list}}.',
+  username_requirement: {
+    length: 'должно содержать от {{min}} до {{max}} символов',
+    characters: 'может содержать только {{characters, list}}',
+  },
+  username_character: {
+    uppercase: 'прописные буквы',
+    lowercase: 'строчные буквы',
+    number: 'цифры',
+    underscore: 'подчёркивания',
+  },
   use: 'Использовать',
   single_sign_on_email_form: 'Введите корпоративный адрес электронной почты',
   single_sign_on_connectors_list:
@@ -110,9 +123,6 @@ const description = {
     'Введите свои {{types, list(type: disjunction;)}} чтобы создать новую учётную запись.',
   all_account_creation_options: 'Все варианты создания учётной записи',
   password_expired: 'Срок действия вашего пароля истек, и его необходимо сбросить перед входом.',
-  password_expiration_reminder:
-    'Ваш пароль истечет через {{days}} дн. Мы рекомендуем сбросить его сейчас.',
-  password_expiration_reminder_skip: 'Пропустить пока',
   password_expiration_reset: 'Сбросить пароль',
   back_to_sign_in: 'Вернуться ко входу',
   support_email: 'Поддержка по электронной почте: <link></link>',

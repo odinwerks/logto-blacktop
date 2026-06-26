@@ -44,7 +44,7 @@ const get_started = {
       'Ücretsiz test için bir geliştirici kiracısı kullanıyorsunuz. Yayına geçmek için bir üretim kiracısı oluşturun veya dönüştürün. Özel bir şeye mi ihtiyacınız var? <a>Bizimle iletişime geçin</a>',
     convert_button: 'Üretim kiracısına dönüştür',
   },
-oss_cloud: {
+  oss_cloud: {
     try: {
       title: '',
       badge: '',

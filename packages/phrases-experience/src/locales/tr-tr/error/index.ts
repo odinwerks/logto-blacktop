@@ -11,6 +11,12 @@ const error = {
   username_exists: 'Kullanıcı adı mevcut.',
   username_should_not_start_with_number: 'Kullanıcı adı sayı ile başlayamaz.',
   username_invalid_charset: 'Kullanıcı adı yalnızca harf,sayı veya alt çizgi içermeli.',
+  username_too_short: 'Kullanıcı adı en az {{min}} karakter uzunluğunda olmalıdır.',
+  username_too_long: 'Kullanıcı adı en fazla {{max}} karakter uzunluğunda olmalıdır.',
+  username_uppercase_not_allowed: 'Kullanıcı adlarında büyük harflere izin verilmiyor.',
+  username_lowercase_not_allowed: 'Kullanıcı adlarında küçük harflere izin verilmiyor.',
+  username_numbers_not_allowed: 'Kullanıcı adlarında rakamlara izin verilmiyor.',
+  username_underscore_not_allowed: 'Kullanıcı adlarında alt çizgilere izin verilmiyor.',
   invalid_email: 'E-posta adresi geçersiz',
   invalid_phone: 'Telefon numarası geçersiz',
   passwords_do_not_match: 'Şifreler eşleşmiyor',
@@ -32,6 +38,9 @@ const error = {
   terms_acceptance_required: 'Şartların kabulü gerekli',
   terms_acceptance_required_description: 'Devam etmek için şartları kabul etmelisiniz.',
   something_went_wrong: 'Bir şeyler yanlış gitti',
+  access_denied: 'Erişim reddedildi',
+  application_access_denied:
+    'Bu uygulamaya erişim izniniz yok.\nYardım için lütfen yöneticinizle iletişime geçin.',
   feature_not_enabled:
     'Bu özelliğe erişim izniniz yok. Yardım için lütfen yöneticinizle iletişime geçin.',
 };

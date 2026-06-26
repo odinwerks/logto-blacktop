@@ -31,6 +31,38 @@ const sanitise = (value: unknown): unknown => {
   return value;
 };
 
+/**
+ * Recursively strip null characters (U+0000) from every string in the value. PostgreSQL rejects
+ * null bytes in `jsonb` (error code `22P05`), so leaving them in would make `insertLog` throw. Since
+ * logs are inserted in a `finally` block, that throw would replace the original response with a 500.
+ */
+const nullCharacter = String.fromCodePoint(0);
+
+const stripFromString = (value: string): string =>
+  value.includes(nullCharacter) ? value.replaceAll(nullCharacter, '') : value;
+
+const stripNullCharacters = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    return stripFromString(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((element) => stripNullCharacters(element));
+  }
+
+  if (isRecord(value)) {
+    // Strip from keys as well: PostgreSQL rejects null bytes anywhere in `jsonb`, keys included.
+    return Object.fromEntries(
+      Object.entries(value).map(([key, element]) => [
+        stripFromString(key),
+        stripNullCharacters(element),
+      ])
+    );
+  }
+
+  return value;
+};
+
 const filterSensitiveData = (data: Record<string, unknown>): Record<string, unknown> => {
   return Object.fromEntries(
     Object.entries(data).map(([key, value]) => {
@@ -128,6 +160,7 @@ export type WithLogContext<ContextT extends IRouterParamContext = IRouterParamCo
 export default function koaAuditLog<StateT, ContextT extends IRouterParamContext, ResponseBodyT>({
   logs: { insertLog },
 }: Queries): MiddlewareType<StateT, WithLogContext<ContextT>, ResponseBodyT> {
+  // eslint-disable-next-line complexity
   return async (ctx, next) => {
     const entries: LogEntry[] = [];
 
@@ -176,9 +209,11 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
         typeof userAgent === 'string' ? userAgent : userAgent?.[0];
       const chHeaders = {
         'sec-ch-ua-model': typeof chUaModel === 'string' ? chUaModel : undefined,
-        'sec-ch-ua-platform-version': typeof chUaPlatformVersion === 'string' ? chUaPlatformVersion : undefined,
+        'sec-ch-ua-platform-version':
+          typeof chUaPlatformVersion === 'string' ? chUaPlatformVersion : undefined,
         'sec-ch-ua-platform': typeof chUaPlatform === 'string' ? chUaPlatform : undefined,
-        'sec-ch-ua-full-version-list': typeof chUaFullVersionList === 'string' ? chUaFullVersionList : undefined,
+        'sec-ch-ua-full-version-list':
+          typeof chUaFullVersionList === 'string' ? chUaFullVersionList : undefined,
         'sec-ch-ua-mobile': typeof chUaMobile === 'string' ? chUaMobile : undefined,
       } satisfies Record<string, string | undefined>;
       const hasCh = Object.values(chHeaders).some(Boolean);
@@ -189,20 +224,29 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
           }
 
           try {
-            const parser = new UAParser(userAgentValue, undefined, hasCh ? chHeaders as Record<string, string> : undefined);
+            /* eslint-disable no-restricted-syntax */
+            const parser = new UAParser(
+              userAgentValue,
+              undefined,
+              hasCh ? (chHeaders as Record<string, string>) : undefined
+            );
             const result = parser.getResult();
             if (!hasCh) {
               return result;
             }
             const withHints = result.withClientHints();
-            // withClientHints() may return a PromiseLike when client hints are async; fall back to sync result
+            // WithClientHints() may return a PromiseLike when client hints are async; fall back to sync result
             if (typeof (withHints as Partial<PromiseLike<UAParser.IResult>>).then === 'function') {
               return result;
             }
             return withHints as UAParser.IResult;
+            /* eslint-enable no-restricted-syntax */
           } catch (error: unknown) {
             // eslint-disable-next-line no-console
-            console.warn('Failed to parse user-agent:', error instanceof Error ? error.message : error);
+            console.warn(
+              'Failed to parse user-agent:',
+              error instanceof Error ? error.message : error
+            );
           }
         })()
       );
@@ -215,10 +259,12 @@ export default function koaAuditLog<StateT, ContextT extends IRouterParamContext
 
       await Promise.all(
         entries.map(async ({ payload }) => {
+          const fullPayload = { ...basePayload, ...payload };
           return insertLog({
             id: generateStandardId(),
             key: payload.key,
-            payload: { ...basePayload, ...payload },
+            // eslint-disable-next-line no-restricted-syntax -- structural identity transform preserves the payload shape
+            payload: stripNullCharacters(fullPayload) as typeof fullPayload,
           });
         })
       );
