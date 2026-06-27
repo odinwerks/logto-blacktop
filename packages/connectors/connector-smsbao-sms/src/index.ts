@@ -13,6 +13,7 @@ import {
   ConnectorType,
   getConfigTemplateByType,
   replaceSendMessageHandlebars,
+  getLocalizedPayload,
 } from '@logto/connector-kit';
 
 import { defaultMetadata, defaultTimeout, endpoint } from './constant.js';
@@ -48,7 +49,7 @@ const sendMessage =
   async (data, inputConfig) => {
     const { to, type, payload } = data;
     const config = getValidatedConfig(inputConfig ?? (await getConfig(defaultMetadata.id)));
-    const { username, passwordOrApiKey, goodsId } = config;
+    const { username, passwordOrApiKey, goodsId, translations } = config;
 
     const template = getConfigTemplateByType(type, config);
 
@@ -60,7 +61,11 @@ const sendMessage =
       )
     );
 
-    const messageContent = replaceSendMessageHandlebars(template.content, payload);
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders in the template resolve to the end-user's language. When no
+    // translations are configured, this is a backward-compatible no-op (payload unchanged).
+    const localizedPayload = getLocalizedPayload(payload, translations);
+    const messageContent = replaceSendMessageHandlebars(template.content, localizedPayload);
 
     try {
       const { body } = await got.get(endpoint, {

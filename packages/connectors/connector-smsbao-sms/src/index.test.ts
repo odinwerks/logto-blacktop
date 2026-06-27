@@ -202,5 +202,35 @@ describe('SMSBao SMS connector', () => {
         },
       });
     });
+
+    it('renders localized `{{t.key}}` placeholders from `config.translations`', async () => {
+      const sendMessage = await createSendMessage();
+
+      const scope = nock(endpoint)
+        .get('')
+        .query((query) => {
+          expect(query).toMatchObject({ c: 'გამარჯობა 123456' });
+          return true;
+        })
+        .reply(200, '0');
+
+      await sendMessage(
+        {
+          to: '13800138000',
+          type: TemplateType.Generic,
+          payload: { code: '123456', locale: 'ka' },
+        },
+        {
+          ...mockedConfig,
+          translations: { ka: { greeting: 'გამარჯობა' } },
+          templates: [
+            { usageType: 'Generic', content: '{{t.greeting}} {{code}}' },
+            ...mockedConfig.templates.filter((tpl) => tpl.usageType !== 'Generic'),
+          ],
+        }
+      );
+
+      expect(scope.isDone()).toBeTruthy();
+    });
   });
 });

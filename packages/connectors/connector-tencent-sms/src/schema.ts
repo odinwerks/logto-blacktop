@@ -17,6 +17,7 @@ export const SmsConfigGuard = z.object({
   signName: z.string(),
   sdkAppId: z.string(),
   region: z.string(),
+  translations: z.record(z.record(z.string())).optional(),
   templates: z.array(SingleSmsConfig).refine(
     (templates) =>
       requiredTemplateUsageTypes.every((requiredType) =>

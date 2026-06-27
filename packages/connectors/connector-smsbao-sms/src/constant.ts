@@ -92,5 +92,13 @@ export const defaultMetadata: ConnectorMetadata = {
         },
       ],
     },
+    {
+      key: 'translations',
+      label: 'Translations',
+      type: ConnectorConfigFormItemType.Json,
+      required: false,
+      defaultValue: {},
+      isDevFeature: true,
+    },
   ],
 };

@@ -112,6 +112,14 @@ export const defaultMetadata: ConnectorMetadata = {
       ],
     },
     {
+      key: 'translations',
+      label: 'Translations',
+      type: ConnectorConfigFormItemType.Json,
+      required: false,
+      defaultValue: {},
+      isDevFeature: true,
+    },
+    {
       key: 'strictPhoneRegionNumberCheck',
       label: 'Strict Phone Region Number Check',
       type: ConnectorConfigFormItemType.Switch,

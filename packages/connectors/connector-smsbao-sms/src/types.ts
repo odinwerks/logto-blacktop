@@ -11,6 +11,7 @@ export const smsbaoSmsConfigGuard = z.object({
   username: z.string().min(1),
   passwordOrApiKey: z.string().min(1),
   goodsId: z.string().min(1).optional(),
+  translations: z.record(z.record(z.string())).optional(),
   templates: z.array(templateGuard).min(1),
 });
 

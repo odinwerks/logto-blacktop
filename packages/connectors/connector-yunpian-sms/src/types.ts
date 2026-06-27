@@ -7,6 +7,7 @@ const templateGuard = z.object({
 
 export const yunpianSmsConfigGuard = z.object({
   apikey: z.string(),
+  translations: z.record(z.record(z.string())).optional(),
   templates: z
     .array(templateGuard)
     .refine(

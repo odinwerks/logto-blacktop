@@ -14,6 +14,7 @@ import {
   ConnectorType,
   replaceSendMessageHandlebars,
   getConfigTemplateByType,
+  getLocalizedPayload,
 } from '@logto/connector-kit';
 
 import { defaultMetadata } from './constant.js';
@@ -25,7 +26,7 @@ const sendMessage =
     const { to, type, payload } = data;
     const config = inputConfig ?? (await getConfig(defaultMetadata.id));
     validateConfig(config, gatewayApiSmsConfigGuard);
-    const { endpoint, apiToken, sender } = config;
+    const { endpoint, apiToken, sender, translations } = config;
     const template = getConfigTemplateByType(type, config);
 
     assert(
@@ -36,10 +37,15 @@ const sendMessage =
       )
     );
 
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders in the template resolve to the end-user's language. When no
+    // translations are configured, this is a backward-compatible no-op (payload unchanged).
+    const localizedPayload = getLocalizedPayload(payload, translations);
+
     const encodedAuth = Buffer.from(`${apiToken}:`).toString('base64');
     const body: GatewayApiSmsPayload = {
       sender,
-      message: replaceSendMessageHandlebars(template.content, payload),
+      message: replaceSendMessageHandlebars(template.content, localizedPayload),
       recipients: [{ msisdn: to }],
     };
 

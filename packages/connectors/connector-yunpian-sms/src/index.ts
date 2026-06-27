@@ -14,6 +14,7 @@ import {
   ConnectorType,
   replaceSendMessageHandlebars,
   getConfigTemplateByType,
+  getLocalizedPayload,
 } from '@logto/connector-kit';
 
 import { defaultMetadata, endpoint } from './constant.js';
@@ -59,7 +60,7 @@ const sendMessage =
     const { to, type, payload } = data;
     const config = inputConfig ?? (await getConfig(defaultMetadata.id));
     validateConfig(config, yunpianSmsConfigGuard);
-    const { apikey, enableInternational, unsupportedCountriesMsg } = config;
+    const { apikey, enableInternational, unsupportedCountriesMsg, translations } = config;
 
     const template = getConfigTemplateByType(type, config);
 
@@ -71,7 +72,11 @@ const sendMessage =
       )
     );
 
-    const messageContent = replaceSendMessageHandlebars(template.content, payload);
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders in the template resolve to the end-user's language. When no
+    // translations are configured, this is a backward-compatible no-op (payload unchanged).
+    const localizedPayload = getLocalizedPayload(payload, translations);
+    const messageContent = replaceSendMessageHandlebars(template.content, localizedPayload);
 
     const formattedPhone = formatPhoneNumber(to);
 

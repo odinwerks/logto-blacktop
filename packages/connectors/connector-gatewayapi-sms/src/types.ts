@@ -15,6 +15,7 @@ export const gatewayApiSmsConfigGuard = z.object({
   endpoint: z.string(),
   apiToken: z.string(),
   sender: z.string(),
+  translations: z.record(z.record(z.string())).optional(),
   templates: z.array(templateGuard).refine(
     (templates) =>
       requiredTemplateUsageTypes.every((requiredType) =>

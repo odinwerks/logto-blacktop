@@ -15,6 +15,7 @@ export const vonageSmsConfigGuard = z.object({
   apiKey: z.string(),
   apiSecret: z.string(),
   brandName: z.string(),
+  translations: z.record(z.record(z.string())).optional(),
   templates: z.array(templateGuard).refine(
     (templates) =>
       requiredTemplateUsageTypes.every((requiredType) =>

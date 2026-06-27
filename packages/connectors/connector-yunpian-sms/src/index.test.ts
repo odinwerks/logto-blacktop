@@ -50,5 +50,34 @@ describe('yunpian SMS connector', () => {
         })
       ).resolves.not.toThrow();
     });
+
+    it('renders localized `{{t.key}}` placeholders from `config.translations`', async () => {
+      const scope = nock(endpoint)
+        .post('', (body) => {
+          expect(body).toMatchObject({ text: 'გამარჯობა 123456' });
+          return true;
+        })
+        .reply(200, { code: 0, msg: '发送成功' });
+
+      await sendMessage(
+        {
+          to: '8613800138000',
+          type: TemplateType.Generic,
+          payload: { code: '123456', locale: 'ka' },
+        },
+        {
+          ...mockedConfig,
+          translations: { ka: { greeting: 'გამარჯობა' } },
+          templates: [
+            { usageType: 'Register', content: 'code {{code}}' },
+            { usageType: 'SignIn', content: 'code {{code}}' },
+            { usageType: 'ForgotPassword', content: 'code {{code}}' },
+            { usageType: 'Generic', content: '{{t.greeting}} {{code}}' },
+          ],
+        }
+      );
+
+      expect(scope.isDone()).toBe(true);
+    });
   });
 });
