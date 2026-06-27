@@ -1,0 +1,11 @@
+@use '@/scss/underscore' as _;
+
+.fallbackHint {
+  margin-block-start: _.unit(2);
+  padding: _.unit(2) _.unit(3);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-layer-2);
+  font: var(--font-body-2);
+  color: var(--color-text-secondary);
+}

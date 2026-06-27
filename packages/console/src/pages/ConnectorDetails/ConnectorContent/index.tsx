@@ -2,7 +2,7 @@ import { ServiceConnector, GoogleConnector } from '@logto/connector-kit';
 import { ConnectorType } from '@logto/schemas';
 import type { ConnectorResponse } from '@logto/schemas';
 import { conditional } from '@silverhand/essentials';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -12,9 +12,11 @@ import ConfigForm from '@/components/ConnectorForm/ConfigForm';
 import GoogleOneTapCard from '@/components/ConnectorForm/GoogleOneTapCard';
 import ConnectorTester from '@/components/ConnectorTester';
 import DetailsForm from '@/components/DetailsForm';
+import EmailTemplatesEditor from '@/components/EmailTemplatesEditor';
 import FormCard from '@/components/FormCard';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
 import { connectors, emailConnectors } from '@/consts';
+import Button from '@/ds-components/Button';
 import useApi from '@/hooks/use-api';
 import { useConnectorFormConfigParser } from '@/hooks/use-connector-form-config-parser';
 import { SyncProfileMode } from '@/types/connector';
@@ -34,6 +36,7 @@ type Props = {
 function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const api = useApi();
+  const [isEmailTemplatesEditorOpen, setIsEmailTemplatesEditorOpen] = useState(false);
   const formData = useMemo(() => convertResponseToForm(connectorData), [connectorData]);
 
   const methods = useForm<ConnectorFormType>({
@@ -152,6 +155,26 @@ function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Prop
               connectorFactoryId={connectorId}
               connectorId={id}
               connectorType={connectorType}
+            />
+          </FormCard>
+        )}
+        {connectorType === ConnectorType.Email && !isEmailServiceConnector && (
+          <FormCard
+            title="connector_details.email_templates.card_title"
+            description="connector_details.email_templates.description"
+          >
+            <Button
+              type="primary"
+              title="connector_details.email_templates.manage_button"
+              onClick={() => {
+                setIsEmailTemplatesEditorOpen(true);
+              }}
+            />
+            <EmailTemplatesEditor
+              isOpen={isEmailTemplatesEditorOpen}
+              onClose={() => {
+                setIsEmailTemplatesEditorOpen(false);
+              }}
             />
           </FormCard>
         )}

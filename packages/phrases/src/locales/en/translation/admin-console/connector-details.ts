@@ -58,6 +58,24 @@ const connector_details = {
     urls_not_allowed: 'URLs are not allowed',
     test_notes: 'Logto uses the “Generic” template for testing.',
   },
+  email_templates: {
+    card_title: 'Email templates',
+    description:
+      'Customize the subject, content, and sender of verification and notification emails for each supported language. These templates apply to all email connectors; Logto automatically falls back to your default language when a localized template is missing.',
+    manage_button: 'Manage templates',
+    empty_state:
+      'No email templates for this language yet. Fill in a subject and content for any template type to create one.',
+    fallback_hint: 'Falls back to {{language}} when this template is empty.',
+    subject: 'Subject',
+    content: 'Content',
+    content_type: 'Content type',
+    reply_to: 'Reply-to',
+    send_from: 'Send from',
+    delete_language: 'Delete language',
+    delete_language_confirmation:
+      'Are you sure you want to delete all email templates for this language? This action cannot be undone.',
+    save_language: 'Save',
+  },
   google_one_tap: {
     title: 'Google One Tap',
     description: 'Google One Tap is a secure and easy way for users to sign in to your website.',

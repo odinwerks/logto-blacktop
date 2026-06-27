@@ -1,0 +1,12 @@
+@use '@/scss/underscore' as _;
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(4);
+}
+
+.content {
+  min-height: 160px;
+  resize: vertical;
+}

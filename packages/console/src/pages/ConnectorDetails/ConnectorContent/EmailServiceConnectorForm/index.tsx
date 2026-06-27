@@ -1,10 +1,13 @@
 import { urlRegEx } from '@logto/connector-kit';
 import { conditionalString } from '@silverhand/essentials';
+import { useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
+import EmailTemplatesEditor from '@/components/EmailTemplatesEditor';
 import FormCard from '@/components/FormCard';
+import Button from '@/ds-components/Button';
 import DynamicT from '@/ds-components/DynamicT';
 import FormField from '@/ds-components/FormField';
 import TextInput from '@/ds-components/TextInput';
@@ -35,6 +38,7 @@ function EmailServiceConnectorForm({ extraInfo }: Props) {
   const { isReady: isUserAssetsServiceReady } = useUserAssetsService();
   const parsedExtraInfo = extraInfoGuard.safeParse(extraInfo ?? {});
   const { getDocumentationUrl } = useDocumentationUrl();
+  const [isEmailTemplatesEditorOpen, setIsEmailTemplatesEditorOpen] = useState(false);
 
   const {
     control,
@@ -60,6 +64,13 @@ function EmailServiceConnectorForm({ extraInfo }: Props) {
         customI18nKey: 'connector_details.logto_email.template_description_link_text',
       }}
     >
+      <Button
+        type="primary"
+        title="connector_details.email_templates.manage_button"
+        onClick={() => {
+          setIsEmailTemplatesEditorOpen(true);
+        }}
+      />
       <FormField title="connector_details.logto_email.from_email_field">
         <TextInput
           readOnly
@@ -118,6 +129,12 @@ function EmailServiceConnectorForm({ extraInfo }: Props) {
           />
         )}
       </FormField>
+      <EmailTemplatesEditor
+        isOpen={isEmailTemplatesEditorOpen}
+        onClose={() => {
+          setIsEmailTemplatesEditorOpen(false);
+        }}
+      />
     </FormCard>
   );
 }
