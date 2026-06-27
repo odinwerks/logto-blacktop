@@ -17,6 +17,7 @@ import useSWR, { useSWRConfig } from 'swr';
 
 import Clear from '@/assets/icons/clear.svg?react';
 import Delete from '@/assets/icons/delete.svg?react';
+import { LocalizationEditorContext } from '@/components/LocalizationEditor/use-localization-editor-context';
 import Button from '@/ds-components/Button';
 import ConfirmModal from '@/ds-components/ConfirmModal';
 import IconButton from '@/ds-components/IconButton';
@@ -33,7 +34,6 @@ import { shouldRetryOnError } from '@/utils/request';
 
 import styles from './LanguageDetails.module.scss';
 import { hiddenLocalePhraseGroups, hiddenLocalePhrases } from './constants';
-import { LanguageEditorContext } from './use-language-editor-context';
 import { createEmptyUiTranslation, flattenTranslation } from './utils';
 
 const emptyUiTranslation = createEmptyUiTranslation();
@@ -43,7 +43,7 @@ function LanguageDetails() {
   const { data: signInExperience } = useSWR<SignInExperience, RequestError>('api/sign-in-exp');
   const { languages } = useUiLanguages();
   const { selectedLanguage, isDirty, setIsDirty, setSelectedLanguage } =
-    useContext(LanguageEditorContext);
+    useContext(LocalizationEditorContext);
   const [isDeletionAlertOpen, setIsDeletionAlertOpen] = useState(false);
   const isBuiltIn = isBuiltInLanguageTag(selectedLanguage);
   const isDefaultLanguage = signInExperience?.languageInfo.fallbackLanguage === selectedLanguage;

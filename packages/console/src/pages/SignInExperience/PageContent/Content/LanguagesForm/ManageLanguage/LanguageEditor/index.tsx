@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import Modal from 'react-modal';
 
 import Close from '@/assets/icons/close.svg?react';
+import useLocalizationEditorContext, {
+  LocalizationEditorContext,
+} from '@/components/LocalizationEditor/use-localization-editor-context';
 import Card from '@/ds-components/Card';
 import CardTitle from '@/ds-components/CardTitle';
 import ConfirmModal from '@/ds-components/ConfirmModal';
@@ -12,7 +15,6 @@ import useUiLanguages from '@/hooks/use-ui-languages';
 import LanguageDetails from './LanguageDetails';
 import LanguageNav from './LanguageNav';
 import styles from './index.module.scss';
-import useLanguageEditorContext, { LanguageEditorContext } from './use-language-editor-context';
 
 type Props = {
   readonly isOpen: boolean;
@@ -35,7 +37,7 @@ function LanguageEditorModal({ isOpen, onClose }: Props) {
     setPreAddedLanguage,
     setConfirmationState,
     setIsDirty,
-  } = useContext(LanguageEditorContext);
+  } = useContext(LocalizationEditorContext);
 
   useEffect(() => {
     setSelectedLanguage(defaultSelectedLanguage);
@@ -112,7 +114,7 @@ function LanguageEditorModal({ isOpen, onClose }: Props) {
 
 function LanguageEditor(props: Props) {
   const { context: languageEditorContext, Provider: LanguageEditorContextProvider } =
-    useLanguageEditorContext();
+    useLocalizationEditorContext();
 
   return (
     <LanguageEditorContextProvider value={languageEditorContext}>

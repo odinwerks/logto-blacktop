@@ -2,12 +2,12 @@ import type { LanguageTag } from '@logto/language-kit';
 import { isLanguageTag, languages as uiLanguageNameMapping } from '@logto/language-kit';
 import { useContext } from 'react';
 
+import AddLanguageSelector from '@/components/LocalizationEditor/AddLanguageSelector';
+import LanguageItem from '@/components/LocalizationEditor/LanguageItem';
+import { LocalizationEditorContext } from '@/components/LocalizationEditor/use-localization-editor-context';
 import useUiLanguages from '@/hooks/use-ui-languages';
 
-import AddLanguageSelector from './AddLanguageSelector';
-import LanguageItem from './LanguageItem';
 import style from './LanguageNav.module.scss';
-import { LanguageEditorContext } from './use-language-editor-context';
 
 function LanguageNav() {
   const { languages, addLanguage } = useUiLanguages();
@@ -19,7 +19,7 @@ function LanguageNav() {
     setSelectedLanguage,
     setPreSelectedLanguage,
     setPreAddedLanguage,
-  } = useContext(LanguageEditorContext);
+  } = useContext(LocalizationEditorContext);
 
   const languageOptions = Object.keys(uiLanguageNameMapping).filter(
     (languageTag): languageTag is LanguageTag =>
