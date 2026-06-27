@@ -198,3 +198,47 @@ describe('Test SMTP connector with custom i18n templates', () => {
     });
   });
 });
+
+describe('Test SMTP connector with config.translations', () => {
+  beforeEach(() => {
+    // The prior suite leaves `getI18nEmailTemplate` returning a tenant override (which takes
+    // precedence over the connector-config template). Reset it so the connector-config template +
+    // `translations` dictionary are the active path here, and clear call history for clean asserts.
+    vi.clearAllMocks();
+    getI18nEmailTemplate.mockReset();
+  });
+
+  it('renders localized `{{t.key}}` placeholders from `config.translations`', async () => {
+    const templates = mockedConfig.templates.map((template) =>
+      template.usageType === 'Generic'
+        ? {
+            ...template,
+            subject: '{{t.greeting}} {{code}}',
+            content: '{{t.greeting}} your verification code is {{code}}',
+          }
+        : template
+    );
+
+    const connector = await createConnector({ getConfig, getI18nEmailTemplate });
+
+    await connector.sendMessage(
+      {
+        to: 'foo',
+        type: TemplateType.Generic,
+        payload: { code: '123456', locale: 'ka' },
+      },
+      {
+        ...mockedConfig,
+        translations: { ka: { greeting: 'გამარჯობა' } },
+        templates,
+      }
+    );
+
+    expect(sendMail).toHaveBeenCalledWith({
+      from: '<notice@test.smtp>',
+      subject: 'გამარჯობა 123456',
+      text: 'გამარჯობა your verification code is 123456',
+      to: 'foo',
+    });
+  });
+});

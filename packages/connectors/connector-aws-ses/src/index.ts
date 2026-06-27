@@ -14,6 +14,7 @@ import {
   ConnectorErrorCodes,
   ConnectorType,
   getConfigTemplateByType,
+  getLocalizedPayload,
   validateConfig,
 } from '@logto/connector-kit';
 
@@ -30,7 +31,7 @@ const sendMessage =
     const { to, type, payload } = data;
     const config = inputConfig ?? (await getConfig(defaultMetadata.id));
     validateConfig(config, awsSesConfigGuard);
-    const { accessKeyId, accessKeySecret, region } = config;
+    const { accessKeyId, accessKeySecret, region, translations } = config;
 
     const customTemplate = await trySafe(async () => getI18nEmailTemplate?.(type, payload.locale));
 
@@ -45,8 +46,13 @@ const sendMessage =
       )
     );
 
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders resolve to the end-user's language. A back-compatible no-op when
+    // no translations are configured.
+    const localizedPayload = getLocalizedPayload(payload, translations);
+
     const client: SESv2Client = makeClient(accessKeyId, accessKeySecret, region);
-    const emailContent = makeEmailContent(template, payload);
+    const emailContent = makeEmailContent(template, localizedPayload);
     const command: SendEmailCommand = makeCommand(config, emailContent, to);
 
     try {

@@ -90,6 +90,31 @@ describe('sendCode parameter passing', () => {
     );
   });
 
+  it('should pass ctx.emailI18n.locale (resolved from ?lang=) to sendVerificationCode payload', async () => {
+    // Simulates the email-i18n middleware having resolved `?lang=ka` to `locale: 'ka'`.
+    const ctx = {
+      request: { ip: '127.0.0.1' },
+      createLog: jest.fn(() => ({ append: jest.fn().mockImplementation(resolveVoid) })),
+      experienceInteraction: mockExperienceInteraction,
+      emailI18n: { locale: 'ka' },
+    };
+
+    const libraries = { passcodes: mockPasscodeLibrary } as unknown as Partial<Libraries>;
+    await sendCode({
+      identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
+      interactionEvent: InteractionEvent.SignIn,
+      createVerificationRecord: () => mockCodeVerification,
+      libraries: libraries as unknown as Libraries,
+      queries: mockQueries,
+      ctx: ctx as unknown as ExperienceInteractionRouterContext,
+    });
+
+    expect(mockSendVerificationCode).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'ka' }),
+      expect.objectContaining({ skipDelivery: false })
+    );
+  });
+
   it('should skip delivery for forgot-password with non-existing email user', async () => {
     const mockQueriesNoUser = {
       users: {

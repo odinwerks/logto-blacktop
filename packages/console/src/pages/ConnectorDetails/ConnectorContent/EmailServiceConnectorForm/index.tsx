@@ -64,13 +64,6 @@ function EmailServiceConnectorForm({ extraInfo }: Props) {
         customI18nKey: 'connector_details.logto_email.template_description_link_text',
       }}
     >
-      <Button
-        type="primary"
-        title="connector_details.email_templates.manage_button"
-        onClick={() => {
-          setIsEmailTemplatesEditorOpen(true);
-        }}
-      />
       <FormField title="connector_details.logto_email.from_email_field">
         <TextInput
           readOnly
@@ -129,6 +122,15 @@ function EmailServiceConnectorForm({ extraInfo }: Props) {
           />
         )}
       </FormField>
+      <div className={styles.manageTemplates}>
+        <Button
+          type="primary"
+          title="connector_details.email_templates.manage_button"
+          onClick={() => {
+            setIsEmailTemplatesEditorOpen(true);
+          }}
+        />
+      </div>
       <EmailTemplatesEditor
         isOpen={isEmailTemplatesEditorOpen}
         onClose={() => {

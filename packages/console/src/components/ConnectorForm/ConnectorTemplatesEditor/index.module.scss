@@ -1,9 +1,12 @@
 @use '@/scss/underscore' as _;
 
+// The editor renders inline within the owning "Parameter configuration" card (a `FormCard`). It is a
+// flat stack of labeled sections — never its own card, and the delivery templates share a single
+// bordered container separated by dividers (no per-template box).
 .editor {
   display: flex;
   flex-direction: column;
-  gap: _.unit(6);
+  gap: _.unit(4);
   width: 100%;
 }
 
@@ -15,25 +18,88 @@
 
 .sectionTitle {
   margin: 0;
-  font: var(--font-label-2);
-  color: var(--color-text);
+  @include _.section-head-2;
 }
 
+// The single bordered container holding every delivery template. Each template is a `.templateRow`
+// separated from the next by a top divider — not its own box — keeping the layout compact.
 .templates {
   display: flex;
   flex-direction: column;
-  gap: _.unit(3);
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  background-color: var(--color-background);
+  overflow: hidden;
 }
 
+// A single delivery template: header (usage-type label + growing divider line) then its fields.
+// The `+ .templateRow` top border is the full-width separator between templates; the header's
+// growing divider gives the "SignIn ──────" look on the same line as the label.
 .templateRow {
   display: flex;
   flex-direction: column;
-  gap: _.unit(1);
+  gap: _.unit(2);
+  padding: _.unit(3) _.unit(4);
+
+  & + & {
+    border-top: 1px solid var(--color-divider);
+  }
+}
+
+.templateRowHeader {
+  display: flex;
+  align-items: center;
+  gap: _.unit(2);
 }
 
 .usageType {
+  font: var(--font-label-2);
+  color: var(--color-text-secondary);
+}
+
+.headerDivider {
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-divider);
+}
+
+// Subject + content-type live on one row (subject grows, content-type keeps a fixed width).
+.emailFieldGrid {
+  display: flex;
+  flex-direction: row;
+  gap: _.unit(3);
+  align-items: flex-start;
+}
+
+.subjectField {
+  flex: 1;
+  min-width: 0;
+}
+
+.contentTypeField {
+  width: _.unit(30);
+  flex-shrink: 0;
+}
+
+.note {
   font: var(--font-body-2);
   color: var(--color-text-secondary);
+  padding: _.unit(2) _.unit(3);
+  border-radius: 8px;
+  background-color: var(--color-layer-2);
+}
+
+// The empty-state "Add localizations" control fills the section width for prominence.
+.emptyAddLanguage {
+  width: 100%;
+}
+
+.emptyTranslations {
+  font: var(--font-body-2);
+  color: var(--color-text-secondary);
+  padding: _.unit(3) _.unit(4);
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
 }
 
 .translationKey {
@@ -43,4 +109,44 @@
 
 .translationValue {
   width: 100%;
+}
+
+// Inline email-template rows group their fields (subject, content-type, content, text) inside a
+// tight `.fieldsGroup` so related fields read as one block rather than as separate form sections.
+// The `.templateRow` gap (`_.unit(2)`, 8px) still separates the usage-type header from this group;
+// inside the group the fields sit at a tight `_.unit(1)` (4px). FormField's own default stacked
+// spacing is suppressed for fields inside the group (see `.fieldInRow` below) so its 24px
+// `margin-top` does not stack on top of the 4px gap.
+.fieldsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(1);
+}
+
+// Compact, content-fitting CodeEditor for inline email-template content. The shared CodeEditor
+// reserves a tall fixed box (`_.unit(6)` / 24px×2 vertical padding on the container plus an 80px
+// editor `min-height`) that dwarfs short templates inside the inline template editor. Tighten the
+// vertical padding here (specificity doubled to override the shared CodeEditor `.container` rule
+// without `!important`, which the project stylelint config forbids). Only the template-editor
+// content editors are affected; every other CodeEditor usage is unchanged.
+.contentEditor.contentEditor {
+  padding-block: _.unit(2);
+}
+
+// Suppress FormField's default `_.unit(6)` (24px) `margin-top` (`./FormField`'s
+// `.field:not(:first-child)`) for fields inside a template row so the group's tight 4px `gap` is
+// the only vertical spacing — otherwise the 24px stacks on top of the gap and recreates the
+// "subject and content too far apart" problem. Specificity tripled (doubled `.fieldInRow` under
+// `.fieldsGroup`) to override the shared FormField rule without `!important`.
+.fieldsGroup .fieldInRow.fieldInRow {
+  margin-top: 0;
+}
+
+// Lower the editor area's 80px `min-height` floor so a short template renders at its natural height
+// (≈ the SMS `Textarea`'s two-row height) instead of a large fixed box; the editor still grows
+// with the content. Specificity tripled to override the shared CodeEditor
+// `.editor:not(.readonly) pre/textarea` rules without `!important`.
+.contentEditor.contentEditor.contentEditor pre,
+.contentEditor.contentEditor.contentEditor textarea {
+  min-height: _.unit(12);
 }

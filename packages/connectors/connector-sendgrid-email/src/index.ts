@@ -17,6 +17,7 @@ import {
   ConnectorType,
   replaceSendMessageHandlebars,
   getConfigTemplateByType,
+  getLocalizedPayload,
 } from '@logto/connector-kit';
 
 import { defaultMetadata, endpoint } from './constant.js';
@@ -86,15 +87,20 @@ const sendMessage =
     const { to, type, payload } = data;
     const config = inputConfig ?? (await getConfig(defaultMetadata.id));
     validateConfig(config, sendGridMailConfigGuard);
-    const { apiKey } = config;
+    const { apiKey, translations } = config;
 
     const customTemplate = await trySafe(async () => getI18nEmailTemplate?.(type, payload.locale));
 
     const template = getConfigTemplateByType(type, config);
 
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders resolve to the end-user's language. A back-compatible no-op when
+    // no translations are configured.
+    const localizedPayload = getLocalizedPayload(payload, translations);
+
     const parameters = customTemplate
-      ? buildParametersFromCustomTemplate(to, config, customTemplate, payload)
-      : template && buildParametersFromDefaultTemplate(to, config, template, payload);
+      ? buildParametersFromCustomTemplate(to, config, customTemplate, localizedPayload)
+      : template && buildParametersFromDefaultTemplate(to, config, template, localizedPayload);
 
     assert(parameters, new ConnectorError(ConnectorErrorCodes.TemplateNotFound));
 

@@ -40,6 +40,11 @@ export const aliyunDmConfigGuard = z.object({
         .join(', ')}) should be provided!`,
     })
   ),
+  /**
+   * Per-language translation dictionary consumed by `getLocalizedPayload` to resolve `{{t.key}}`
+   * placeholders at send time. A back-compatible no-op when absent/empty. Dev-flagged.
+   */
+  translations: z.record(z.record(z.string())).optional(),
 });
 
 export type AliyunDmConfig = z.infer<typeof aliyunDmConfigGuard>;

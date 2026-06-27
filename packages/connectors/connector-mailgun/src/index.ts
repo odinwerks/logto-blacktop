@@ -17,6 +17,7 @@ import {
   validateConfig,
   TemplateType,
   replaceSendMessageHandlebars,
+  getLocalizedPayload,
 } from '@logto/connector-kit';
 
 import { defaultMetadata } from './constant.js';
@@ -75,15 +76,20 @@ const sendMessage = (
     const config = inputConfig ?? (await getConfig(defaultMetadata.id));
     validateConfig(config, mailgunConfigGuard);
 
-    const { endpoint, domain, apiKey, from, deliveries } = config;
+    const { endpoint, domain, apiKey, from, deliveries, translations } = config;
 
     const customTemplate = await trySafe(async () => getI18nEmailTemplate?.(type, payload.locale));
     const template = deliveries[type] ?? deliveries[TemplateType.Generic];
 
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders in `deliveries` (subject/html/text) resolve to the end-user's
+    // language. A back-compatible no-op when no translations are configured.
+    const localizedPayload = getLocalizedPayload(payload, translations);
+
     const data = customTemplate
-      ? getDataFromCustomTemplate(customTemplate, payload)
+      ? getDataFromCustomTemplate(customTemplate, localizedPayload)
       : // Fallback to the default template if the custom i18n template is not found.
-        template && getDataFromDeliveryConfig(template, payload);
+        template && getDataFromDeliveryConfig(template, localizedPayload);
 
     assert(data, new ConnectorError(ConnectorErrorCodes.TemplateNotFound));
 

@@ -101,6 +101,12 @@ export const smtpConfigGuard = z.object({
         .join(', ')}) should be provided!`,
     })
   ),
+  /**
+   * Per-language translation dictionary (`Record<LanguageTag, Record<string, string>>`) consumed by
+   * `getLocalizedPayload` to resolve `{{t.key}}` placeholders in `templates` at send time. A
+   * back-compatible no-op when absent/empty. Reachable only under the dev feature flag.
+   */
+  translations: z.record(z.record(z.string())).optional(),
   ...debuggingGuardObject,
   ...securityGuardObject,
   /**

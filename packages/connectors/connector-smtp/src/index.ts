@@ -16,6 +16,7 @@ import {
   ConnectorType,
   replaceSendMessageHandlebars,
   getConfigTemplateByType,
+  getLocalizedPayload,
 } from '@logto/connector-kit';
 import nodemailer from 'nodemailer';
 import type Mail from 'nodemailer/lib/mailer';
@@ -63,6 +64,7 @@ const sendMessage =
     const { to, type, payload } = data;
     const config = inputConfig ?? (await getConfig(defaultMetadata.id));
     validateConfig(config, smtpConfigGuard);
+    const { translations } = config;
 
     const customTemplate = await trySafe(async () => getI18nEmailTemplate?.(type, payload.locale));
     const template = customTemplate ?? getConfigTemplateByType(type, config);
@@ -75,10 +77,15 @@ const sendMessage =
       )
     );
 
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders resolve to the end-user's language. When no translations are
+    // configured, this is a back-compatible no-op (payload unchanged).
+    const localizedPayload = getLocalizedPayload(payload, translations);
+
     // eslint-disable-next-line no-restricted-syntax -- nodemailer's `AuthenticationTypeLogin` types `user`/`pass` as required strings, but at runtime it treats them as optional (skipping auth when absent). Our schema widens these to support relays that authorize by source.
     const configOptions = config as SMTPTransport.Options;
     const transporter = nodemailer.createTransport(configOptions);
-    const mailOptions = buildMailOptions(config, template, payload, to);
+    const mailOptions = buildMailOptions(config, template, localizedPayload, to);
 
     try {
       return await transporter.sendMail(mailOptions);

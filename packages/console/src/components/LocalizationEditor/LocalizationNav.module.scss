@@ -1,5 +1,6 @@
 @use '@/scss/underscore' as _;
 
+// Modal sidebar variant (vertical 185px rail beside the per-language details pane).
 .languageNav {
   width: 185px;
   padding: _.unit(3) _.unit(2);
@@ -13,5 +14,24 @@
     flex: 1;
     margin-top: _.unit(3);
     overflow-y: auto;
+  }
+}
+
+// Inline pill-bar variant used by the inline `ConnectorTemplatesEditor`. A wrapping horizontal row
+// of language pills (+ add-language control) so the inline editor does not reuse the modal's narrow
+// vertical rail.
+.inlineNav {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: _.unit(2);
+  width: 100%;
+  padding: _.unit(2) 0;
+
+  .languageItemList {
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: _.unit(2);
   }
 }

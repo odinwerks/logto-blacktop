@@ -1,5 +1,6 @@
 import type { LanguageTag } from '@logto/language-kit';
 import { languages as uiLanguageNameMapping } from '@logto/language-kit';
+import type { AdminConsoleKey } from '@logto/phrases';
 import type { ChangeEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,10 +18,18 @@ import style from './AddLanguageSelector.module.scss';
 type Props = {
   readonly options: LanguageTag[];
   readonly onSelect: (languageTag: LanguageTag) => void;
+  /**
+   * The i18n key for the add-language trigger button. Defaults to the shared
+   * `sign_in_exp.content.manage_language.add_language`; callers that surface the control outside
+   * the localization modal (e.g. the connector template editor's empty state) can pass a more
+   * contextual label.
+   */
+  readonly buttonTitle?: AdminConsoleKey;
 };
 
-function AddLanguageSelector({ options, onSelect }: Props) {
+function AddLanguageSelector({ options, onSelect, buttonTitle }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
+  const triggerTitle = buttonTitle ?? 'sign_in_exp.content.manage_language.add_language';
   const selectorRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isDropDownOpen, setIsDropDownOpen] = useState(false);
@@ -81,7 +90,7 @@ function AddLanguageSelector({ options, onSelect }: Props) {
           <Button
             className={style.addLanguageButton}
             icon={<Plus className={style.buttonIcon} />}
-            title="sign_in_exp.content.manage_language.add_language"
+            title={triggerTitle}
             type="default"
             size="medium"
             onClick={() => {

@@ -71,19 +71,30 @@ const connector_details = {
     content_type: 'Content type',
     reply_to: 'Reply-to',
     send_from: 'Send from',
+    text_version: 'Plain-text version',
     delete_language: 'Delete language',
     delete_language_confirmation:
       'Are you sure you want to delete all email templates for this language? This action cannot be undone.',
     save_language: 'Save',
   },
   template_editor: {
-    translations_title: 'Translations',
+    template_translations_available: 'Template translations available',
+    add_localizations: 'Add localizations',
     add_key: 'Add key',
     key: 'Key',
     value: 'Value',
-    usage_templates: 'Usage templates',
+    delivery_templates: 'Delivery templates',
     content_placeholder:
       'Use {{code}} for the payload value and {{t.key}} for localized text from the translations dictionary.',
+    subject_placeholder: 'Email subject (supports {{code}} and {{t.key}})',
+    no_translation_keys:
+      'No translation keys yet. Add {{t.key}} placeholders to a template above to start localizing.',
+    alias: 'Template alias',
+    alias_placeholder: 'Provider template alias',
+    alias_hint:
+      'This usage type references a provider-stored template; the per-language translations dictionary does not apply.',
+    provider_template_hint:
+      'This usage type uses a provider-stored template; only the subject is editable here.',
   },
   google_one_tap: {
     title: 'Google One Tap',

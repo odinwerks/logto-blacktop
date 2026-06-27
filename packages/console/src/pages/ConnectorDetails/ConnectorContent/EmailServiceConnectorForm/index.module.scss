@@ -5,3 +5,13 @@
   font: var(--font-body-2);
   margin-top: _.unit(0.5);
 }
+
+// The "Manage templates" button sits after the brand-info form fields in a right-aligned row,
+// separated by a divider — instead of a full-width primary button dominating above the fields.
+.manageTemplates {
+  display: flex;
+  flex-direction: row-reverse;
+  margin-top: _.unit(2);
+  padding-top: _.unit(4);
+  border-top: 1px solid var(--color-divider);
+}

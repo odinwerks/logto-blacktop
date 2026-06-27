@@ -16,6 +16,7 @@ import {
   parseJson,
   replaceSendMessageHandlebars,
   getConfigTemplateByType,
+  getLocalizedPayload,
 } from '@logto/connector-kit';
 
 import { defaultMetadata, defaultRegionId } from './constant.js';
@@ -41,6 +42,7 @@ const sendMessage =
       accountName,
       fromAlias,
       regionId = defaultRegionId,
+      translations,
     } = config;
 
     const customTemplate = await trySafe(async () => getI18nEmailTemplate?.(type, payload.locale));
@@ -55,6 +57,11 @@ const sendMessage =
       )
     );
 
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders resolve to the end-user's language. A back-compatible no-op when
+    // no translations are configured.
+    const localizedPayload = getLocalizedPayload(payload, translations);
+
     try {
       const httpResponse = await singleSendMail(
         {
@@ -65,10 +72,10 @@ const sendMessage =
           AddressType: '1',
           ToAddress: to,
           FromAlias: customTemplate?.sendFrom
-            ? replaceSendMessageHandlebars(customTemplate.sendFrom, payload)
+            ? replaceSendMessageHandlebars(customTemplate.sendFrom, localizedPayload)
             : fromAlias,
-          Subject: replaceSendMessageHandlebars(template.subject, payload),
-          HtmlBody: replaceSendMessageHandlebars(template.content, payload),
+          Subject: replaceSendMessageHandlebars(template.subject, localizedPayload),
+          HtmlBody: replaceSendMessageHandlebars(template.content, localizedPayload),
         },
         accessKeySecret
       );

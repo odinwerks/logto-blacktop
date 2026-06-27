@@ -16,6 +16,7 @@ import {
   ConnectorType,
   getConfigTemplateByType,
   replaceSendMessageHandlebars,
+  getLocalizedPayload,
   validateConfig,
 } from '@logto/connector-kit';
 import { convert as htmlToText } from 'html-to-text';
@@ -158,7 +159,12 @@ const sendMessage =
     const { to, type, payload } = data;
     const config = inputConfig ?? (await getConfig(defaultMetadata.id));
     validateConfig(config, mailJunkyConfigGuard);
-    const { apiKey } = config;
+    const { apiKey, translations } = config;
+
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders resolve to the end-user's language. A back-compatible no-op when
+    // no translations are configured.
+    const localizedPayload = getLocalizedPayload(payload, translations);
 
     // 1. Try to get i18n template, fallback to connector config
     const customTemplate = await trySafe(async () => getI18nEmailTemplate?.(type, payload.locale));
@@ -172,7 +178,7 @@ const sendMessage =
     ): PublicParameters => {
       const { subject, content, contentType = 'text/html', sendFrom } = details;
       const renderedSendFrom = sendFrom
-        ? replaceSendMessageHandlebars(sendFrom, payload)
+        ? replaceSendMessageHandlebars(sendFrom, localizedPayload)
         : undefined;
       const overriddenFrom = renderedSendFrom
         ? parseSendFrom(renderedSendFrom, fromEmail, fromName)
@@ -183,7 +189,7 @@ const sendMessage =
         subject,
         content,
         contentType,
-        payload,
+        payload: localizedPayload,
         fromEmail: overriddenFrom.fromEmail,
         fromName: overriddenFrom.fromName,
       });
@@ -200,7 +206,7 @@ const sendMessage =
             subject: template.subject,
             content: template.content,
             contentType: template.type,
-            payload,
+            payload: localizedPayload,
             fromEmail: config.fromEmail,
             fromName: config.fromName,
           });

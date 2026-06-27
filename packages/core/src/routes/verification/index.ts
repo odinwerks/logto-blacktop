@@ -13,6 +13,7 @@ import {
 import { z } from 'zod';
 
 import koaGuard from '#src/middleware/koa-guard.js';
+import { getExperienceLanguage } from '#src/utils/i18n.js';
 
 import {
   buildVerificationRecordByIdAndType,
@@ -88,13 +89,18 @@ export default function verificationRoutes<T extends UserRouter>(
             z.literal(TemplateType.UserPermissionValidation),
           ])
           .optional(),
+        // Optional: explicitly request a locale for the verification-code message. Authenticated
+        // callers (e.g. the admin dashboard) use this to override the locale otherwise derived
+        // from the request context. Region tags are normalized to their base tag (e.g. `ka-GE`
+        // -> `ka`); unsupported tags gracefully fall back to the request-context locale.
+        locale: z.string().optional(),
       }),
       response: z.object({ verificationRecordId: z.string(), expiresAt: z.string() }),
       status: [201, 501],
     }),
     async (ctx, next) => {
       const { id: userId, clientId: applicationId } = ctx.auth;
-      const { identifier, templateType: inputTemplateType } = ctx.guard.body;
+      const { identifier, templateType: inputTemplateType, locale: bodyLocale } = ctx.guard.body;
 
       const user = await queries.users.findUserById(userId);
       const isNewIdentifier =
@@ -118,8 +124,27 @@ export default function verificationRoutes<T extends UserRouter>(
           ? await libraries.passcodes.buildVerificationCodeContext({ user, applicationId }, ctx)
           : undefined;
 
+      // Resolve the locale for the verification-code message.
+      // Precedence: explicit `locale` in the request body (normalized via `getExperienceLanguage`
+      // so region tags like `ka-GE` collapse to their base tag — e.g. `ka` when configured as a
+      // custom language — and unsupported tags fall back gracefully) > `ctx.emailI18n.locale`
+      // (resolved by the `koa-email-i18n` middleware from `?lang=`, the `ui_locales` cookie, and
+      // the `Accept-Language` header) > the configured fallback language.
+      // When no body `locale` is provided, `ctx.emailI18n` is spread unchanged (backward compatible).
+      const overrideLocale = bodyLocale
+        ? await (async () => {
+            const [customLanguages, { languageInfo }] = await Promise.all([
+              queries.customPhrases.findAllCustomLanguageTags(),
+              queries.signInExperiences.findDefaultSignInExperience(),
+            ]);
+
+            return getExperienceLanguage({ ctx, languageInfo, customLanguages, lng: bodyLocale });
+          })()
+        : undefined;
+
       await codeVerification.sendVerificationCode({
         ...ctx.emailI18n,
+        ...(overrideLocale && { locale: overrideLocale }),
         ...emailContextPayload,
       });
 

@@ -9,7 +9,7 @@
 
   .header {
     flex-shrink: 0;
-    padding: _.unit(6) _.unit(5);
+    padding: _.unit(6) _.unit(6);
     font: var(--font-title-1);
     color: var(--color-text);
     display: flex;
@@ -28,27 +28,33 @@
     }
   }
 
+  // Keep the tab strip's horizontal edges aligned with the header and form fields below by using
+  // the same `_.unit(6)` horizontal rhythm (previously a thinner `_.unit(4)` left the tabs visibly
+  // misaligned with the header text and form fields).
   .tabs {
     flex-shrink: 0;
-    padding: 0 _.unit(4);
+    padding: 0 _.unit(6);
     border-bottom: 1px solid var(--color-divider);
   }
 
   .formContainer {
     flex: 1;
     overflow: auto;
-    padding: _.unit(4) _.unit(5) _.unit(6);
+    padding: _.unit(6) _.unit(6) _.unit(6);
     display: flex;
     flex-direction: column;
   }
 
+  // Footer with token-based spacing (previously a hardcoded `height: 60px` and a third distinct
+  // horizontal edge). Now the Save button sits on a divider with the same `_.unit(6)` horizontal
+  // rhythm as the header/tabs/form.
   .footer {
     flex-shrink: 0;
     border-top: 1px solid var(--color-divider);
-    height: 60px;
     display: flex;
     flex-direction: row-reverse;
     align-items: center;
-    padding-inline-end: _.unit(5);
+    gap: _.unit(4);
+    padding: _.unit(3) _.unit(6);
   }
 }

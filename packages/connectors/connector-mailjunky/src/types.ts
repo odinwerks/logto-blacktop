@@ -50,6 +50,11 @@ export const mailJunkyConfigGuard = z.object({
       });
     }
   }),
+  /**
+   * Per-language translation dictionary consumed by `getLocalizedPayload` to resolve `{{t.key}}`
+   * placeholders at send time. A back-compatible no-op when absent/empty. Dev-flagged.
+   */
+  translations: z.record(z.record(z.string())).optional(),
 });
 
 export type MailJunkyConfig = z.infer<typeof mailJunkyConfigGuard>;

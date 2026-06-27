@@ -11,9 +11,15 @@ type Props = {
   readonly languages: LanguageTag[];
   readonly onSelectAdd?: (languageTag: LanguageTag) => void | Promise<void>;
   readonly addableOptions?: LanguageTag[];
+  /**
+   * `'sidebar'` (default) renders the vertical 185px language rail used inside the modal
+   * `LocalizationEditor`. `'inline'` renders a horizontal pill bar that wraps, used by the inline
+   * `ConnectorTemplatesEditor` so the inline editor does not reuse the modal's narrow rail.
+   */
+  readonly variant?: 'sidebar' | 'inline';
 };
 
-function LocalizationNav({ languages, onSelectAdd, addableOptions }: Props) {
+function LocalizationNav({ languages, onSelectAdd, addableOptions, variant = 'sidebar' }: Props) {
   const {
     selectedLanguage,
     isDirty,
@@ -54,7 +60,7 @@ function LocalizationNav({ languages, onSelectAdd, addableOptions }: Props) {
   };
 
   return (
-    <div className={style.languageNav}>
+    <div className={variant === 'inline' ? style.inlineNav : style.languageNav}>
       {onSelectAdd && <AddLanguageSelector options={languageOptions} onSelect={onAddLanguage} />}
       <div className={style.languageItemList}>
         {languages.map((languageTag) => (

@@ -32,6 +32,11 @@ export const awsSesConfigGuard = z.object({
         .join(', ')}) should be provided!`,
     })
   ),
+  /**
+   * Per-language translation dictionary consumed by `getLocalizedPayload` to resolve `{{t.key}}`
+   * placeholders at send time. A back-compatible no-op when absent/empty. Dev-flagged.
+   */
+  translations: z.record(z.record(z.string())).optional(),
   feedbackForwardingEmailAddress: z.string().optional(),
   feedbackForwardingEmailAddressIdentityArn: z.string().optional(),
   configurationSetName: z.string().optional(),

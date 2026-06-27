@@ -1,3 +1,4 @@
+import { normalizeValueToStringArray } from '@silverhand/essentials';
 import { type MiddlewareType } from 'koa';
 import { type IRouterParamContext } from 'koa-router';
 
@@ -9,6 +10,9 @@ type EmailI18nContext = {
   /**
    * The resolved locale for email templates, synced with the language used in Experience UI.
    * E.g. "fr", "en". The value is determined by the following sources in order of priority:
+   * - The optional `?lang=` query parameter on the request URL, if any. This lets unauthenticated
+   *   callers (sign-up, sign-in, forgot-password) explicitly request a language for verification
+   *   codes. Region tags are normalized to their base tag (e.g. `ka-GE` -> `ka`).
    * - The `ui_locales` parameter from the authentication request, if any.
    * - The HTTP `Accept-Language` header, if the sign-in experience is configured to auto-detect language.
    * - The fallback language configured in the sign-in experience, defaults to `en`.
@@ -41,6 +45,14 @@ export default function koaEmailI18n<StateT, ContextT extends IRouterParamContex
     } = queries;
 
     const { uiLocales } = getLogtoCookie(ctx);
+
+    // Optional `?lang=` query parameter. When present it is prepended to `ui_locales` so that, after
+    // `getExperienceLanguage` iterates candidates in order, `?lang=` takes precedence over the
+    // cookie while still falling back through `ui_locales` -> `Accept-Language` -> fallback language.
+    // `getExperienceLanguage` splits `lng` on whitespace and normalizes region tags to their base.
+    const langQuery = normalizeValueToStringArray(ctx.query.lang).join(' ');
+    const lng = [langQuery, uiLocales].filter(Boolean).join(' ') || undefined;
+
     const [customLanguages, { languageInfo }] = await Promise.all([
       findAllCustomLanguageTags(),
       findDefaultSignInExperience(),
@@ -49,11 +61,13 @@ export default function koaEmailI18n<StateT, ContextT extends IRouterParamContex
       ctx,
       languageInfo,
       customLanguages,
-      lng: uiLocales,
+      lng,
     });
 
     ctx.emailI18n = {
       locale: experienceLanguage,
+      // `uiLocales` preserves the original OIDC `ui_locales` (from the cookie) for downstream
+      // connectors; it intentionally does not reflect `?lang=`.
       ...(uiLocales && { uiLocales }),
     };
 

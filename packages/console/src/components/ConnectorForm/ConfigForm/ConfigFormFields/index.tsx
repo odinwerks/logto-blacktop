@@ -55,11 +55,16 @@ function ConfigFormFields({ formItems, connectorType }: Props) {
   );
 
   const renderFormItem = (item: ConnectorConfigFormItem) => {
-    // SMS connectors host an inline templates + translations editor: the `templates` item is rendered
-    // by it, and the sibling `translations` item is skipped in the map below (owned entirely by the
-    // editor) so it does not surface as its own (empty) form field.
-    if (connectorType === ConnectorType.Sms && item.key === 'templates') {
-      return <ConnectorTemplatesEditor formItem={item} />;
+    // SMS and email connectors host an inline templates + translations editor: the
+    // `templates`/`deliveries` item is rendered by it, and the sibling `translations` item is
+    // skipped in the map below (owned entirely by the editor) so it does not surface as its own
+    // (empty) form field. Inlining the connector-type check lets TypeScript narrow `connectorType`
+    // to a defined `ConnectorType` for the editor's required prop.
+    if (
+      (connectorType === ConnectorType.Sms || connectorType === ConnectorType.Email) &&
+      (item.key === 'templates' || item.key === 'deliveries')
+    ) {
+      return <ConnectorTemplatesEditor formItem={item} connectorType={connectorType} />;
     }
 
     const errorMessage = formConfigErrors?.[item.key]?.message;
@@ -185,7 +190,10 @@ function ConfigFormFields({ formItems, connectorType }: Props) {
     <>
       {formItems.map((item) =>
         showFormItems(item) &&
-        !(connectorType === ConnectorType.Sms && item.key === 'translations') ? (
+        // SMS/email connectors own their `translations` field inside `ConnectorTemplatesEditor`;
+        // skip the standalone render so it does not surface as its own (empty) form field. Social
+        // connectors have no `translations` item, so the skip is a harmless no-op there.
+        !(connectorType !== ConnectorType.Social && item.key === 'translations') ? (
           <FormField
             key={item.key}
             isRequired={item.required}

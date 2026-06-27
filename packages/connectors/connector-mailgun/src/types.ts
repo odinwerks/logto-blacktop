@@ -55,6 +55,12 @@ export type MailgunConfig = {
    * and the value is the config object.
    */
   deliveries: Record<string, DeliveryConfig>;
+  /**
+   * Per-language translation dictionary consumed by `getLocalizedPayload` to resolve `{{t.key}}`
+   * placeholders in `deliveries` (subject/html/text) at send time. A back-compatible no-op when
+   * absent/empty. Reachable only under the dev feature flag.
+   */
+  translations?: Record<string, Record<string, string>>;
 };
 
 export const mailgunConfigGuard = z.object({
@@ -63,4 +69,5 @@ export const mailgunConfigGuard = z.object({
   apiKey: z.string(),
   from: z.string(),
   deliveries: z.record(templateConfigGuard),
+  translations: z.record(z.record(z.string())).optional(),
 }) satisfies z.ZodType<MailgunConfig>;

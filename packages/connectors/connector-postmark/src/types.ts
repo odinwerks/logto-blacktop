@@ -27,6 +27,13 @@ export const postmarkConfigGuard = z.object({
         .join(', ')}) should be provided!`,
     })
   ),
+  /**
+   * Per-language translation dictionary. Postmark templates are provider-stored aliases (no inline
+   * `{{t.key}}` content), so this field has no runtime effect here and the inline editor's
+   * translations grid stays empty. Kept for parity with the other email connectors + reserved for
+   * future alias-side localization. Dev-flagged.
+   */
+  translations: z.record(z.record(z.string())).optional(),
 });
 
 export type PostmarkConfig = z.infer<typeof postmarkConfigGuard>;
