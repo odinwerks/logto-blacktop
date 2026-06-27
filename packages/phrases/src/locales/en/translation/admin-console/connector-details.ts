@@ -76,6 +76,15 @@ const connector_details = {
       'Are you sure you want to delete all email templates for this language? This action cannot be undone.',
     save_language: 'Save',
   },
+  template_editor: {
+    translations_title: 'Translations',
+    add_key: 'Add key',
+    key: 'Key',
+    value: 'Value',
+    usage_templates: 'Usage templates',
+    content_placeholder:
+      'Use {{code}} for the payload value and {{t.key}} for localized text from the translations dictionary.',
+  },
   google_one_tap: {
     title: 'Google One Tap',
     description: 'Google One Tap is a secure and easy way for users to sign in to your website.',

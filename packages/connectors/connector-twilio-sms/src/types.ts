@@ -32,6 +32,7 @@ export const twilioSmsConfigGuard = z.object({
   authToken: z.string(),
   fromMessagingServiceSID: z.string(),
   disableRiskCheck: z.boolean().optional(),
+  translations: z.record(z.record(z.string())).optional(),
   templates: z.array(templateGuard).refine(
     (templates) =>
       requiredTemplateUsageTypes.every((requiredType) =>

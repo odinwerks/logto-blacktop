@@ -1,5 +1,5 @@
 import type { ConnectorConfigFormItem } from '@logto/connector-kit';
-import { ConnectorConfigFormItemType } from '@logto/connector-kit';
+import { ConnectorConfigFormItemType, ConnectorType } from '@logto/connector-kit';
 import { conditional } from '@silverhand/essentials';
 import { useCallback } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
@@ -17,13 +17,16 @@ import type { ConnectorFormType } from '@/types/connector';
 import { formatMultiLineScopeInput } from '@/utils/connector-form';
 import { jsonValidator } from '@/utils/validator';
 
+import ConnectorTemplatesEditor from '../../ConnectorTemplatesEditor';
+
 import styles from './index.module.scss';
 
 type Props = {
   readonly formItems: ConnectorConfigFormItem[];
+  readonly connectorType?: ConnectorType;
 };
 
-function ConfigFormFields({ formItems }: Props) {
+function ConfigFormFields({ formItems, connectorType }: Props) {
   const {
     watch,
     register,
@@ -52,6 +55,13 @@ function ConfigFormFields({ formItems }: Props) {
   );
 
   const renderFormItem = (item: ConnectorConfigFormItem) => {
+    // SMS connectors host an inline templates + translations editor: the `templates` item is rendered
+    // by it, and the sibling `translations` item is skipped in the map below (owned entirely by the
+    // editor) so it does not surface as its own (empty) form field.
+    if (connectorType === ConnectorType.Sms && item.key === 'templates') {
+      return <ConnectorTemplatesEditor formItem={item} />;
+    }
+
     const errorMessage = formConfigErrors?.[item.key]?.message;
     const error =
       typeof errorMessage === 'string' && errorMessage.length > 0
@@ -174,7 +184,8 @@ function ConfigFormFields({ formItems }: Props) {
   return (
     <>
       {formItems.map((item) =>
-        showFormItems(item) ? (
+        showFormItems(item) &&
+        !(connectorType === ConnectorType.Sms && item.key === 'translations') ? (
           <FormField
             key={item.key}
             isRequired={item.required}
