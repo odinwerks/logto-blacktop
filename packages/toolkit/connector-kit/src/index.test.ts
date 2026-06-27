@@ -9,6 +9,7 @@ import {
   validateConfig,
   getValue,
   getAccessTokenByRefreshToken,
+  getLocalizedPayload,
 } from './index.js';
 
 describe('validateConfig', () => {
@@ -201,5 +202,118 @@ describe('getAccessTokenByRefreshToken', () => {
       .reply(200, mockTokenResponse);
     const { access_token } = await getAccessTokenByRefreshToken(mockedConfig, mockRefreshToken);
     expect(access_token).toEqual(mockTokenResponse.access_token);
+  });
+});
+
+// `getLocalizedPayload` may enrich the payload with a `t` dict; this helper exposes it for
+// assertions without narrowing the inferred payload type.
+const getT = (result: Record<string, unknown>): unknown => result.t;
+
+describe('getLocalizedPayload', () => {
+  const basePayload = { code: '123456', locale: 'ka' };
+
+  it('uses the exact locale match', () => {
+    const translations = {
+      ka: { greeting: 'გამარჯობა' },
+      en: { greeting: 'Hello' },
+    };
+
+    const result = getLocalizedPayload(basePayload, translations);
+
+    expect(getT(result)).toEqual({ greeting: 'გამარჯობა' });
+  });
+
+  it('falls back to the parent language tag when exact locale is missing', () => {
+    const translations = {
+      zh: { greeting: '你好' },
+      en: { greeting: 'Hello' },
+    };
+
+    const result = getLocalizedPayload({ code: '123456', locale: 'zh-CN' }, translations);
+
+    expect(getT(result)).toEqual({ greeting: '你好' });
+  });
+
+  it("falls back to 'en' when exact locale and parent tag are missing", () => {
+    const translations = {
+      fr: { greeting: 'Bonjour' },
+      en: { greeting: 'Hello' },
+    };
+
+    const result = getLocalizedPayload({ code: '123456', locale: 'de' }, translations);
+
+    expect(getT(result)).toEqual({ greeting: 'Hello' });
+  });
+
+  it('falls back to the first available language when en is missing', () => {
+    const translations = {
+      fr: { greeting: 'Bonjour' },
+      de: { greeting: 'Hallo' },
+    };
+
+    const result = getLocalizedPayload({ code: '123456', locale: 'es' }, translations);
+
+    // First key in iteration order
+    const [firstLang] = Object.keys(translations);
+    expect(firstLang).toBe('fr');
+    expect(getT(result)).toEqual({ greeting: 'Bonjour' });
+  });
+
+  it('returns the payload unchanged when locale is undefined', () => {
+    const translations = { en: { greeting: 'Hello' } };
+
+    const result = getLocalizedPayload({ code: '123456' }, translations);
+
+    expect(result).toEqual({ code: '123456' });
+    expect(getT(result)).toBeUndefined();
+  });
+
+  it('returns the payload unchanged when translations is undefined', () => {
+    const result = getLocalizedPayload(basePayload);
+
+    expect(result).toEqual(basePayload);
+    expect(getT(result)).toBeUndefined();
+  });
+
+  it('returns the payload unchanged when translations is empty', () => {
+    const result = getLocalizedPayload(basePayload, {});
+
+    expect(result).toEqual(basePayload);
+    expect(getT(result)).toBeUndefined();
+  });
+
+  it('returns the payload unchanged for a malformed locale string and never throws', () => {
+    const translations = { en: { greeting: 'Hello' } };
+
+    // Various malformed locales must not throw and must not inject `t`
+    const malformed = ['', '---', '123', '   ', '__proto__'];
+
+    for (const locale of malformed) {
+      expect(() => getLocalizedPayload({ code: '123456', locale }, translations)).not.toThrow();
+    }
+
+    const result = getLocalizedPayload({ code: '123456', locale: '---' }, translations);
+    expect(getT(result)).toBeUndefined();
+  });
+
+  it('does not mutate the original payload', () => {
+    const translations = { ka: { greeting: 'გამარჯობა' } };
+    const payload = { code: '123456', locale: 'ka' };
+
+    getLocalizedPayload(payload, translations);
+
+    expect(payload).toEqual({ code: '123456', locale: 'ka' });
+    expect(getT(payload)).toBeUndefined();
+  });
+
+  it('does not mutate the translations dictionary', () => {
+    const translations = { ka: { greeting: 'გამარჯობა' } };
+    const originalTranslations: typeof translations = {
+      ka: { greeting: translations.ka.greeting },
+    };
+
+    getLocalizedPayload({ code: '123456', locale: 'ka' }, translations);
+
+    expect(translations).toEqual(originalTranslations);
   });
 });

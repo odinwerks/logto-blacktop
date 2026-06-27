@@ -190,3 +190,119 @@ export function getConfigTemplateByType<Template extends { usageType: string }>(
     templates.find((template) => template.usageType === TemplateType.Generic)
   );
 }
+
+/**
+ * Matches a plausible BCP-47-style language tag: a 2–3 letter primary subtag optionally followed by
+ * dash-separated subtags (e.g. `en`, `zh-CN`, `pt-BR`). Used to guard the fallback chain so that
+ * malformed or empty `locale` strings degrade gracefully without injecting a `t` dict.
+ */
+const languageTagPattern = /^[A-Za-z]{2,3}(-[\dA-Za-z]{2,8})*$/;
+
+const isPlausibleLanguageTag = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0 && languageTagPattern.test(value);
+
+/**
+ * Returns the parent language tag of a BCP-47 language tag, e.g. `'zh'` for `'zh-CN'`.
+ * Returns `undefined` when the tag has no region/script subtag (no dash).
+ */
+const parentLanguageTag = (tag: string): string | undefined => {
+  const dashIndex = tag.indexOf('-');
+
+  if (dashIndex <= 0) {
+    return;
+  }
+
+  const parent = tag.slice(0, dashIndex);
+
+  return parent || undefined;
+};
+
+/**
+ * Builds the ordered list of fallback candidates for a given locale, excluding `undefined`/empty
+ * entries. Order: exact `locale` → parent tag (if any) → `'en'`.
+ */
+const localeFallbackCandidates = (locale: string): readonly string[] => {
+  const parent = parentLanguageTag(locale);
+
+  return [locale, parent, 'en'].filter(
+    (candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0
+  );
+};
+
+/**
+ * Resolves the best-matching translation dictionary from a `translations` map using a
+ * locale fallback chain:
+ *
+ * 1. Exact `locale` match (e.g. `ka`)
+ * 2. Parent language tag (e.g. `zh-CN` → `zh`)
+ * 3. `'en'`
+ * 4. First available language in `translations`
+ * 5. Otherwise `undefined`
+ *
+ * Defensive against malformed `locale` strings — never throws. When `locale` is missing or does
+ * not look like a language tag, no `t` dict is injected (the caller degrades to literal
+ * placeholders rather than silently locale-switching).
+ */
+const resolveTranslationDict = (
+  translations: Record<string, Record<string, string>>,
+  locale?: string
+): Record<string, string> | undefined => {
+  // Only descend the fallback chain for a plausible locale; absent/malformed locales leave `t`
+  // unset so behavior stays deterministic and backwards-compatible.
+  if (!isPlausibleLanguageTag(locale)) {
+    return;
+  }
+
+  for (const candidate of localeFallbackCandidates(locale)) {
+    if (candidate in translations) {
+      return translations[candidate];
+    }
+  }
+
+  const [firstKey] = Object.keys(translations);
+
+  return firstKey === undefined ? undefined : translations[firstKey];
+};
+
+/**
+ * Enriches a {@link SendMessagePayload} with a localized translation dictionary (`payload.t`)
+ * resolved from a connector's `config.translations` based on `payload.locale`.
+ *
+ * The resolved `t` dict is consumed by {@link replaceSendMessageHandlebars} to render `{{t.key}}`
+ * handlebars in connector templates.
+ *
+ * Resolution uses the following fallback chain:
+ * - Exact `locale` match (e.g. `ka`)
+ * - Parent language tag (e.g. `zh-CN` → `zh`)
+ * - `'en'`
+ * - First available language in `translations`
+ * - Otherwise no match → `payload` returned unchanged
+ *
+ * - If `translations` is undefined/null/empty, returns `payload` unchanged (backward-compatible
+ *   no-op).
+ * - Never mutates the original `payload`.
+ * - Never throws on malformed `locale` strings — returns `payload` unchanged.
+ *
+ * @param payload The send-message payload, optionally containing a `locale` to resolve against.
+ * @param translations A map of language tag → translation dictionary (e.g. connector
+ * `config.translations`).
+ * @returns A payload with `t` set to the resolved dictionary, or `payload` unchanged when no
+ * dictionary could be resolved.
+ */
+export const getLocalizedPayload = <P extends SendMessagePayload>(
+  payload: P,
+  translations?: Record<string, Record<string, string>>
+): P => {
+  if (!translations || Object.keys(translations).length === 0) {
+    return payload;
+  }
+
+  try {
+    const dict = resolveTranslationDict(translations, payload.locale);
+
+    return dict ? { ...payload, t: dict } : payload;
+  } catch {
+    // Defensive: never throw on malformed input (e.g. prototype-polluted objects).
+    return payload;
+  }
+};
