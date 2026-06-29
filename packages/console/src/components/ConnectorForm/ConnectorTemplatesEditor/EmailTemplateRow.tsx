@@ -41,7 +41,7 @@ type Props = {
 
 /**
  * Memoized per-`usageType` email template row for the common `{ subject, content, contentType?|type? }`
- * shape (SMTP, SendGrid, AWS-SES, Aliyun-DM, MailJunky). Renders a subject `TextInput`, an optional
+ * shape (SMTP, SendGrid, AWS-SES, Aliyun-DM, Mailjunky). Renders a subject `TextInput`, an optional
  * content-type `Select` (only when the connector's templates carry a `contentType`/`type` field), and
  * a content `CodeEditor` (HTML highlighting, no line-number gutter for compactness). `Subject` is
  * email-only — SMS and alias rows do not render it.
@@ -110,6 +110,7 @@ const EmailTemplateRow = memo(
               className={styles.contentEditor}
               language="html"
               value={content}
+              shouldWrap={false}
               placeholder={t('connector_details.template_editor.content_placeholder')}
               onChange={(value) => {
                 onContentChange(usageType, value);

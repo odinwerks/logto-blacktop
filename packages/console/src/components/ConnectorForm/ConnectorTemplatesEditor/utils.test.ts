@@ -3,8 +3,12 @@ import { TemplateType } from '@logto/connector-kit';
 import {
   ensureAllTemplateTypes,
   extractTranslationKeys,
+  mergeTranslations,
+  parseTranslationsJson,
   safeJsonParse,
   safeJsonStringify,
+  serializeTranslations,
+  sortRecordKeys,
   sortTemplatesByFillStatus,
 } from './utils';
 
@@ -349,5 +353,161 @@ describe('sortTemplatesByFillStatus', () => {
     sortTemplatesByFillStatus(templates, 'sms');
 
     expect(templates.map(({ usageType }) => usageType)).toEqual(snapshot);
+  });
+});
+
+describe('sortRecordKeys', () => {
+  it('returns a new object with keys sorted alphabetically', () => {
+    expect(sortRecordKeys({ b: 1, a: 2, c: 3 })).toEqual({ a: 2, b: 1, c: 3 });
+  });
+
+  it('does not mutate the input object', () => {
+    const input = { b: 1, a: 2 };
+
+    sortRecordKeys(input);
+
+    expect(Object.keys(input)).toEqual(['b', 'a']);
+  });
+
+  it('returns an empty object for an empty input', () => {
+    expect(sortRecordKeys({})).toEqual({});
+  });
+});
+
+describe('serializeTranslations', () => {
+  it('pretty-prints with 2-space indentation and sorted keys', () => {
+    expect(serializeTranslations({ code: '1', greeting: 'hi' })).toBe(
+      ['{', '  "code": "1",', '  "greeting": "hi"', '}'].join('\n')
+    );
+  });
+
+  it('sorts keys regardless of insertion order', () => {
+    const fromZFirst = serializeTranslations({ zeta: '1', alpha: '2' });
+    const fromAFirst = serializeTranslations({ alpha: '2', zeta: '1' });
+
+    expect(fromZFirst).toBe(fromAFirst);
+    expect(fromZFirst).toBe(['{', '  "alpha": "2",', '  "zeta": "1"', '}'].join('\n'));
+  });
+
+  it('serializes an empty dictionary as "{}"', () => {
+    expect(serializeTranslations({})).toBe('{}');
+  });
+
+  it('escapes string values containing quotes without breaking JSON', () => {
+    expect(JSON.parse(serializeTranslations({ greeting: 'say "hi"' }))).toEqual({
+      greeting: 'say "hi"',
+    });
+  });
+});
+
+describe('parseTranslationsJson', () => {
+  it('parses a valid flat object into a string → string map', () => {
+    expect(parseTranslationsJson('{ "code": "1234", "greeting": "hi" }')).toEqual({
+      success: true,
+      data: { code: '1234', greeting: 'hi' },
+    });
+  });
+
+  it('returns an empty map for an empty/whitespace-only string (valid)', () => {
+    expect(parseTranslationsJson('')).toEqual({ success: true, data: {} });
+    expect(parseTranslationsJson('   \n\t ')).toEqual({ success: true, data: {} });
+  });
+
+  it('treats an empty JSON object as valid and yields {}', () => {
+    expect(parseTranslationsJson('{}')).toEqual({ success: true, data: {} });
+  });
+
+  it('reports invalid_json_format for malformed JSON', () => {
+    expect(parseTranslationsJson('{not json')).toEqual({
+      success: false,
+      errorKey: 'invalid_json_format',
+    });
+    expect(parseTranslationsJson('{ "code": "1" ')).toEqual({
+      success: false,
+      errorKey: 'invalid_json_format',
+    });
+  });
+
+  it('reports json_must_be_object for a JSON array', () => {
+    expect(parseTranslationsJson('[1, 2, 3]')).toEqual({
+      success: false,
+      errorKey: 'json_must_be_object',
+    });
+  });
+
+  it('reports json_must_be_object for a JSON primitive or null', () => {
+    expect(parseTranslationsJson('"a string"')).toEqual({
+      success: false,
+      errorKey: 'json_must_be_object',
+    });
+    expect(parseTranslationsJson('42')).toEqual({
+      success: false,
+      errorKey: 'json_must_be_object',
+    });
+    expect(parseTranslationsJson('true')).toEqual({
+      success: false,
+      errorKey: 'json_must_be_object',
+    });
+    expect(parseTranslationsJson('null')).toEqual({
+      success: false,
+      errorKey: 'json_must_be_object',
+    });
+  });
+
+  it('reports json_values_must_be_strings for non-string values', () => {
+    expect(parseTranslationsJson('{ "code": 1234 }')).toEqual({
+      success: false,
+      errorKey: 'json_values_must_be_strings',
+    });
+    expect(parseTranslationsJson('{ "flag": true }')).toEqual({
+      success: false,
+      errorKey: 'json_values_must_be_strings',
+    });
+    expect(parseTranslationsJson('{ "x": null }')).toEqual({
+      success: false,
+      errorKey: 'json_values_must_be_strings',
+    });
+    expect(parseTranslationsJson('{ "nested": { "a": 1 } }')).toEqual({
+      success: false,
+      errorKey: 'json_values_must_be_strings',
+    });
+    expect(parseTranslationsJson('{ "list": [1, 2] }')).toEqual({
+      success: false,
+      errorKey: 'json_values_must_be_strings',
+    });
+  });
+
+  it('skips empty-string keys silently', () => {
+    expect(parseTranslationsJson('{ "": "x", "code": "1" }')).toEqual({
+      success: true,
+      data: { code: '1' },
+    });
+  });
+});
+
+describe('mergeTranslations', () => {
+  it('lets parsed values override existing keys', () => {
+    expect(mergeTranslations({ a: '1', b: '2' }, { b: 'updated' })).toEqual({
+      a: '1',
+      b: 'updated',
+    });
+  });
+
+  it('preserves draft keys that are not mentioned in the parsed JSON', () => {
+    expect(mergeTranslations({ a: '1' }, { b: '2' })).toEqual({ a: '1', b: '2' });
+  });
+
+  it('returns a new object (does not mutate inputs)', () => {
+    const current = { a: '1' };
+    const parsed = { b: '2' };
+    const merged = mergeTranslations(current, parsed);
+
+    expect(merged).toEqual({ a: '1', b: '2' });
+    expect(current).toEqual({ a: '1' });
+    expect(parsed).toEqual({ b: '2' });
+  });
+
+  it('an empty parsed map is a no-op (preserves the current dictionary)', () => {
+    expect(mergeTranslations({ a: '1' }, {})).toEqual({ a: '1' });
   });
 });

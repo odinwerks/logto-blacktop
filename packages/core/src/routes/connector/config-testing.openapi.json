@@ -20,6 +20,9 @@
                   },
                   "locale": {
                     "description": "Preferred language for the message. If not set, the default language will be used. (Applicable only when custom i18n templates are configured.)"
+                  },
+                  "templateType": {
+                    "description": "The template type to test (e.g. SignIn, Register, ForgotPassword, OrganizationInvitation, Generic, UserPermissionValidation, BindNewIdentifier, MfaVerification, BindMfa). If omitted, the `Generic` template is used for backward compatibility."
                   }
                 }
               }

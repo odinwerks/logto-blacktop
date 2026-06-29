@@ -29,16 +29,27 @@ export const lineNumberStyle = (numberOfLines: number): CSSProperties => {
   };
 };
 
-export const customStyle = (width?: number): CSSProperties => {
-  return {
+export const customStyle = (width?: number, shouldWrap = true): CSSProperties => {
+  // When wrapping is enabled (the default), break long tokens anywhere so content fits the editor
+  // width without a horizontal scrollbar. This preserves the legacy rendering for existing callers.
+  //
+  // When wrapping is disabled, keep `white-space: pre` and `word-break: normal` so long lines
+  // overflow instead of wrapping; the surrounding `.editor` container provides horizontal
+  // scrolling (`overflow-x: auto`).
+  const base: CSSProperties = {
     width: `${width ?? 0}px`,
     background: 'transparent',
     fontSize: '14px',
     margin: '0',
     padding: '0',
     borderRadius: '0',
-    wordBreak: 'break-all',
     overflow: 'unset',
-    fontFamily: "'Roboto Mono', monospace", // Override default font-family of <pre>
+    fontFamily: "'Roboto Mono', monospace",
   };
+
+  if (shouldWrap) {
+    return { ...base, wordBreak: 'break-all' };
+  }
+
+  return { ...base, whiteSpace: 'pre', wordBreak: 'normal', overflowWrap: 'normal' };
 };

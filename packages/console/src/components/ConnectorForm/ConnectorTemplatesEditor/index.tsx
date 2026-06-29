@@ -4,21 +4,19 @@ import {
   languages as uiLanguageNameMapping,
   type LanguageTag,
 } from '@logto/language-kit';
-import { deduplicate } from '@silverhand/essentials';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFormContext, type FieldPath } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
-import AddLanguageSelector from '@/components/LocalizationEditor/AddLanguageSelector';
-import LocalizationNav from '@/components/LocalizationEditor/LocalizationNav';
+import LanguageItem from '@/components/LocalizationEditor/LanguageItem';
 import useLocalizationEditorContext from '@/components/LocalizationEditor/use-localization-editor-context';
-import Textarea from '@/ds-components/Textarea';
+import ConfirmModal from '@/ds-components/ConfirmModal';
 import type { ConnectorFormType } from '@/types/connector';
 
-import AliasTemplateRow from './AliasTemplateRow';
-import DeliveryTemplateRow from './DeliveryTemplateRow';
-import EmailTemplateRow, { type EmailContentType } from './EmailTemplateRow';
-import TranslationGrid from './TranslationGrid';
+import AddLocalizationsButton from './AddLocalizationsButton';
+import { type EmailContentType } from './EmailTemplateRow';
+import TemplateRows from './TemplateRows';
+import TranslationEditorModal from './TranslationEditorModal';
 import styles from './index.module.scss';
 import {
   buildEmptyTemplateRow,
@@ -27,6 +25,7 @@ import {
   extractableFieldsFor,
 } from './mode';
 import {
+  deriveLanguages,
   ensureAllTemplateTypes,
   extractTranslationKeys,
   safeJsonParse,
@@ -72,21 +71,35 @@ const TRANSLATIONS_FIELD: FieldPath<ConnectorFormType> = 'formConfig.translation
  * rows persist only once edited).
  *
  * Layout (compact, inline within the owning "Parameter configuration" card — no nested cards):
- * - "Template translations available": language pills + Add-language control (or a prominent
- *   "Add localizations" button when no language exists yet).
+ * - "Template translations available": language pills + an "Add localizations" button that opens a
+ *   popover (searchable language picker + Apply). Clicking a pill — or applying an added language —
+ *   opens the {@link TranslationEditorModal} for that language (draft + Apply, Form/JSON toggle).
  * - "Delivery templates": a single bordered container holding every usage type, each separated by a
  *   divider. Email content uses a `CodeEditor`; SMS uses a `Textarea`; `Subject` is email-only.
- * - The per-language translation grid appears below the templates box once a language is selected.
  *
- * Changes are written back immediately as pretty-printed JSON via react-hook-form's `setValue`
- * (marking the form dirty). Reuses the Phase 0 `LocalizationNav` (inline bar) +
- * `useLocalizationEditorContext` shell instead of the full modal `LocalizationEditor`.
+ * The per-language translation grid is no longer rendered inline; it lives inside the modal, which
+ * commits its draft to the form on Apply (draft-and-apply model mirroring the sibling
+ * `LocalizationEditor` modal). Closing with a dirty draft surfaces a `ConfirmModal`.
+ *
+ * Changes are written back as pretty-printed JSON via react-hook-form's `setValue`
+ * (marking the form dirty). Reuses the Phase 0 localization-editor context shell
+ * (`useLocalizationEditorContext`) for `selectedLanguage` + `isDirty` + dirty-confirm wiring, but
+ * renders `LanguageItem` pills directly so the pill click opens the modal (the shared
+ * `LocalizationNav` is left untouched).
  */
 function ConnectorTemplatesEditor({ formItem, connectorType }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { watch, getValues, setValue } = useFormContext<ConnectorFormType>();
   const { context, Provider } = useLocalizationEditorContext();
-  const { selectedLanguage, setSelectedLanguage } = context;
+  const {
+    selectedLanguage,
+    setSelectedLanguage,
+    isDirty,
+    setIsDirty,
+    confirmationState,
+    setConfirmationState,
+  } = context;
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Resolve the templates/deliveries field path from the form item this editor was rendered for
   // (`formItem.key` is `'templates'` or `'deliveries'`). The cast bridges react-hook-form's literal
@@ -163,23 +176,29 @@ function ConnectorTemplatesEditor({ formItem, connectorType }: Props) {
       Object.keys(dictionary)
     );
 
-    return deduplicate([...fromTemplates, ...fromTranslations])
-      .slice()
-      .sort();
+    return [...new Set([...fromTemplates, ...fromTranslations])].slice().sort();
   }, [templates, translations, mode]);
 
-  const languages = useMemo<LanguageTag[]>(
+  const languages = useMemo<LanguageTag[]>(() => deriveLanguages(translations), [translations]);
+
+  const availableLanguageOptions = useMemo(
     () =>
-      deduplicate(Object.keys(translations))
-        .filter((languageTag): languageTag is LanguageTag => isLanguageTag(languageTag))
-        .slice()
-        .sort(),
-    [translations]
+      Object.keys(uiLanguageNameMapping)
+        .filter(
+          (languageTag): languageTag is LanguageTag =>
+            isLanguageTag(languageTag) && !languages.includes(languageTag)
+        )
+        .map((languageTag) => ({
+          value: languageTag,
+          title: uiLanguageNameMapping[languageTag],
+        })),
+    [languages]
   );
 
-  // Keep a language selected so the translation grid is visible whenever languages exist: when the
-  // (context-default) selected language is not among the configured languages, fall back to the
-  // first one. Runs once per language-set change; idempotent.
+  // Keep `selectedLanguage` valid so opening the translation modal (via a pill click or after an
+  // add) always seeds the draft from a real language: when the (context-default) selected language
+  // is not among the configured languages, fall back to the first one. Runs once per language-set
+  // change; idempotent.
   useEffect(() => {
     if (languages.length > 0 && !languages.includes(selectedLanguage)) {
       const firstLanguage = languages[0];
@@ -264,107 +283,87 @@ function ConnectorTemplatesEditor({ formItem, connectorType }: Props) {
     [updateTemplateField]
   );
 
+  // Add a language via the "Add localizations" popover (Apply): write an empty dictionary, select
+  // the language, and open the translation modal on it so the user can start filling values.
   const onAddLanguage = useCallback(
     (languageTag: LanguageTag) => {
       if (languageTag in translations) {
         return;
       }
       writeTranslations({ ...translations, [languageTag]: {} });
+      setSelectedLanguage(languageTag);
+      setIsModalOpen(true);
     },
-    [translations, writeTranslations]
+    [translations, writeTranslations, setSelectedLanguage]
   );
 
-  // Stable across keystrokes within the same language (closes over `selectedLanguage`, not the
-  // reactive `translations` snapshot), so memoized translation cells re-render minimally.
-  const onTranslationChange = useCallback(
-    (key: string, value: string) => {
+  // Clicking a language pill selects it and opens the translation modal. The modal's blocking
+  // overlay renders background pills non-clickable while it is open, so there is no pill-driven
+  // dirty-switch scenario to guard here (apply/close must happen first).
+  const onSelectLanguage = useCallback(
+    (languageTag: LanguageTag) => {
+      setSelectedLanguage(languageTag);
+      setIsModalOpen(true);
+    },
+    [setSelectedLanguage]
+  );
+
+  // Delete a language's translations and persist immediately (shouldDirty: true). After deleting,
+  // keep `selectedLanguage` valid (fall back to the first remaining language). Reads the latest form
+  // value via `getValues` instead of the reactive `translations` snapshot so two rapid deletes
+  // cannot race. The modal (if open) sits behind its own blocking overlay and is not affected.
+  const onDeleteLanguage = useCallback(
+    (languageTag: LanguageTag) => {
       const currentTranslations =
         safeJsonParse<TranslationMap>(getValues(TRANSLATIONS_FIELD)) ?? {};
-      const currentLanguage = currentTranslations[selectedLanguage] ?? {};
-      writeTranslations({
-        ...currentTranslations,
-        [selectedLanguage]: { ...currentLanguage, [key]: value },
-      });
+      const nextTranslations = Object.fromEntries(
+        Object.entries(currentTranslations).filter(([tag]) => tag !== languageTag)
+      );
+      writeTranslations(nextTranslations);
+
+      const remainingLanguages = deriveLanguages(nextTranslations);
+
+      if (remainingLanguages.length === 0) {
+        return;
+      }
+
+      // Switch to the first remaining language if the current selection was the deleted one.
+      if (!remainingLanguages.includes(selectedLanguage)) {
+        const firstRemaining = remainingLanguages[0];
+
+        if (firstRemaining) {
+          setSelectedLanguage(firstRemaining);
+        }
+      }
     },
-    [getValues, selectedLanguage, writeTranslations]
+    [getValues, writeTranslations, selectedLanguage, setSelectedLanguage]
   );
 
-  const renderTemplateRows = () => {
-    if (mode === 'sms') {
-      return sortedTemplates.map(({ usageType, content }) => (
-        <div key={usageType} className={styles.templateRow}>
-          <div className={styles.templateRowHeader}>
-            <span className={styles.usageType}>{usageType}</span>
-            <div className={styles.headerDivider} />
-          </div>
-          <Textarea
-            rows={2}
-            className={styles.translationValue}
-            value={typeof content === 'string' ? content : ''}
-            placeholder={t('connector_details.template_editor.content_placeholder')}
-            onChange={(event) => {
-              fieldHandlers.content(usageType, event.currentTarget.value);
-            }}
-          />
-        </div>
-      ));
+  // Close request from the modal (X / Esc / overlay). With a dirty draft, defer to a `ConfirmModal`
+  // so the user does not silently lose uncommitted edits; the modal stays mounted during the
+  // confirm (its overlay blocks background interaction).
+  const onModalRequestClose = useCallback(() => {
+    if (isDirty) {
+      setConfirmationState('try-close');
+
+      return;
     }
 
-    if (mode === 'email-alias') {
-      return sortedTemplates.map(({ usageType, templateAlias }) => (
-        <AliasTemplateRow
-          key={usageType}
-          usageType={usageType}
-          templateAlias={typeof templateAlias === 'string' ? templateAlias : ''}
-          onAliasChange={fieldHandlers.alias}
-        />
-      ));
-    }
+    setIsModalOpen(false);
+  }, [isDirty, setConfirmationState]);
 
-    if (mode === 'email-deliveries') {
-      return sortedTemplates.map((row) => (
-        <DeliveryTemplateRow
-          key={row.usageType}
-          usageType={row.usageType}
-          subject={typeof row.subject === 'string' ? row.subject : ''}
-          html={typeof row.html === 'string' ? row.html : ''}
-          text={typeof row.text === 'string' ? row.text : ''}
-          isTemplateVariant={'template' in row}
-          showSubject={typeof row.subject === 'string'}
-          showText={typeof row.text === 'string'}
-          onSubjectChange={fieldHandlers.subject}
-          onHtmlChange={fieldHandlers.html}
-          onTextChange={fieldHandlers.text}
-        />
-      ));
-    }
-
-    // Email-content
-    return sortedTemplates.map((row) => {
-      const rawContentType = contentTypeKey ? row[contentTypeKey] : undefined;
-
-      return (
-        <EmailTemplateRow
-          key={row.usageType}
-          usageType={row.usageType}
-          subject={typeof row.subject === 'string' ? row.subject : ''}
-          content={typeof row.content === 'string' ? row.content : ''}
-          contentType={
-            rawContentType === 'text/plain' || rawContentType === 'text/html'
-              ? rawContentType
-              : 'text/html'
-          }
-          contentTypeKey={contentTypeKey ?? 'contentType'}
-          showContentType={Boolean(contentTypeKey)}
-          onSubjectChange={fieldHandlers.subject}
-          onContentChange={fieldHandlers.content}
-          onContentTypeChange={onContentTypeChange}
-        />
-      );
-    });
-  };
-
-  const hasSelectedLanguage = languages.includes(selectedLanguage);
+  // Apply the modal's draft back into the form field, then close. Reads the latest form value via
+  // `getValues` so the merge is not based on a stale snapshot.
+  const onModalApply = useCallback(
+    (languageTag: LanguageTag, draft: Record<string, string>) => {
+      const currentTranslations =
+        safeJsonParse<TranslationMap>(getValues(TRANSLATIONS_FIELD)) ?? {};
+      writeTranslations({ ...currentTranslations, [languageTag]: draft });
+      setIsModalOpen(false);
+      setIsDirty(false);
+    },
+    [getValues, writeTranslations, setIsDirty]
+  );
 
   return (
     <Provider value={context}>
@@ -373,44 +372,63 @@ function ConnectorTemplatesEditor({ formItem, connectorType }: Props) {
           <h4 className={styles.sectionTitle}>
             {t('connector_details.template_editor.template_translations_available')}
           </h4>
-          {languages.length === 0 ? (
-            <div className={styles.emptyAddLanguage}>
-              <AddLanguageSelector
-                // Every UI language not already present (mirrors LocalizationNav's computation).
-                options={Object.keys(uiLanguageNameMapping).filter(
-                  (languageTag): languageTag is LanguageTag =>
-                    isLanguageTag(languageTag) && !languages.includes(languageTag)
-                )}
-                buttonTitle="connector_details.template_editor.add_localizations"
-                onSelect={(languageTag) => {
-                  onAddLanguage(languageTag);
-                  setSelectedLanguage(languageTag);
+          <div className={styles.languagesRow}>
+            {languages.map((languageTag) => (
+              <LanguageItem
+                key={languageTag}
+                languageTag={languageTag}
+                isSelected={selectedLanguage === languageTag}
+                variant="inline"
+                onClick={() => {
+                  onSelectLanguage(languageTag);
+                }}
+                onDelete={() => {
+                  onDeleteLanguage(languageTag);
                 }}
               />
-            </div>
-          ) : (
-            <LocalizationNav variant="inline" languages={languages} onSelectAdd={onAddLanguage} />
-          )}
+            ))}
+            <AddLocalizationsButton options={availableLanguageOptions} onApply={onAddLanguage} />
+          </div>
         </section>
         <section className={styles.section}>
           <h4 className={styles.sectionTitle}>
             {t('connector_details.template_editor.delivery_templates')}
           </h4>
-          <div className={styles.templates}>{renderTemplateRows()}</div>
-        </section>
-        {hasSelectedLanguage &&
-          (allKeys.length > 0 ? (
-            <TranslationGrid
-              keys={allKeys}
-              values={translations[selectedLanguage] ?? {}}
-              onChange={onTranslationChange}
+          <div className={styles.templates}>
+            <TemplateRows
+              mode={mode}
+              sortedTemplates={sortedTemplates}
+              contentTypeKey={contentTypeKey}
+              fieldHandlers={fieldHandlers}
+              onContentTypeChange={onContentTypeChange}
             />
-          ) : (
-            <div className={styles.emptyTranslations}>
-              {t('connector_details.template_editor.no_translation_keys')}
-            </div>
-          ))}
+          </div>
+        </section>
+        {isModalOpen && (
+          <TranslationEditorModal
+            languageTag={selectedLanguage}
+            keys={allKeys}
+            values={translations[selectedLanguage] ?? {}}
+            onApply={onModalApply}
+            onRequestClose={onModalRequestClose}
+          />
+        )}
       </div>
+      <ConfirmModal
+        isOpen={confirmationState === 'try-close'}
+        confirmButtonText="general.leave_page"
+        cancelButtonText="general.stay_on_page"
+        onCancel={() => {
+          setConfirmationState('none');
+        }}
+        onConfirm={() => {
+          setIsModalOpen(false);
+          setIsDirty(false);
+          setConfirmationState('none');
+        }}
+      >
+        {t('general.unsaved_changes_warning')}
+      </ConfirmModal>
     </Provider>
   );
 }

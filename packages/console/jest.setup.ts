@@ -22,4 +22,23 @@ global.TextDecoder = TextDecoder;
 Element.prototype.scrollIntoView = function () {
   /* No-op */
 };
+
+// JSDOM does not implement `window.matchMedia`, which the app theme provider (and any
+// `prefers-color-scheme`/media-query consumer) reads at module load. Provide a no-op MQL shim so
+// components that call it on import render in tests without throwing. JSDOM's typings do not mark
+// the field as optional even though it is missing at runtime, so the linter cannot see the
+// nullish branch; assignment is unconditional.
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+window.matchMedia ??= (query: string): MediaQueryList => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  /* eslint-disable @typescript-eslint/no-empty-function */
+  addListener: () => {},
+  removeListener: () => {},
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  /* eslint-enable @typescript-eslint/no-empty-function */
+  dispatchEvent: () => false,
+});
 /* eslint-enable @silverhand/fp/no-mutation */

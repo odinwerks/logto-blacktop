@@ -1,4 +1,6 @@
 import { TemplateType } from '@logto/connector-kit';
+import { isLanguageTag, type LanguageTag } from '@logto/language-kit';
+import { deduplicate } from '@silverhand/essentials';
 
 import { safeParseJson } from '@/utils/json';
 
@@ -201,3 +203,132 @@ export const safeJsonStringify = (value: unknown): string => {
     return '{}';
   }
 };
+
+/**
+ * A connector's translations dictionary: `Record<LanguageTag, Record<TranslationKey, string>>`.
+ */
+type TranslationMap = Record<string, Record<string, string>>;
+
+/**
+ * Derives the sorted, de-duplicated list of language tags present in a translations dictionary,
+ * keeping only valid {@link LanguageTag} values. Returned in a stable, sorted order so the language
+ * nav and the test-template locale selector render language pills deterministically.
+ *
+ * `Object.keys` already yields unique keys, but `deduplicate` is applied for parity with the
+ * pre-extraction implementation (no behavior change).
+ */
+export const deriveLanguages = (translations: TranslationMap): LanguageTag[] =>
+  deduplicate(Object.keys(translations))
+    .filter((languageTag): languageTag is LanguageTag => isLanguageTag(languageTag))
+    .slice()
+    .sort();
+
+/**
+ * Returns a shallow copy of `dictionary` with its keys sorted in ascending order. Used so the
+ * serialized JSON form of a language's translations stays readable and stable across edits (no
+ * key-order churn on every keystroke).
+ */
+export const sortRecordKeys = <T>(dictionary: Record<string, T>): Record<string, T> =>
+  Object.fromEntries(
+    Object.entries(dictionary)
+      .slice()
+      .sort(([left], [right]) => left.localeCompare(right))
+  );
+
+/**
+ * Serializes a language's translation dictionary into readable, stable JSON (2-space indentation,
+ * keys sorted alphabetically). Mirrors the indentation used when the form first materializes JSON
+ * values so round-tripping Form ↔ JSON stays diff-free for already-sorted dictionaries. Falls back
+ * to `'{}'` for a non-serializable input so the JSON editor always has valid content to display.
+ */
+export const serializeTranslations = (dictionary: Record<string, string>): string => {
+  try {
+    const result: unknown = JSON.stringify(sortRecordKeys(dictionary), null, 2);
+
+    return typeof result === 'string' ? result : '{}';
+  } catch {
+    return '{}';
+  }
+};
+
+/**
+ * The result of parsing pasted/edited JSON for a language's translations. On success, `data` is a
+ * flat `string` → `string` map; on failure, `errorKey` selects the user-facing validation message.
+ */
+export type TranslationsParseResult =
+  | { readonly success: true; readonly data: Record<string, string> }
+  | {
+      readonly success: false;
+      readonly errorKey:
+        | 'invalid_json_format'
+        | 'json_must_be_object'
+        | 'json_values_must_be_strings';
+    };
+
+/**
+ * Narrows a parsed JSON value to a plain object (`Record<string, unknown>`). Rejects `null`,
+ * arrays, and non-objects so `Object.entries` is safe to call on the narrowed value. Defined as a
+ * type guard (rather than a cast) so the rest of {@link parseTranslationsJson} stays type-safe
+ * without `as`.
+ */
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Parses pasted/edited JSON for a language's translations into a flat `string` → `string` map.
+ * Validation rules (each maps to a user-facing error message via {@link TranslationsParseResult}):
+ * - Empty/whitespace text is valid and yields `{}` (so opening JSON mode on an empty language, or
+ *   clearing the editor, never wipes existing keys on merge).
+ * - The top-level value must be a plain object — arrays, primitives, and `null` are rejected
+ *   (`json_must_be_object`), since a language's translations is always a dictionary.
+ * - Every value must be a string — numbers, booleans, `null`, nested objects, and arrays are
+ *   rejected (`json_values_must_be_strings`), since `getLocalizedPayload`/the connector send path
+ *   reads each value as a string.
+ * - Empty-string keys are skipped (a defensive no-op; `JSON.stringify` of a draft never emits one,
+ *   but hand-edited JSON might).
+ *
+ * Uses the shared {@link safeParseJson} helper (which never throws) and a functional build, so no
+ * `let`/reassignment is needed.
+ */
+export const parseTranslationsJson = (text: string): TranslationsParseResult => {
+  const trimmed = text.trim();
+
+  if (trimmed.length === 0) {
+    return { success: true, data: {} };
+  }
+
+  const parseResult = safeParseJson(trimmed);
+
+  if (!parseResult.success) {
+    return { success: false, errorKey: 'invalid_json_format' };
+  }
+
+  if (!isPlainObject(parseResult.data)) {
+    return { success: false, errorKey: 'json_must_be_object' };
+  }
+
+  // Drop empty-string keys, then keep only the string-valued entries. If the two lengths differ, a
+  // value was not a string → reject. Splitting validate (length compare) from build (the predicate
+  // filter) keeps the build type-safe (`[string, string][]`) without a cast.
+  const entries = Object.entries(parseResult.data).filter(([key]) => key.length > 0);
+  const stringEntries = entries.filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string'
+  );
+
+  if (stringEntries.length !== entries.length) {
+    return { success: false, errorKey: 'json_values_must_be_strings' };
+  }
+
+  return { success: true, data: Object.fromEntries(stringEntries) };
+};
+
+/**
+ * Per-key merge of a parsed JSON dictionary into the current draft: parsed values override existing
+ * keys, and unmentioned draft keys are preserved. Returns a new object; neither input is mutated.
+ * Used when switching JSON → Form or when applying from JSON mode, so pasted JSON can extend an
+ * existing language without losing keys that aren't mentioned in the JSON.
+ */
+export const mergeTranslations = (
+  current: Record<string, string>,
+  parsed: Record<string, string>
+): Record<string, string> => ({ ...current, ...parsed });

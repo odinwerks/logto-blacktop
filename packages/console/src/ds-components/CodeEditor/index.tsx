@@ -22,6 +22,14 @@ type Props = {
   readonly placeholder?: string;
   // eslint-disable-next-line react/boolean-prop-naming -- following the naming convention of the underlying library
   readonly showLineNumbers?: boolean;
+  /**
+   * Whether long lines should wrap inside the editor. Defaults to `true` (legacy behavior: long
+   * tokens break to fit the editor width). When `false`, long lines overflow and the editor
+   * container scrolls horizontally instead of wrapping — appropriate for code-like content such as
+   * connector email templates.
+   */
+  // eslint-disable-next-line react/boolean-prop-naming -- following the naming convention of the underlying library
+  readonly shouldWrap?: boolean;
 };
 
 function CodeEditor({
@@ -35,6 +43,7 @@ function CodeEditor({
   error,
   placeholder,
   showLineNumbers = true,
+  shouldWrap = true,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -158,7 +167,7 @@ function CodeEditor({
                 fontFamily: "'Roboto Mono', monospace", // Override default font-family of <code>
               },
             }}
-            customStyle={customStyle(editorWidth)}
+            customStyle={customStyle(editorWidth, shouldWrap)}
             language={language}
             style={a11yDarkTheme}
           >

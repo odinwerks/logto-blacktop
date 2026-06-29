@@ -76,6 +76,30 @@ describe('sendMessage()', () => {
     expect(accessKeySecret).toBe(mockedConnectorConfig.accessKeySecret);
   });
 
+  it('should resolve localized `{{t.key}}` placeholders via `config.translations`', async () => {
+    const connector = await createConnector({ getConfig });
+    await connector.sendMessage(
+      {
+        to: `86${phoneTest}`,
+        type: TemplateType.SignIn,
+        payload: { code: codeTest, locale: 'ka' },
+      },
+      {
+        ...mockedConnectorConfig,
+        translations: { ka: { greeting: 'გამარჯობა' } },
+      }
+    );
+    const [sendRequest] = sendSmsVerifyCode.mock.calls[0] ?? [];
+
+    expect(sendRequest).toMatchObject({
+      TemplateParam: JSON.stringify({
+        code: codeTest,
+        t: { greeting: 'გამარჯობა' },
+        min: '10',
+      }),
+    });
+  });
+
   /**
    * Test all supported template types
    */

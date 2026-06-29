@@ -1,0 +1,18 @@
+@use '@/scss/underscore' as _;
+
+// The Form/JSON tab toggle sits above the editor body. Its own bottom border (from the shared
+// `TabNav` styles) provides the visual separator, so no extra divider is needed here.
+.toggle {
+  margin-bottom: _.unit(2);
+}
+
+// The ModalLayout body wrapper. The Card container is a flex column (`overflow: hidden`); the
+// header and footer are `flex-shrink: 0`, so capping the body height keeps the modal within the
+// viewport and scrolls the body internally rather than the whole modal window. The chrome
+// (overlay/Card padding + header + header margin-bottom + footer padding-top + footer height)
+// sums to roughly 220px; reserving `_.unit(55)` (~220px) keeps the modal fully on-screen.
+.scrollableBody {
+  flex: 1 1 auto;
+  max-height: calc(100vh - _.unit(55));
+  overflow-y: auto;
+}

@@ -84,6 +84,7 @@ const DeliveryTemplateRow = memo(
                   className={styles.contentEditor}
                   language="html"
                   value={html}
+                  shouldWrap={false}
                   placeholder={t('connector_details.template_editor.content_placeholder')}
                   onChange={(value) => {
                     onHtmlChange(usageType, value);

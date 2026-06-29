@@ -1,12 +1,20 @@
 @use '@/scss/underscore' as _;
 
 .languageSelector {
+  // Anchor the absolutely-positioned dropdown directly under the trigger (its static position lands
+  // below `.input`) and align the dropdown's left edge with the selector's, instead of a far-up
+  // positioned ancestor.
+  position: relative;
+
   .input {
     position: relative;
+    // Fixed 38px row so opening the search input does not shift surrounding layout relative to the
+    // closed "+" button (which is also 38px). Keeps the trigger and the open search the same height.
+    height: 38px;
 
     .addLanguageButton {
       width: 100%;
-      height: 38px;
+      height: 100%;
       background: unset;
     }
 
@@ -16,8 +24,14 @@
   }
 
   .dropDown {
+    // Render above the inline `CodeEditor` (which uses `_.z-index(front)` = 1) and other templates
+    // content so the dropdown is never tucked under the codeboxes.
+    @include _.z-index(dropdown);
     position: absolute;
-    width: 168px;
+    // Fit the longest language name on a single line instead of wrapping at a fixed 168px: at least
+    // as wide as the trigger (`min-width: 100%`) and grow to `max-content` for long names.
+    width: max-content;
+    min-width: 100%;
     margin: _.unit(1) 0;
     padding: _.unit(1);
     background: var(--color-float);
@@ -33,6 +47,8 @@
       padding: _.unit(2);
       cursor: pointer;
       font: var(--font-body-2);
+      // Never wrap a language name/tag across lines — each item fits its content on one line.
+      white-space: nowrap;
 
       &:hover {
         background: var(--color-hover);
@@ -40,10 +56,12 @@
 
       .languageName {
         color: var(--color-text);
+        white-space: nowrap;
       }
 
       .languageTag {
         color: var(--color-text-secondary);
+        white-space: nowrap;
       }
     }
 
@@ -55,4 +73,3 @@
     }
   }
 }
-

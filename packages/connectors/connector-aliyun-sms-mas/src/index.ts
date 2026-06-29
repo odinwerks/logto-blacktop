@@ -14,6 +14,7 @@ import {
   ConnectorType,
   parseJson,
   getConfigTemplateByType,
+  getLocalizedPayload,
 } from '@logto/connector-kit';
 import { PhoneNumberParser } from '@logto/shared';
 
@@ -94,8 +95,13 @@ const sendMessage =
     // Validate and parse phone number as mainland China number
     const nationalNumber = parseMainlandChinaPhoneNumber(to);
 
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that templates referenced via the Aliyun system templates can include localized values. When
+    // no translations are configured, this is a backward-compatible no-op (payload unchanged).
+    const localizedPayload = getLocalizedPayload(payload, config.translations);
+
     // Remove locale from payload as it's not needed for MAS API
-    const { locale, ...filteredPayload } = payload;
+    const { locale, ...filteredPayload } = localizedPayload;
 
     // Logto uses fixed 10-minute expiration time
     // min parameter is used in template: "您的验证码是${code}，有效期${min}分钟，请勿告诉他人。"

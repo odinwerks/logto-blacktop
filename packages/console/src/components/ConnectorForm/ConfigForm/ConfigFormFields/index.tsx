@@ -1,7 +1,7 @@
 import type { ConnectorConfigFormItem } from '@logto/connector-kit';
 import { ConnectorConfigFormItemType, ConnectorType } from '@logto/connector-kit';
 import { conditional } from '@silverhand/essentials';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -39,6 +39,14 @@ function ConfigFormFields({ formItems, connectorType }: Props) {
 
   const values = watch('formConfig');
 
+  // The inline `ConnectorTemplatesEditor` owns both the `templates`/`deliveries` field and the
+  // sibling `translations` field. Mount it only when both are declared, so connectors without
+  // localization wired up do not silently drop translation data.
+  const hasTranslationsItem = useMemo(
+    () => formItems.some((item) => item.key === 'translations'),
+    [formItems]
+  );
+
   const showFormItems = useCallback(
     (formItem: ConnectorConfigFormItem) => {
       if (!formItem.showConditions) {
@@ -64,6 +72,15 @@ function ConfigFormFields({ formItems, connectorType }: Props) {
       (connectorType === ConnectorType.Sms || connectorType === ConnectorType.Email) &&
       (item.key === 'templates' || item.key === 'deliveries')
     ) {
+      if (!hasTranslationsItem) {
+        // TODO: add an i18n key for this message once product copy is finalized.
+        return (
+          <div className={styles.note}>
+            Translation support is not configured for this connector.
+          </div>
+        );
+      }
+
       return <ConnectorTemplatesEditor formItem={item} connectorType={connectorType} />;
     }
 

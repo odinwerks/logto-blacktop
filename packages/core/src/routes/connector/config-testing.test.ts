@@ -85,6 +85,7 @@ describe('connector services route', () => {
           type: TemplateType.Generic,
           payload: {
             code: '000000',
+            phone: '12345678901',
           },
           ip: '::ffff:127.0.0.1',
         },
@@ -113,12 +114,91 @@ describe('connector services route', () => {
           type: TemplateType.Generic,
           payload: {
             code: '000000',
+            email: 'test@email.com',
           },
           ip: '::ffff:127.0.0.1',
         },
         { test: 123 }
       );
       expect(response).toHaveProperty('statusCode', 204);
+    });
+
+    it('should pass locale to the payload when provided', async () => {
+      const sendMessage = jest.fn();
+      const mockedEmailConnectorFactory: ConnectorFactory<typeof router, EmailConnector> = {
+        ...mockConnectorFactory,
+        metadata: mockMetadata,
+        type: ConnectorType.Email,
+        createConnector: jest.fn(),
+      };
+      loadConnectorFactories.mockResolvedValueOnce([mockedEmailConnectorFactory]);
+      buildRawConnector.mockResolvedValueOnce({ rawConnector: { sendMessage } });
+      const response = await connectorRequest
+        .post('/connectors/id/test')
+        .send({ email: 'test@email.com', config: { test: 123 }, locale: 'zh-CN' });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+      expect(sendMessage).toHaveBeenCalledWith(
+        {
+          to: 'test@email.com',
+          type: TemplateType.Generic,
+          payload: {
+            code: '000000',
+            locale: 'zh-CN',
+            email: 'test@email.com',
+          },
+          ip: '::ffff:127.0.0.1',
+        },
+        { test: 123 }
+      );
+      expect(response).toHaveProperty('statusCode', 204);
+    });
+
+    it('should send the test message using the requested templateType when provided', async () => {
+      const sendMessage = jest.fn();
+      const mockedEmailConnectorFactory: ConnectorFactory<typeof router, EmailConnector> = {
+        ...mockConnectorFactory,
+        metadata: mockMetadata,
+        type: ConnectorType.Email,
+        createConnector: jest.fn(),
+      };
+      loadConnectorFactories.mockResolvedValueOnce([mockedEmailConnectorFactory]);
+      buildRawConnector.mockResolvedValueOnce({ rawConnector: { sendMessage } });
+      const response = await connectorRequest.post('/connectors/id/test').send({
+        email: 'test@email.com',
+        config: { test: 123 },
+        templateType: TemplateType.SignIn,
+      });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+      expect(sendMessage).toHaveBeenCalledWith(
+        {
+          to: 'test@email.com',
+          type: TemplateType.SignIn,
+          payload: {
+            code: '000000',
+            email: 'test@email.com',
+          },
+          ip: '::ffff:127.0.0.1',
+        },
+        { test: 123 }
+      );
+      expect(response).toHaveProperty('statusCode', 204);
+    });
+
+    it('should reject an unknown templateType', async () => {
+      const sendMessage = jest.fn();
+      const mockedEmailConnectorFactory: ConnectorFactory<typeof router, EmailConnector> = {
+        ...mockConnectorFactory,
+        metadata: mockMetadata,
+        type: ConnectorType.Email,
+        createConnector: jest.fn(),
+      };
+      loadConnectorFactories.mockResolvedValueOnce([mockedEmailConnectorFactory]);
+      buildRawConnector.mockResolvedValueOnce({ rawConnector: { sendMessage } });
+      const response = await connectorRequest
+        .post('/connectors/id/test')
+        .send({ email: 'test@email.com', config: { test: 123 }, templateType: 'NotATemplate' });
+      expect(sendMessage).not.toHaveBeenCalled();
+      expect(response).toHaveProperty('statusCode', 400);
     });
 
     it('should throw when neither phone nor email is provided', async () => {

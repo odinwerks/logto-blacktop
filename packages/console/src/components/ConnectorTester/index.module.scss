@@ -9,6 +9,18 @@
     @include _.form-text-field;
   }
 
+  // "Template" / "Language" selectors rendered beside the recipient field when the parent opts in
+  // (connector details page). Fixed width so they don't squeeze the recipient field; margin-top is
+  // suppressed (specificity tripled to beat FormField's `.field:not(:first-child)`) so the selectors
+  // align on the same baseline as the recipient field and the send button. The Select fills the
+  // field's width (`.select` is a block-level flex container with no intrinsic width).
+  .selectorField.selectorField {
+    width: _.unit(36);
+    flex-shrink: 0;
+    margin-inline-start: _.unit(1.5);
+    margin-top: 0;
+  }
+
   .send {
     margin-inline-start: _.unit(1.5);
     margin-bottom: 1px;

@@ -35,3 +35,11 @@
     gap: _.unit(2);
   }
 }
+
+// Inline variant add-language control: a single searchable `Select` (no separate Add button).
+// Selecting a language from the dropdown adds it immediately, selects it, and opens the
+// translations grid. The DS `Select`'s built-in search box filters languages by tag/name.
+.inlineAddLanguageSelect {
+  width: _.unit(30);
+  min-width: 0;
+}

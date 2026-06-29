@@ -207,6 +207,62 @@ describe('connector data routes', () => {
       );
     });
 
+    it('successfully preserves empty translation objects in connector config', async () => {
+      getLogtoConnectors.mockResolvedValue([
+        {
+          dbEntry: mockConnector,
+          metadata: { ...mockMetadata, isStandard: true },
+          type: ConnectorType.Social,
+          ...mockLogtoConnector,
+        },
+      ]);
+      updateConnector.mockResolvedValueOnce({
+        ...mockConnector,
+        config: { translations: { en: {} } },
+      });
+      const response = await connectorRequest.patch('/connectors/id').send({
+        config: { translations: { en: {} } },
+      });
+      expect(response).toHaveProperty('statusCode', 200);
+      expect(updateConnector).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'id' },
+          set: {
+            config: { translations: { en: {} } },
+          },
+          jsonbMode: 'replace',
+        })
+      );
+    });
+
+    it('successfully preserves non-empty translation objects in connector config', async () => {
+      getLogtoConnectors.mockResolvedValue([
+        {
+          dbEntry: mockConnector,
+          metadata: { ...mockMetadata, isStandard: true },
+          type: ConnectorType.Social,
+          ...mockLogtoConnector,
+        },
+      ]);
+      updateConnector.mockResolvedValueOnce({
+        ...mockConnector,
+        config: { translations: { en: { signInTitle: 'Hello' } } },
+      });
+      const response = await connectorRequest.patch('/connectors/id').send({
+        config: { translations: { en: { signInTitle: 'Hello' } } },
+      });
+      expect(response).toHaveProperty('statusCode', 200);
+      expect(updateConnector).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'id' },
+          set: {
+            config: { translations: { en: { signInTitle: 'Hello' } } },
+          },
+          jsonbMode: 'replace',
+        })
+      );
+    });
+
     it('successfully updates connector config and metadata', async () => {
       getLogtoConnectors.mockResolvedValue([
         {

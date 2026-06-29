@@ -131,5 +131,13 @@ export const defaultMetadata: ConnectorMetadata = {
       description:
         'Use system-provided template codes: 100001 (SignIn/Register/Generic), 100002 (Change Phone), 100003 (Reset Password), 100004 (Bind Phone), 100005 (Verify Phone).',
     },
+    {
+      key: 'translations',
+      label: 'Translations',
+      type: ConnectorConfigFormItemType.Json,
+      required: false,
+      defaultValue: {},
+      isDevFeature: true,
+    },
   ],
 };

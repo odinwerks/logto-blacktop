@@ -11,7 +11,10 @@ import { safeParseJson } from '@/utils/json';
  * - When creating a new connector, this function will be called in the `convertFactoryResponseToForm()` method. At this time, there is no `config` data, so the default values in `formItems` are used.
  * - When editing an existing connector, this function will be called in the `convertResponseToForm()` method. `config` data will always exist, and the `config` data is used, never using the default values.
  */
-const initFormData = (formItems: ConnectorConfigFormItem[], config?: Record<string, unknown>) => {
+export const initFormData = (
+  formItems: ConnectorConfigFormItem[],
+  config?: Record<string, unknown>
+) => {
   const data: Array<[string, unknown]> = formItems.map((item) => {
     const configValue =
       config?.[item.key] ??
@@ -27,7 +30,15 @@ const initFormData = (formItems: ConnectorConfigFormItem[], config?: Record<stri
     return [item.key, value];
   });
 
-  return Object.fromEntries(data);
+  // Seed `translations` even when the connector does not declare a `translations` form item, so
+  // the inline `ConnectorTemplatesEditor` can read existing translations from react-hook-form's
+  // default values.
+  const seededTranslations: Array<[string, unknown]> =
+    config?.translations && !data.some(([key]) => key === 'translations')
+      ? [['translations', JSON.stringify(config.translations, null, 2)]]
+      : [];
+
+  return Object.fromEntries([...data, ...seededTranslations]);
 };
 
 export const parseFormConfig = (
@@ -41,6 +52,15 @@ export const parseFormConfig = (
         // Filter out empty input
         if (!skipFalsyValuesRemoval && value === '') {
           return null;
+        }
+
+        // Defensive save: `translations` is owned by the inline `ConnectorTemplatesEditor` and may
+        // not be declared in older/non-localized connectors' `formItems`. Preserve it so language
+        // edits survive the save path instead of being silently dropped.
+        if (key === 'translations' && value) {
+          const result = safeParseJson(typeof value === 'string' ? value : '');
+
+          return [key, result.success ? result.data : value];
         }
 
         const formItem = formItems.find((item) => item.key === key);

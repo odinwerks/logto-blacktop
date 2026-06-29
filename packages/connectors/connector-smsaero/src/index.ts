@@ -11,6 +11,7 @@ import {
   ConnectorError,
   ConnectorErrorCodes,
   ConnectorType,
+  getLocalizedPayload,
   replaceSendMessageHandlebars,
   validateConfig,
 } from '@logto/connector-kit';
@@ -26,7 +27,7 @@ function sendMessage(getConfig: GetConnectorConfig): SendMessageFunction {
     const config = inputConfig ?? (await getConfig(defaultMetadata.id));
     validateConfig(config, smsAeroConfigGuard);
 
-    const { email, apiKey, senderName, templates } = config;
+    const { email, apiKey, senderName, templates, translations } = config;
     const template = templates.find((template) => template.usageType === type);
 
     assert(
@@ -37,10 +38,15 @@ function sendMessage(getConfig: GetConnectorConfig): SendMessageFunction {
       )
     );
 
+    // Resolve the per-locale translation dictionary (`payload.t`) from `config.translations` so
+    // that `{{t.key}}` placeholders in the template resolve to the end-user's language. When no
+    // translations are configured, this is a backward-compatible no-op (payload unchanged).
+    const localizedPayload = getLocalizedPayload(payload, translations);
+
     const parameters: PublicParameters = {
       number: to,
       sign: senderName,
-      text: replaceSendMessageHandlebars(template.content, payload),
+      text: replaceSendMessageHandlebars(template.content, localizedPayload),
     };
 
     const auth = Buffer.from(`${email}:${apiKey}`).toString('base64');

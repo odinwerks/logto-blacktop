@@ -22,10 +22,14 @@ const config: Config.InitialOptions = {
     '\\.(png)$': 'jest-transform-stub',
   },
   moduleNameMapper: {
+    // The CSS-module stub must precede the `@/` path alias: the greedy `^@/(.*)$` rule would
+    // otherwise intercept `@/scss/foo.module.scss` and resolve it to the raw SCSS file, which `swc`
+    // cannot transform. Stubbing first keeps CSS-module imports (both `@/`-prefixed and relative)
+    // class-names proxies in every test.
     '^@/(.*)\\.svg\\?react$': '<rootDir>/src/$1.svg',
+    '\\.module\\.(css|sass|scss)$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@logto/shared/(.*)$': '<rootDir>/../shared/lib/$1',
-    '\\.module\\.(css|sass|scss)$': 'identity-obj-proxy',
   },
   transformIgnorePatterns: ['node_modules/(?!(.*(nanoid|jose|ky|@logto|@silverhand))/)'],
 };

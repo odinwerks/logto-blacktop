@@ -1,5 +1,6 @@
-import { ServiceConnector } from '@logto/connector-kit';
+import { ServiceConnector, TemplateType } from '@logto/connector-kit';
 import { emailRegEx, phoneInputRegEx } from '@logto/core-kit';
+import { languages as uiLanguageNameMapping, type LanguageTag } from '@logto/language-kit';
 import { ConnectorType } from '@logto/schemas';
 import { parsePhoneNumber } from '@logto/shared/universal';
 import { conditional } from '@silverhand/essentials';
@@ -9,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import Button from '@/ds-components/Button';
 import FormField from '@/ds-components/FormField';
+import Select, { type Option } from '@/ds-components/Select';
 import TextInput from '@/ds-components/TextInput';
 import { Tooltip } from '@/ds-components/Tip';
 import useApi from '@/hooks/use-api';
@@ -23,6 +25,20 @@ type Props = {
   readonly className?: string;
   readonly parse: () => unknown;
   readonly updateUsage?: () => void;
+  /**
+   * Optional "template" selector options. When provided (and non-empty), a "Template" dropdown is
+   * rendered beside the recipient field so the test message can be sent for a specific
+   * {@link TemplateType} (default `Generic`, preserving the previous behavior). Omitted by callers
+   * whose test bar does not surface per-template testing (e.g. the first-time setup guide).
+   */
+  readonly templateTypes?: Array<Option<TemplateType>>;
+  /**
+   * The languages configured in the connector's translations dictionary. When provided (and
+   * non-empty), a clearable "Language" dropdown is rendered so the test message can be previewed in
+   * a localized variant; the selected value is forwarded to the test endpoint as `locale`. Omitted by
+   * callers whose connectors have no translations dictionary.
+   */
+  readonly languages?: readonly LanguageTag[];
 };
 
 type FormData = {
@@ -35,8 +51,17 @@ function ConnectorTester({
   className,
   parse,
   updateUsage,
+  templateTypes,
+  languages,
 }: Props) {
   const [showTooltip, setShowTooltip] = useState(false);
+  // Selected test template defaults to `Generic` (the previous "Logto uses the Generic template for
+  // testing" behavior). Only meaningful when {@link templateTypes} is provided.
+  const [selectedTemplateType, setSelectedTemplateType] = useState<TemplateType>(
+    TemplateType.Generic
+  );
+  // Optional localization to render the test message in; `undefined` sends without a `locale`.
+  const [selectedLocale, setSelectedLocale] = useState<LanguageTag>();
   const {
     handleSubmit,
     register,
@@ -50,6 +75,9 @@ function ConnectorTester({
   const api = useApi();
   const isSms = connectorType === ConnectorType.Sms;
   const isEmailServiceConnector = connectorFactoryId === ServiceConnector.Email;
+
+  const showTemplateSelector = Boolean(templateTypes && templateTypes.length > 0);
+  const showLanguageSelector = Boolean(languages && languages.length > 0);
 
   useEffect(() => {
     if (!showTooltip) {
@@ -76,6 +104,11 @@ function ConnectorTester({
 
       const data = {
         config: parse(),
+        // Forward the selected template type (defaulting to `Generic` — the previous behavior) and the
+        // optional localization so the test message renders for the chosen template/language. Both
+        // are accepted by the `POST /api/connectors/:factoryId/test` endpoint.
+        templateType: selectedTemplateType,
+        ...conditional(selectedLocale && { locale: selectedLocale }),
         ...(isSms ? { phone: parsePhoneNumber(sendTo) } : { email: sendTo }),
       };
 
@@ -84,6 +117,16 @@ function ConnectorTester({
       setShowTooltip(true);
     })
   );
+
+  // Register the recipient field once (stable config) so the change handler can both feed
+  // react-hook-form's validation and mirror the value up to the parent for per-template testing.
+  const sendToRegistration = register('sendTo', {
+    required: true,
+    pattern: {
+      value: isSms ? phoneInputRegEx : emailRegEx,
+      message: t('connector_details.send_error_invalid_format'),
+    },
+  });
 
   return (
     <div className={className}>
@@ -103,15 +146,42 @@ function ConnectorTester({
                 : t('connector_details.test_email_placeholder')
             }
             onKeyDown={onKeyDownHandler({ Enter: onSubmit })}
-            {...register('sendTo', {
-              required: true,
-              pattern: {
-                value: isSms ? phoneInputRegEx : emailRegEx,
-                message: t('connector_details.send_error_invalid_format'),
-              },
-            })}
+            {...sendToRegistration}
+            onChange={(event) => {
+              void sendToRegistration.onChange(event);
+            }}
           />
         </FormField>
+        {showTemplateSelector && (
+          <FormField title="connector_details.select_template" className={styles.selectorField}>
+            <Select<TemplateType>
+              size="medium"
+              value={selectedTemplateType}
+              options={templateTypes ?? []}
+              onChange={(value) => {
+                if (value) {
+                  setSelectedTemplateType(value);
+                }
+              }}
+            />
+          </FormField>
+        )}
+        {showLanguageSelector && (
+          <FormField title="connector_details.select_language" className={styles.selectorField}>
+            <Select<LanguageTag>
+              isClearable
+              size="medium"
+              value={selectedLocale}
+              options={(languages ?? []).map((languageTag) => ({
+                value: languageTag,
+                title: uiLanguageNameMapping[languageTag],
+              }))}
+              onChange={(value) => {
+                setSelectedLocale(value);
+              }}
+            />
+          </FormField>
+        )}
         <Tooltip
           isKeepOpen
           isSuccessful

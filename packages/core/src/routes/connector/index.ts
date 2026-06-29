@@ -148,6 +148,8 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
         validateConfig(config, connectorFactory.configGuard);
       }
 
+      const cleanedConfig = cleanDeep(config, { emptyObjects: false });
+
       if (enableTokenStorage) {
         assertThat(
           EnvSet.values.secretVaultKek,
@@ -172,7 +174,9 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
       await insertConnector({
         id: insertConnectorId,
         connectorId,
-        ...cleanDeep({ syncProfile, config, metadata, enableTokenStorage }),
+        ...cleanDeep({ syncProfile, metadata, enableTokenStorage }),
+        // eslint-disable-next-line no-restricted-syntax
+        ...conditional(config !== undefined && { config: cleanedConfig as JsonObject }),
       });
 
       /**
@@ -336,6 +340,8 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
         validateConfig(config);
       }
 
+      const cleanedConfig = cleanDeep(config, { emptyObjects: false });
+
       if (
         type === ConnectorType.Social &&
         originalMetadata.isTokenStorageSupported &&
@@ -353,7 +359,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
            * The type inference failed to infer this, manually assign type `JsonObject`.
            */
           // eslint-disable-next-line no-restricted-syntax
-          config: conditional(config && (cleanDeep(config) as JsonObject)),
+          config: conditional(config && (cleanedConfig as JsonObject)),
           metadata: conditional(metadata && cleanDeep(metadata)),
           syncProfile,
           enableTokenStorage,
@@ -366,11 +372,11 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
       ctx.body = await transpileLogtoConnector(connector, buildExtraInfo(connector.metadata));
 
       return next();
+      // eslint-disable-next-line max-lines -- refactor later
     }
   );
 
   router.delete(
-    // eslint-disable-next-line max-lines -- refactor later
     '/connectors/:id',
     koaGuard({ params: object({ id: string().min(1) }), status: [204, 404] }),
     async (ctx, next) => {

@@ -149,6 +149,36 @@ describe('connector data route', () => {
       expect(response).toHaveProperty('statusCode', 500);
     });
 
+    it('should preserve empty translation objects in connector config', async () => {
+      loadConnectorFactories.mockResolvedValueOnce([
+        {
+          ...mockConnectorFactory,
+          metadata: { ...mockConnectorFactory.metadata, id: 'connectorId' },
+        },
+      ]);
+      countConnectorByConnectorId.mockResolvedValueOnce({ count: 0 });
+      getLogtoConnectors.mockResolvedValueOnce([
+        {
+          dbEntry: { ...mockConnector, connectorId: 'id0' },
+          metadata: { ...mockMetadata, id: 'id0' },
+          type: ConnectorType.Sms,
+          ...mockLogtoConnector,
+        },
+      ]);
+      validateConfig.mockReturnValueOnce(null);
+      buildRawConnector.mockResolvedValueOnce({ rawConnector: { configGuard: any() } });
+      await connectorRequest.post('/connectors').send({
+        connectorId: 'connectorId',
+        config: { translations: { en: {} } },
+      });
+      expect(insertConnector).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectorId: 'connectorId',
+          config: { translations: { en: {} } },
+        })
+      );
+    });
+
     it('throws when connector factory not found', async () => {
       loadConnectorFactories.mockResolvedValueOnce([
         {

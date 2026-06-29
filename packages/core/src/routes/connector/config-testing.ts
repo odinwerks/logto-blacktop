@@ -6,6 +6,7 @@ import {
   type EmailConnector,
   demoConnectorIds,
   TemplateType,
+  templateTypeGuard,
 } from '@logto/connector-kit';
 import { ServiceConnector } from '@logto/connector-kit';
 import { phoneRegEx, emailRegEx } from '@logto/core-kit';
@@ -35,6 +36,8 @@ export default function connectorConfigTestingRoutes<T extends ManagementApiRout
         email: string().regex(emailRegEx).optional(),
         config: jsonObjectGuard,
         locale: string().optional(),
+        // When omitted, the test message is sent using the `Generic` template (legacy behavior).
+        templateType: templateTypeGuard.optional(),
       }),
       status: [204, 400, 404],
     }),
@@ -43,7 +46,7 @@ export default function connectorConfigTestingRoutes<T extends ManagementApiRout
         params: { factoryId },
         body,
       } = ctx.guard;
-      const { phone, email, config, locale } = body;
+      const { phone, email, config, locale, templateType } = body;
 
       const subject = phone ?? email;
       assertThat(subject, new RequestError({ code: 'guard.invalid_input' }));
@@ -84,10 +87,12 @@ export default function connectorConfigTestingRoutes<T extends ManagementApiRout
       await sendMessage(
         {
           to: subject,
-          type: TemplateType.Generic,
+          type: templateType ?? TemplateType.Generic,
           payload: {
             code: '000000',
             ...conditional(locale && { locale }),
+            ...conditional(email && { email }),
+            ...conditional(phone && { phone }),
           },
           ip: ctx.request.ip,
         },

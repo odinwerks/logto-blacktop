@@ -54,6 +54,14 @@
 
 .usageType {
   font: var(--font-label-2);
+  // Read each usage-type label (SignIn, Register, ForgotPassword, …) as a section heading for the
+  // delivery-template row: bold and shrunk to 60% of the base `--font-label-2` metrics
+  // (14px → 8.4px, 20px → 12px line-height) so the labels stay compact above each template's
+  // fields. Longhand is declared after the `font` shorthand so it overrides only
+  // weight/size/line-height, keeping the family from the token.
+  font-weight: bold;
+  font-size: calc(14px * 0.6);
+  line-height: calc(20px * 0.6);
   color: var(--color-text-secondary);
 }
 
@@ -61,6 +69,29 @@
   flex: 1;
   height: 1px;
   background-color: var(--color-divider);
+}
+
+// Header of the collapsible per-language translations grid: the selected language's name on the
+// left and a close `IconButton` on the right that collapses the grid. The grid (the shared `Table`)
+// sits directly below the header with its own border, so the header stays borderless.
+.translationsPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: _.unit(2);
+}
+
+.translationsPanelTitle {
+  font: var(--font-label-2);
+  font-weight: bold;
+  color: var(--color-text-secondary);
+}
+
+// Legacy close-button style, retained for backward compatibility. The translation grid is now
+// always visible when a language is selected, so no close button is rendered; the class is kept
+// here so existing references do not break and tests can assert its absence.
+.closeButton {
+  flex-shrink: 0;
 }
 
 // Subject + content-type live on one row (subject grows, content-type keeps a fixed width).
@@ -89,8 +120,14 @@
   background-color: var(--color-layer-2);
 }
 
-// The empty-state "Add localizations" control fills the section width for prominence.
-.emptyAddLanguage {
+// The "Template translations available" row: a wrapping horizontal bar of inline language pills
+// plus the "Add localizations" button. The inline `LanguageItem` and `AddLocalizationsButton`
+// establish their own 38px heights, so the row only needs to align them and gap them.
+.languagesRow {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: _.unit(2);
   width: 100%;
 }
 

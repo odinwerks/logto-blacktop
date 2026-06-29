@@ -1,4 +1,5 @@
-import { ServiceConnector, GoogleConnector } from '@logto/connector-kit';
+import { GoogleConnector, ServiceConnector, TemplateType } from '@logto/connector-kit';
+import type { LanguageTag } from '@logto/language-kit';
 import { ConnectorType } from '@logto/schemas';
 import type { ConnectorResponse } from '@logto/schemas';
 import { conditional } from '@silverhand/essentials';
@@ -9,12 +10,17 @@ import { useTranslation } from 'react-i18next';
 
 import BasicForm from '@/components/ConnectorForm/BasicForm';
 import ConfigForm from '@/components/ConnectorForm/ConfigForm';
+import {
+  deriveLanguages,
+  safeJsonParse,
+} from '@/components/ConnectorForm/ConnectorTemplatesEditor/utils';
 import GoogleOneTapCard from '@/components/ConnectorForm/GoogleOneTapCard';
 import ConnectorTester from '@/components/ConnectorTester';
 import DetailsForm from '@/components/DetailsForm';
 import FormCard from '@/components/FormCard';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
 import { connectors, emailConnectors } from '@/consts';
+import { type Option } from '@/ds-components/Select';
 import useApi from '@/hooks/use-api';
 import { useConnectorFormConfigParser } from '@/hooks/use-connector-form-config-parser';
 import { SyncProfileMode } from '@/types/connector';
@@ -24,6 +30,15 @@ import { trySubmitSafe } from '@/utils/form';
 import { removeFalsyValues } from '@/utils/object';
 
 import EmailServiceConnectorForm from './EmailServiceConnectorForm';
+
+/**
+ * Every supported {@link TemplateType}, surfaced as the "Template" selector options on the test bar
+ * so a test message can be sent for any delivery template. The enum values equal their keys (no
+ * numeric reverse mappings), so `Object.values` yields the human-readable usage-type strings.
+ */
+const templateTypeOptions: Array<Option<TemplateType>> = Object.values(TemplateType).map(
+  (value) => ({ value, title: value })
+);
 
 type Props = {
   readonly isDeleted: boolean;
@@ -110,6 +125,15 @@ function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Prop
     onConnectorUpdated();
   }, [connectorData, onConnectorUpdated]);
 
+  // Languages configured in the connector's translations dictionary, surfaced as the test bar's
+  // "Language" selector options so a test message can be previewed in any localized variant. The
+  // translations form field is owned (read/written) by `ConnectorTemplatesEditor` as a JSON string.
+  const translationsRaw = watch('formConfig.translations');
+  const testLanguages = useMemo<LanguageTag[]>(
+    () => deriveLanguages(safeJsonParse(translationsRaw) ?? {}),
+    [translationsRaw]
+  );
+
   return (
     <FormProvider {...methods}>
       <DetailsForm
@@ -163,6 +187,8 @@ function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Prop
               connectorType={connectorType}
               parse={() => configParser(watch(), formItems)}
               updateUsage={updateUsage}
+              templateTypes={templateTypeOptions}
+              languages={testLanguages}
             />
           </FormCard>
         )}

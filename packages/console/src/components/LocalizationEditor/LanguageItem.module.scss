@@ -29,3 +29,23 @@
     }
   }
 }
+
+// Inline pill variant used by the inline `ConnectorTemplatesEditor` (a wrapping row of pills beside
+// the "+" add button). Sized to match the 38px add button exactly, with the language name and tag
+// on a single line (no wrapping) and a width that fits the content rather than a fixed rail.
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: _.unit(1);
+  width: auto;
+  height: 38px;
+  padding: 0 _.unit(3);
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+// Per-language "delete translations" trash rendered inside the inline pill. Tightens the shared
+// IconButton so the button sits flush inside the 38px pill without pushing the name/tag around.
+.deleteButton {
+  margin-inline-start: _.unit(1);
+}
