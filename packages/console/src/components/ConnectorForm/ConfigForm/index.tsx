@@ -69,7 +69,11 @@ function ConfigForm({
         </FormField>
       )}
       {formItems ? (
-        <ConfigFormFields formItems={formItems} connectorType={connectorType} />
+        <ConfigFormFields
+          formItems={formItems}
+          connectorType={connectorType}
+          connectorFactoryId={connectorFactoryId}
+        />
       ) : (
         <FormField title="connectors.guide.config">
           <Controller

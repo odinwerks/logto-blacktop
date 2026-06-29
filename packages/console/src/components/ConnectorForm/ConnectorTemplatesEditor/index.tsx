@@ -17,6 +17,7 @@ import AddLocalizationsButton from './AddLocalizationsButton';
 import { type EmailContentType } from './EmailTemplateRow';
 import TemplateRows from './TemplateRows';
 import TranslationEditorModal from './TranslationEditorModal';
+import UnifiedEditorModeToggle from './UnifiedEditorModeToggle';
 import styles from './index.module.scss';
 import {
   buildEmptyTemplateRow,
@@ -38,6 +39,8 @@ type Props = {
   readonly formItem: ConnectorConfigFormItem;
   /** The owning connector's type; drives SMS vs. email rendering. */
   readonly connectorType: ConnectorType;
+  /** The connector factory id (e.g. `ubill-sms`, `mailgun-email`); gates the Unified toggle. */
+  readonly connectorFactoryId?: string;
 };
 
 /**
@@ -87,7 +90,7 @@ const TRANSLATIONS_FIELD: FieldPath<ConnectorFormType> = 'formConfig.translation
  * renders `LanguageItem` pills directly so the pill click opens the modal (the shared
  * `LocalizationNav` is left untouched).
  */
-function ConnectorTemplatesEditor({ formItem, connectorType }: Props) {
+function ConnectorTemplatesEditor({ formItem, connectorType, connectorFactoryId }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { watch, getValues, setValue } = useFormContext<ConnectorFormType>();
   const { context, Provider } = useLocalizationEditorContext();
@@ -113,20 +116,18 @@ function ConnectorTemplatesEditor({ formItem, connectorType }: Props) {
   const templatesRaw = watch(templatesField);
   const translationsRaw = watch(TRANSLATIONS_FIELD);
 
-  const isDeliveries = formItem.key === 'deliveries';
-
   // Parse raw JSON into rows. `deliveries` is a `Record<usageType, config>`; normalize it to a row
   // array for rendering and write it back as a record on edit (the `as` shape asserts live inside
   // `safeJsonParse`, mirroring the SMS precedent).
   const parsedRows = useMemo<TemplateRow[]>(() => {
-    if (isDeliveries) {
+    if (formItem.key === 'deliveries') {
       const record = safeJsonParse<Record<string, Record<string, unknown>>>(templatesRaw) ?? {};
 
       return Object.entries(record).map(([usageType, config]) => ({ usageType, ...config }));
     }
 
     return safeJsonParse<TemplateRow[]>(templatesRaw) ?? [];
-  }, [templatesRaw, isDeliveries]);
+  }, [templatesRaw, formItem.key]);
 
   const mode = useMemo(
     () => deriveEditorMode(connectorType, formItem.key, parsedRows),
@@ -230,7 +231,7 @@ function ConnectorTemplatesEditor({ formItem, connectorType }: Props) {
   // edited usage type was auto-detected (synthetic) and not yet in the persisted config.
   const updateTemplateField = useCallback(
     (usageType: string, field: string, value: string) => {
-      if (isDeliveries) {
+      if (formItem.key === 'deliveries') {
         const current =
           safeJsonParse<Record<string, Record<string, unknown>>>(getValues(templatesField)) ?? {};
         // Seed a never-persisted deliveries usage type with its empty Mailgun shape (no `usageType`
@@ -255,7 +256,7 @@ function ConnectorTemplatesEditor({ formItem, connectorType }: Props) {
             ]
       );
     },
-    [getValues, templatesField, writeTemplates, isDeliveries, mode, contentTypeKey]
+    [getValues, templatesField, writeTemplates, formItem.key, mode, contentTypeKey]
   );
 
   // Per-field stable change handlers (a single memoized object keyed by field, closing over only
@@ -368,51 +369,57 @@ function ConnectorTemplatesEditor({ formItem, connectorType }: Props) {
   return (
     <Provider value={context}>
       <div className={styles.editor}>
-        <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>
-            {t('connector_details.template_editor.template_translations_available')}
-          </h4>
-          <div className={styles.languagesRow}>
-            {languages.map((languageTag) => (
-              <LanguageItem
-                key={languageTag}
-                languageTag={languageTag}
-                isSelected={selectedLanguage === languageTag}
-                variant="inline"
-                onClick={() => {
-                  onSelectLanguage(languageTag);
-                }}
-                onDelete={() => {
-                  onDeleteLanguage(languageTag);
-                }}
+        <UnifiedEditorModeToggle
+          formItem={formItem}
+          connectorType={connectorType}
+          connectorFactoryId={connectorFactoryId}
+        >
+          <section className={styles.section}>
+            <h4 className={styles.sectionTitle}>
+              {t('connector_details.template_editor.template_translations_available')}
+            </h4>
+            <div className={styles.languagesRow}>
+              {languages.map((languageTag) => (
+                <LanguageItem
+                  key={languageTag}
+                  languageTag={languageTag}
+                  isSelected={selectedLanguage === languageTag}
+                  variant="inline"
+                  onClick={() => {
+                    onSelectLanguage(languageTag);
+                  }}
+                  onDelete={() => {
+                    onDeleteLanguage(languageTag);
+                  }}
+                />
+              ))}
+              <AddLocalizationsButton options={availableLanguageOptions} onApply={onAddLanguage} />
+            </div>
+          </section>
+          <section className={styles.section}>
+            <h4 className={styles.sectionTitle}>
+              {t('connector_details.template_editor.delivery_templates')}
+            </h4>
+            <div className={styles.templates}>
+              <TemplateRows
+                mode={mode}
+                sortedTemplates={sortedTemplates}
+                contentTypeKey={contentTypeKey}
+                fieldHandlers={fieldHandlers}
+                onContentTypeChange={onContentTypeChange}
               />
-            ))}
-            <AddLocalizationsButton options={availableLanguageOptions} onApply={onAddLanguage} />
-          </div>
-        </section>
-        <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>
-            {t('connector_details.template_editor.delivery_templates')}
-          </h4>
-          <div className={styles.templates}>
-            <TemplateRows
-              mode={mode}
-              sortedTemplates={sortedTemplates}
-              contentTypeKey={contentTypeKey}
-              fieldHandlers={fieldHandlers}
-              onContentTypeChange={onContentTypeChange}
+            </div>
+          </section>
+          {isModalOpen && (
+            <TranslationEditorModal
+              languageTag={selectedLanguage}
+              keys={allKeys}
+              values={translations[selectedLanguage] ?? {}}
+              onApply={onModalApply}
+              onRequestClose={onModalRequestClose}
             />
-          </div>
-        </section>
-        {isModalOpen && (
-          <TranslationEditorModal
-            languageTag={selectedLanguage}
-            keys={allKeys}
-            values={translations[selectedLanguage] ?? {}}
-            onApply={onModalApply}
-            onRequestClose={onModalRequestClose}
-          />
-        )}
+          )}
+        </UnifiedEditorModeToggle>
       </div>
       <ConfirmModal
         isOpen={confirmationState === 'try-close'}

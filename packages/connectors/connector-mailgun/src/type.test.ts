@@ -79,4 +79,29 @@ describe('Mailgun config guard', () => {
 
     expect(() => mailgunConfigGuard.parse(invalidConfig)).toThrow();
   });
+
+  it('should accept the dev-flagged Unified template editor source fields', () => {
+    const config = {
+      domain: 'example.com',
+      apiKey: 'key',
+      from: 'from',
+      deliveries: {
+        [TemplateType.Generic]: {
+          html: 'html',
+          subject: 'subject',
+        },
+      },
+      unifiedTemplate: { content: 'Code {{code}}' },
+      variables: { brand: { Generic: 'Logto' } },
+      unifiedTranslations: { en: { greeting: { Generic: 'Hi' } } },
+      templateEditorMode: 'unified',
+    };
+
+    const parsed = mailgunConfigGuard.parse(config);
+
+    expect(parsed.unifiedTemplate).toEqual({ content: 'Code {{code}}' });
+    expect(parsed.variables).toEqual({ brand: { Generic: 'Logto' } });
+    expect(parsed.unifiedTranslations).toEqual({ en: { greeting: { Generic: 'Hi' } } });
+    expect(parsed.templateEditorMode).toBe('unified');
+  });
 });

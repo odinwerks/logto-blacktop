@@ -7,6 +7,22 @@ import { SyncProfileMode, type ConnectorFormType } from '@/types/connector';
 import { safeParseJson } from '@/utils/json';
 
 /**
+ * The four `formConfig` fields the inline Unified template editor (dev-flagged, Ubill-SMS +
+ * Mailgun only) owns. They are NOT declared in either connector's `formItems` (UI-owned, exactly
+ * like `translations` for non-localized connectors), so they round-trip via the defensive
+ * seed/preserve pattern below: `initFormData` seeds them from `config` and `parseFormConfig`
+ * preserves them on save (otherwise they would be silently dropped at line 68's `!formItem` drop).
+ */
+const unifiedFormFields: readonly string[] = [
+  'unifiedTemplate',
+  'variables',
+  'unifiedTranslations',
+  'templateEditorMode',
+];
+
+export const isUnifiedFormField = (key: string): boolean => unifiedFormFields.includes(key);
+
+/**
  * @remarks
  * - When creating a new connector, this function will be called in the `convertFactoryResponseToForm()` method. At this time, there is no `config` data, so the default values in `formItems` are used.
  * - When editing an existing connector, this function will be called in the `convertResponseToForm()` method. `config` data will always exist, and the `config` data is used, never using the default values.
@@ -38,7 +54,20 @@ export const initFormData = (
       ? [['translations', JSON.stringify(config.translations, null, 2)]]
       : [];
 
-  return Object.fromEntries([...data, ...seededTranslations]);
+  // Seed the Unified editor's four defensive fields when present in `config` and not already
+  // declared as a form item, so reopening a connector saved in Unified mode rehydrates the unified
+  // source (not a re-parse of the compiled `templates`/`deliveries` mirror).
+  const seededUnifiedFields: Array<[string, unknown]> = unifiedFormFields.flatMap((fieldKey) => {
+    if (config?.[fieldKey] === undefined || data.some(([key]) => key === fieldKey)) {
+      return [];
+    }
+
+    const entry: [string, unknown] = [fieldKey, JSON.stringify(config[fieldKey], null, 2)];
+
+    return [entry];
+  });
+
+  return Object.fromEntries([...data, ...seededTranslations, ...seededUnifiedFields]);
 };
 
 export const parseFormConfig = (
@@ -58,6 +87,15 @@ export const parseFormConfig = (
         // not be declared in older/non-localized connectors' `formItems`. Preserve it so language
         // edits survive the save path instead of being silently dropped.
         if (key === 'translations' && value) {
+          const result = safeParseJson(typeof value === 'string' ? value : '');
+
+          return [key, result.success ? result.data : value];
+        }
+
+        // Defensive save: the Unified editor's four fields are UI-owned and not declared as
+        // `formItems`. Preserve them (parsing the JSON string back into an object) so unified
+        // edits survive the save path; otherwise line 68's `!formItem` drop strips them silently.
+        if (isUnifiedFormField(key) && value) {
           const result = safeParseJson(typeof value === 'string' ? value : '');
 
           return [key, result.success ? result.data : value];

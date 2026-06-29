@@ -1,0 +1,181 @@
+import { ConnectorType } from '@logto/connector-kit';
+import { useEffect, useMemo, useState } from 'react';
+import { useFormContext, useWatch, type FieldPath } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+
+import TabNav, { TabNavItem } from '@/ds-components/TabNav';
+import type { ConnectorFormType } from '@/types/connector';
+
+import UnifiedLocalizationsTab from './UnifiedLocalizationsTab';
+import UnifiedTemplateTab from './UnifiedTemplateTab';
+import UnifiedVariablesTab from './UnifiedVariablesTab';
+import styles from './index.module.scss';
+import {
+  compileUnified,
+  dummyPayload,
+  type ConnectorKind,
+  type UnifiedTemplate,
+  type UnifiedTranslations,
+  type VariablesTable,
+} from './unified';
+import { safeJsonParse, safeJsonStringify } from './utils';
+
+type Props = {
+  /** The owning connector's type; derives the compiler kind (Sms → Ubill, Email → Mailgun). */
+  readonly connectorType: ConnectorType;
+};
+
+type TabKey = 'template' | 'variables' | 'localizations';
+
+const EMPTY_TEMPLATE: UnifiedTemplate = {};
+const EMPTY_VARIABLES: VariablesTable = {};
+const EMPTY_TRANSLATIONS: UnifiedTranslations = {};
+
+const kindForConnectorType = (connectorType: ConnectorType): ConnectorKind =>
+  connectorType === ConnectorType.Sms ? 'sms-ubill' : 'email-mailgun';
+
+/**
+ * The dev-flagged Unified template editor for Ubill-SMS + Mailgun. A three-tab host (Template /
+ * Variables / Localizations) that owns four defensive `formConfig` fields
+ * (`unifiedTemplate`, `variables`, `unifiedTranslations`, `templateEditorMode`) and compiles them
+ * on edit into the existing `templates`/`deliveries` + `translations` mirror fields the
+ * connectors already consume — so the persisted + runtime contract is byte-for-byte unchanged and
+ * the send path needs zero changes.
+ *
+ * The compile-on-edit effect re-runs `compileUnified` whenever the unified source changes and
+ * writes the compiled rows + flat translations to the mirror fields ONLY when they differ from the
+ * form's current mirror value — so loading a saved unified connector (whose compiled mirror
+ * already matches the recompiled output) does not spuriously dirty the form. The effect is skipped
+ * entirely when the unified template is empty, so toggling Classic → Unified with no authored
+ * unified content does not clobber the classic per-type rows (the {@link UnifiedEditorModeToggle}
+ * seeds the unified fields best-effort from the classic rows first).
+ */
+function UnifiedTemplateEditor({ connectorType }: Props) {
+  const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
+  const { setValue, getValues } = useFormContext<ConnectorFormType>();
+  const [activeTab, setActiveTab] = useState<TabKey>('template');
+
+  const kind = kindForConnectorType(connectorType);
+
+  // The mirror field path for the compiled rows: `formConfig.templates` (Ubill) or
+  // `formConfig.deliveries` (Mailgun). Both literals are valid `FieldPath` members (formConfig is a
+  // `Record<string, unknown>`), so no runtime-derived-key cast is needed.
+  const rowsField: FieldPath<ConnectorFormType> =
+    kind === 'sms-ubill' ? 'formConfig.templates' : 'formConfig.deliveries';
+
+  const templateRaw: unknown = useWatch({ name: 'formConfig.unifiedTemplate' });
+  const variablesRaw: unknown = useWatch({ name: 'formConfig.variables' });
+  const translationsRaw: unknown = useWatch({ name: 'formConfig.unifiedTranslations' });
+
+  const template = useMemo<UnifiedTemplate>(
+    () => safeJsonParse<UnifiedTemplate>(templateRaw) ?? EMPTY_TEMPLATE,
+    [templateRaw]
+  );
+  const variables = useMemo<VariablesTable>(
+    () => safeJsonParse<VariablesTable>(variablesRaw) ?? EMPTY_VARIABLES,
+    [variablesRaw]
+  );
+  const translations = useMemo<UnifiedTranslations>(
+    () => safeJsonParse<UnifiedTranslations>(translationsRaw) ?? EMPTY_TRANSLATIONS,
+    [translationsRaw]
+  );
+
+  const compiled = useMemo(
+    () => compileUnified({ kind, template, variables, translations }),
+    [kind, template, variables, translations]
+  );
+
+  const hasUnifiedContent = useMemo(
+    () => Object.values(template).some((value) => typeof value === 'string' && value.length > 0),
+    [template]
+  );
+
+  useEffect(() => {
+    if (!hasUnifiedContent) {
+      // No authored unified content yet — do not clobber the classic per-type rows with an empty
+      // compile. The compile resumes as soon as the admin authors a unified template.
+      return;
+    }
+
+    // `compiled.rows` is the discriminated `CompiledRows` wrapper; emit only the inner
+    // `templates` array (Ubill) or `deliveries` record (Mailgun) the connector consumes.
+    const rowData =
+      compiled.rows.kind === 'sms-ubill' ? compiled.rows.templates : compiled.rows.deliveries;
+    const rowsJson = safeJsonStringify(rowData);
+    const translationsJson = safeJsonStringify(compiled.translations);
+    const currentRows = getValues(rowsField);
+    const currentTranslations = getValues('formConfig.translations');
+
+    // Only write (and dirty the form) when the compiled output differs from the form's current
+    // mirror value — so loading a saved unified connector (whose mirror already matches the
+    // deterministic recompile) does not spuriously dirty the form.
+    if (rowsJson !== (typeof currentRows === 'string' ? currentRows : '')) {
+      setValue(rowsField, rowsJson, { shouldDirty: true });
+    }
+
+    if (translationsJson !== (typeof currentTranslations === 'string' ? currentTranslations : '')) {
+      setValue('formConfig.translations', translationsJson, { shouldDirty: true });
+    }
+  }, [compiled, hasUnifiedContent, rowsField, setValue, getValues]);
+
+  const onTemplateChange = (next: UnifiedTemplate) => {
+    setValue('formConfig.unifiedTemplate', safeJsonStringify(next), { shouldDirty: true });
+  };
+
+  const onVariablesChange = (next: VariablesTable) => {
+    setValue('formConfig.variables', safeJsonStringify(next), { shouldDirty: true });
+  };
+
+  const onTranslationsChange = (next: UnifiedTranslations) => {
+    setValue('formConfig.unifiedTranslations', safeJsonStringify(next), { shouldDirty: true });
+  };
+
+  return (
+    <div className={styles.unifiedHost}>
+      <TabNav>
+        <TabNavItem
+          isActive={activeTab === 'template'}
+          onClick={() => {
+            setActiveTab('template');
+          }}
+        >
+          {t('connector_details.unified_editor.tab_template')}
+        </TabNavItem>
+        <TabNavItem
+          isActive={activeTab === 'variables'}
+          onClick={() => {
+            setActiveTab('variables');
+          }}
+        >
+          {t('connector_details.unified_editor.tab_variables')}
+        </TabNavItem>
+        <TabNavItem
+          isActive={activeTab === 'localizations'}
+          onClick={() => {
+            setActiveTab('localizations');
+          }}
+        >
+          {t('connector_details.unified_editor.tab_localizations')}
+        </TabNavItem>
+      </TabNav>
+      {activeTab === 'template' && (
+        <UnifiedTemplateTab
+          kind={kind}
+          template={template}
+          variables={variables}
+          translations={translations}
+          dummyPayload={dummyPayload}
+          onTemplateChange={onTemplateChange}
+        />
+      )}
+      {activeTab === 'variables' && (
+        <UnifiedVariablesTab variables={variables} onChange={onVariablesChange} />
+      )}
+      {activeTab === 'localizations' && (
+        <UnifiedLocalizationsTab translations={translations} onChange={onTranslationsChange} />
+      )}
+    </div>
+  );
+}
+
+export default UnifiedTemplateEditor;

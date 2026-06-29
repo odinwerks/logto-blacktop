@@ -61,6 +61,15 @@ export type MailgunConfig = {
    * absent/empty. Reachable only under the dev feature flag.
    */
   translations?: Record<string, Record<string, string>>;
+  /**
+   * Unified template editor (dev-flagged, console-only) source fields. Consumed only by the admin
+   * console's Unified editor; `sendMessage` never reads them. The console compiles them into the
+   * runtime `deliveries` + `translations` shapes on save.
+   */
+  unifiedTemplate?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
+  unifiedTranslations?: Record<string, unknown>;
+  templateEditorMode?: string;
 };
 
 export const mailgunConfigGuard = z.object({
@@ -70,4 +79,11 @@ export const mailgunConfigGuard = z.object({
   from: z.string(),
   deliveries: z.record(templateConfigGuard),
   translations: z.record(z.record(z.string())).optional(),
+  // Unified template editor (dev-flagged, console-only) source fields — explicit allowance so the
+  // PATCH is not stripped by Zod's default-key behavior. `sendMessage` never reads them; the
+  // console compiles them into `deliveries` + `translations` on save.
+  unifiedTemplate: z.record(z.unknown()).optional(),
+  variables: z.record(z.unknown()).optional(),
+  unifiedTranslations: z.record(z.unknown()).optional(),
+  templateEditorMode: z.string().optional(),
 }) satisfies z.ZodType<MailgunConfig>;

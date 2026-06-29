@@ -14,7 +14,7 @@ import Switch from '@/ds-components/Switch';
 import TextInput from '@/ds-components/TextInput';
 import Textarea from '@/ds-components/Textarea';
 import type { ConnectorFormType } from '@/types/connector';
-import { formatMultiLineScopeInput } from '@/utils/connector-form';
+import { formatMultiLineScopeInput, isUnifiedFormField } from '@/utils/connector-form';
 import { jsonValidator } from '@/utils/validator';
 
 import ConnectorTemplatesEditor from '../../ConnectorTemplatesEditor';
@@ -24,9 +24,10 @@ import styles from './index.module.scss';
 type Props = {
   readonly formItems: ConnectorConfigFormItem[];
   readonly connectorType?: ConnectorType;
+  readonly connectorFactoryId?: string;
 };
 
-function ConfigFormFields({ formItems, connectorType }: Props) {
+function ConfigFormFields({ formItems, connectorType, connectorFactoryId }: Props) {
   const {
     watch,
     register,
@@ -81,7 +82,13 @@ function ConfigFormFields({ formItems, connectorType }: Props) {
         );
       }
 
-      return <ConnectorTemplatesEditor formItem={item} connectorType={connectorType} />;
+      return (
+        <ConnectorTemplatesEditor
+          formItem={item}
+          connectorType={connectorType}
+          connectorFactoryId={connectorFactoryId}
+        />
+      );
     }
 
     const errorMessage = formConfigErrors?.[item.key]?.message;
@@ -207,10 +214,15 @@ function ConfigFormFields({ formItems, connectorType }: Props) {
     <>
       {formItems.map((item) =>
         showFormItems(item) &&
-        // SMS/email connectors own their `translations` field inside `ConnectorTemplatesEditor`;
-        // skip the standalone render so it does not surface as its own (empty) form field. Social
-        // connectors have no `translations` item, so the skip is a harmless no-op there.
-        !(connectorType !== ConnectorType.Social && item.key === 'translations') ? (
+        // SMS/email connectors own their `translations` field + the Unified editor's four
+        // defensive fields (`unifiedTemplate`, `variables`, `unifiedTranslations`,
+        // `templateEditorMode`) inside `ConnectorTemplatesEditor`; skip the standalone render so
+        // they do not surface as their own (empty) form fields. Social connectors have no
+        // `translations`/unified items, so the skip is a harmless no-op there.
+        !(
+          connectorType !== ConnectorType.Social &&
+          (item.key === 'translations' || isUnifiedFormField(item.key))
+        ) ? (
           <FormField
             key={item.key}
             isRequired={item.required}
