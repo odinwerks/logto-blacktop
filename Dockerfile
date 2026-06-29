@@ -11,9 +11,22 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 ### Install toolchain ###
 RUN npm add --location=global pnpm@^10.0.0
 # https://github.com/nodejs/docker-node/blob/main/docs/BestPractices.md#node-gyp-alpine
-RUN apk add --no-cache python3 make g++ rsync
+RUN apk add --no-cache python3 make g++ rsync git
 
 COPY . .
+
+### Ensure git submodules are populated ###
+# `.dockerignore` strips `.git`, so non-recursive build contexts leave submodule
+# directories empty. Ensure the ubill connector submodule is present before dependency
+# installation. No-op when the build context already populated it (e.g. via
+# `git clone --recurse-submodules` or `git submodule update --init` before `docker build`).
+RUN if [ ! -f packages/connectors/connector-ubill-sms/package.json ]; then \
+      echo "Submodule 'packages/connectors/connector-ubill-sms' not in build context; cloning from remote"; \
+      rm -rf packages/connectors/connector-ubill-sms; \
+      git clone --depth 1 --branch ubill-blacktop-extended \
+        https://github.com/odinwerks/connector-ubill-sms.git \
+        packages/connectors/connector-ubill-sms; \
+    fi
 
 ### Install dependencies and build ###
 # Reuse the pnpm store between BuildKit runs to reduce duplicate downloads/writes.
