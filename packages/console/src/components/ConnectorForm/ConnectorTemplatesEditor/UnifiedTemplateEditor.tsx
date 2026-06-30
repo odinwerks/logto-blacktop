@@ -60,6 +60,7 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
   const templateRaw: unknown = useWatch({ name: 'formConfig.unifiedTemplate' });
   const variablesRaw: unknown = useWatch({ name: 'formConfig.variables' });
   const translationsRaw: unknown = useWatch({ name: 'formConfig.unifiedTranslations' });
+  const subjectsRaw: unknown = useWatch({ name: 'formConfig.unifiedSubjects' });
 
   const template = useMemo<UnifiedTemplate>(
     () => safeJsonParse<UnifiedTemplate>(templateRaw) ?? EMPTY_TEMPLATE,
@@ -73,15 +74,21 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
     () => safeJsonParse<UnifiedTranslations>(translationsRaw) ?? EMPTY_TRANSLATIONS,
     [translationsRaw]
   );
+  const unifiedSubjects = useMemo<Record<string, string>>(
+    () => safeJsonParse<Record<string, string>>(subjectsRaw) ?? {},
+    [subjectsRaw]
+  );
 
   const compiled = useMemo(
-    () => compileUnified({ kind, template, variables, translations }),
-    [kind, template, variables, translations]
+    () => compileUnified({ kind, template, variables, translations, unifiedSubjects }),
+    [kind, template, variables, translations, unifiedSubjects]
   );
 
   const hasUnifiedContent = useMemo(
-    () => Object.values(template).some((value) => typeof value === 'string' && value.length > 0),
-    [template]
+    () =>
+      Object.values(template).some((value) => typeof value === 'string' && value.length > 0) ||
+      Object.values(unifiedSubjects).some((value) => typeof value === 'string' && value.length > 0),
+    [template, unifiedSubjects]
   );
 
   const debounceTimerRef = useRef<NodeJS.Timeout>();
@@ -200,6 +207,10 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
     setValue('formConfig.unifiedTranslations', safeJsonStringify(next), { shouldDirty: true });
   };
 
+  const onUnifiedSubjectsChange = (next: Record<string, string>) => {
+    setValue('formConfig.unifiedSubjects', safeJsonStringify(next), { shouldDirty: true });
+  };
+
   return (
     <div ref={containerRef} className={styles.unifiedHost}>
       <TabNav>
@@ -235,7 +246,9 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
           variables={variables}
           translations={translations}
           dummyPayload={dummyPayload}
+          unifiedSubjects={unifiedSubjects}
           onTemplateChange={onTemplateChange}
+          onUnifiedSubjectsChange={onUnifiedSubjectsChange}
         />
       )}
       {activeTab === 'variables' && (

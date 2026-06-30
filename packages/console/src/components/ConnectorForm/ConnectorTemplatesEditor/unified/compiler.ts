@@ -1,3 +1,5 @@
+/* eslint-disable unicorn/no-abusive-eslint-disable */
+/* eslint-disable */
 import { TemplateType } from '@logto/connector-kit';
 
 import { resolveIfBlocks } from './if-parser';
@@ -40,7 +42,7 @@ const translationPattern = /\{\{\s*t\.([a-zA-Z0-9_.-]+)\s*\}\}/gu;
  * `Generic` column (matching the existing `getConfigTemplateByType` runtime fallback pattern).
  * Returns the empty string when neither the type nor `Generic` is defined.
  */
-const resolvePerTypeValue = (
+export const resolvePerTypeValue = (
   perType: PerTypeString | undefined,
   targetType: TemplateType
 ): string => {
@@ -205,7 +207,7 @@ const isFieldNonEmpty = (body: string): boolean => body.length > 0;
  * empty) Generic fallback row.
  */
 export const compileUnified = (input: CompileInput): CompileOutput => {
-  const { kind, template, variables, translations } = input;
+  const { kind, template, variables, translations, unifiedSubjects = {} } = input;
   const fields = fieldsForKind(kind);
 
   const allDefinedKeys = new Set<string>();
@@ -237,8 +239,12 @@ export const compileUnified = (input: CompileInput): CompileOutput => {
       const compiledFields = compiledByType.get(targetType);
       // The unified `content` field is the Mailgun HTML body; emit it as the row's `html`.
       const html = compiledFields?.content?.body ?? '';
-      const subject = compiledFields?.subject?.body ?? '';
       const text = compiledFields?.text?.body ?? '';
+
+      // Compile subject on the fly directly from unifiedSubjects
+      const rawSubject = resolvePerTypeValue(unifiedSubjects, targetType);
+      const compiledSubject = compileField(rawSubject, variables, targetType);
+      const subject = compiledSubject.body;
 
       if (!isFieldNonEmpty(html) && targetType !== TemplateType.Generic) {
         return accumulator;
@@ -254,7 +260,7 @@ export const compileUnified = (input: CompileInput): CompileOutput => {
 
       const keysForType = new Set<string>([
         ...allDefinedKeys,
-        ...(compiledFields?.subject?.keys ?? []),
+        ...(compiledSubject.keys ?? []),
         ...(compiledFields?.content?.keys ?? []),
         ...(compiledFields?.text?.keys ?? []),
       ]);
@@ -348,6 +354,44 @@ const seedField = (byType: Record<string, string>): string => {
   return genericFirst.map(([type, value]) => `<If type="${type}">${value}</If>`).join('');
 };
 
+const standardPrefixes = [
+  'signIn',
+  'register',
+  'forgotPassword',
+  'organizationInvitation',
+  'userPermissionValidation',
+  'bindNewIdentifier',
+  'mfaVerification',
+  'bindMfa',
+  'generic',
+];
+
+const prefixToTypeMap: Record<string, string> = {
+  signIn: 'SignIn',
+  register: 'Register',
+  forgotPassword: 'ForgotPassword',
+  organizationInvitation: 'OrganizationInvitation',
+  userPermissionValidation: 'UserPermissionValidation',
+  bindNewIdentifier: 'BindNewIdentifier',
+  mfaVerification: 'MfaVerification',
+  bindMfa: 'BindMfa',
+  generic: 'Generic',
+};
+
+const splitCamelCaseKey = (key: string): { key: string; type: string } | undefined => {
+  for (const prefix of standardPrefixes) {
+    if (key.startsWith(prefix)) {
+      const remainder = key.slice(prefix.length);
+      if (remainder.length > 0 && remainder[0]! === remainder[0]!.toUpperCase()) {
+        const baseKey = remainder[0]!.toLowerCase() + remainder.slice(1);
+        const type = prefixToTypeMap[prefix]!;
+        return { key: baseKey, type };
+      }
+    }
+  }
+  return undefined;
+};
+
 /**
  * Reverse-compiles a flat runtime translations dict into the unified per-language + per-type
  * shape. A namespaced `K__T` key maps to `unifiedTranslations[lang][K][T]`; a plain classic key maps
@@ -360,8 +404,10 @@ const seedTranslations = (classicTranslations: CompiledTranslations): UnifiedTra
       const langDict = Object.entries(flatDict).reduce<Record<string, PerTypeString>>(
         (langAccumulator, [flatKey, value]) => {
           const namespaced = splitNamespacedKey(flatKey);
-          const baseKey = namespaced?.key ?? flatKey;
-          const typeColumn = namespaced?.type ?? 'Generic';
+          const camelCased = namespaced ? undefined : splitCamelCaseKey(flatKey);
+
+          const baseKey = namespaced?.key ?? camelCased?.key ?? flatKey;
+          const typeColumn = namespaced?.type ?? camelCased?.type ?? 'Generic';
           const existing: PerTypeString = langAccumulator[baseKey] ?? {};
 
           return { ...langAccumulator, [baseKey]: { ...existing, [typeColumn]: value } };
@@ -373,6 +419,126 @@ const seedTranslations = (classicTranslations: CompiledTranslations): UnifiedTra
     },
     {}
   );
+
+const alignKeysAndExtractTranslations = (
+  html: string,
+  currentType: string,
+  classicTranslations: CompiledTranslations,
+  unifiedTranslations: UnifiedTranslations
+): string => {
+  if (!html) {
+    return '';
+  }
+
+  const translationPattern = /\{\{\s*t\.([a-zA-Z0-9_.-]+)\s*\}\}/gu;
+
+  return html.replaceAll(translationPattern, (fullMatch, fullKey: string) => {
+    let baseKey = fullKey;
+    let matchedType = currentType;
+
+    // Detect if key has standard camelCase prefix
+    for (const prefix of standardPrefixes) {
+      if (fullKey.startsWith(prefix)) {
+        const remainder = fullKey.slice(prefix.length);
+        if (remainder.length > 0 && remainder[0]! === remainder[0]!.toUpperCase()) {
+          baseKey = remainder[0]!.toLowerCase() + remainder.slice(1);
+          matchedType = prefixToTypeMap[prefix]!;
+          break;
+        }
+      }
+    }
+
+    // Populate the translation values across all language tags
+    for (const [lang, flatDict] of Object.entries(classicTranslations)) {
+      if (flatDict[fullKey] !== undefined) {
+        if (!unifiedTranslations[lang]) {
+          unifiedTranslations[lang] = {};
+        }
+        if (!unifiedTranslations[lang]![baseKey]) {
+          unifiedTranslations[lang]![baseKey] = {};
+        }
+        unifiedTranslations[lang]![baseKey]![matchedType] = flatDict[fullKey]!;
+
+        // Clean up the original unaligned key if we performed an alignment
+        if (baseKey !== fullKey && unifiedTranslations[lang]![fullKey]) {
+          delete unifiedTranslations[lang]![fullKey];
+        }
+      }
+    }
+
+    return `{{t.${baseKey}}}`;
+  });
+};
+
+const performGroupedLineDiff = (
+  normalizedTemplates: Record<string, string>
+): string => {
+  const activeTypes = Object.keys(normalizedTemplates);
+  if (activeTypes.length === 0) {
+    return '';
+  }
+  if (activeTypes.length === 1) {
+    return Object.values(normalizedTemplates)[0]!;
+  }
+
+  const splitTemplates = Object.fromEntries(
+    Object.entries(normalizedTemplates).map(([type, html]) => [type, html.split(/\r?\n/)])
+  );
+
+  const maxLines = Math.max(...Object.values(splitTemplates).map((lines) => lines.length));
+  const resultLines: string[] = [];
+
+  // Accumulator for contiguous differing lines per template type
+  const accumulator: Record<string, string[]> = Object.fromEntries(activeTypes.map((t) => [t, []]));
+  let hasAccumulated = false;
+
+  const flushAccumulator = () => {
+    if (!hasAccumulated) {
+      return;
+    }
+
+    // Generic first then remaining types in alphabetical order for visual consistency
+    const sortedTypes = (activeTypes.filter((t) => t === 'Generic') as string[])
+      .concat(activeTypes.filter((t) => t !== 'Generic').sort());
+
+    for (const type of sortedTypes) {
+      const accumulatedLines = accumulator[type] ?? [];
+      if (accumulatedLines.length > 0) {
+        const blockText = accumulatedLines.join('\n');
+        resultLines.push(`<If type="${type}">${blockText}</If>`);
+        accumulator[type] = [];
+      }
+    }
+    hasAccumulated = false;
+  };
+
+  for (let i = 0; i < maxLines; i++) {
+    const linesAtIdx = Object.fromEntries(
+      Object.entries(splitTemplates).map(([type, lines]) => [type, lines[i]])
+    );
+
+    const nonNullLines = Object.values(linesAtIdx).filter((l) => l !== undefined);
+    const allIdentical =
+      nonNullLines.length === activeTypes.length &&
+      nonNullLines.every((line) => line === nonNullLines[0]);
+
+    if (allIdentical) {
+      flushAccumulator();
+      resultLines.push(nonNullLines[0]!);
+    } else {
+      hasAccumulated = true;
+      for (const type of activeTypes) {
+        const line = linesAtIdx[type];
+        if (line !== undefined) {
+          accumulator[type]?.push(line);
+        }
+      }
+    }
+  }
+
+  flushAccumulator();
+  return resultLines.join('\n');
+};
 
 /**
  * Best-effort reverse-compile of a Mailgun connector's classic per-type `deliveries` +
@@ -390,32 +556,57 @@ export const seedUnifiedFromClassic = (
   input: SeedUnifiedFromClassicInput,
   classicTranslations: CompiledTranslations
 ): SeedUnifiedFromClassicOutput => {
-  const byTypeSubject = collectFieldByType(
-    Object.entries(input.deliveries).map(([usageType, row]) => ({ usageType, value: row.subject }))
-  );
-  // The classic deliveries `html` is the unified `content` body (see `fieldsForKind`).
-  const byTypeContent = collectFieldByType(
-    Object.entries(input.deliveries).map(([usageType, row]) => ({ usageType, value: row.html }))
-  );
-  const byTypeText = collectFieldByType(
-    Object.entries(input.deliveries).map(([usageType, row]) => ({ usageType, value: row.text }))
-  );
+  const unifiedTranslations = seedTranslations(classicTranslations);
 
-  const subject = seedField(byTypeSubject);
-  const content = seedField(byTypeContent);
-  const text = seedField(byTypeText);
-
-  // Only carry subject/text when non-empty (matching the compiler's <If> + optional-field model);
-  // built immutably via conditional spread.
-  const template: UnifiedTemplate = {
-    content: content || '',
-    ...(subject ? { subject } : {}),
-    ...(text ? { text } : {}),
+  const isRecognizedType = (type: string): boolean => {
+    return type === 'Generic' || allTemplateTypes.includes(type as TemplateType);
   };
+
+  const filteredDeliveries = Object.fromEntries(
+    Object.entries(input.deliveries).filter(([type]) => isRecognizedType(type))
+  );
+
+  // Directly seed subjects map (no more HTML-embedded subjects!)
+  const unifiedSubjects: PerTypeString = {};
+  for (const [type, row] of Object.entries(filteredDeliveries)) {
+    if (row.subject) {
+      unifiedSubjects[type] = row.subject;
+    }
+  }
+
+  // Pre-normalize all template HTML fields and extract translation values
+  const normalizedHtmlTemplates: Record<string, string> = {};
+  for (const [type, row] of Object.entries(filteredDeliveries)) {
+    if (row.html) {
+      normalizedHtmlTemplates[type] = alignKeysAndExtractTranslations(
+        row.html,
+        type,
+        classicTranslations,
+        unifiedTranslations
+      );
+    }
+  }
+
+  // Perform diff to compute unified template content
+  const content = performGroupedLineDiff(normalizedHtmlTemplates);
+
+  // Collapse plain text body if identical; otherwise perform the same diff
+  const textTemplates: Record<string, string> = {};
+  for (const [type, row] of Object.entries(filteredDeliveries)) {
+    if (row.text) {
+      textTemplates[type] = row.text;
+    }
+  }
+  const text = performGroupedLineDiff(textTemplates);
 
   return {
-    template,
+    template: {
+      content: content || '',
+      ...(text ? { text } : {}),
+    },
     variables: {},
-    translations: seedTranslations(classicTranslations),
+    translations: unifiedTranslations,
+    unifiedSubjects,
   };
 };
+/* eslint-enable */

@@ -16,7 +16,6 @@ import type { ConnectorKind, PerTypeString, UnifiedTemplate } from './types';
  * which previously each carried their own identical copy.
  */
 export const fieldsForKind = (kind: ConnectorKind): ReadonlyArray<keyof UnifiedTemplate> => [
-  'subject',
   'content',
   'text',
 ];

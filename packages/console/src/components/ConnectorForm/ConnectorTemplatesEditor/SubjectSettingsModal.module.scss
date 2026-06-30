@@ -1,0 +1,42 @@
+.modalContent {
+  padding: 16px 24px;
+}
+
+.description {
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.genericWrapper {
+  background-color: rgba(30, 34, 48, 20%);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--color-border);
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 8px 0;
+}
+
+.perTypeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.fallbackInput {
+  input::placeholder,
+  &::placeholder {
+    font-style: italic;
+    opacity: 45%;
+  }
+}

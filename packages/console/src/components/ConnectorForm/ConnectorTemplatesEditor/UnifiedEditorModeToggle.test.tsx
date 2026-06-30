@@ -421,12 +421,12 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
     const initialDeliveries = getDeliveries();
     expect(initialDeliveries).toContain('Logto generic template');
 
-    // Find the subject input field and edit it.
-    const input = container.querySelector('input');
+    // Find the text version textarea field and edit it.
+    const input = container.querySelector('textarea');
     expect(input).not.toBeNull();
 
     act(() => {
-      fireEvent.change(input!, { target: { value: 'A completely new subject' } });
+      fireEvent.change(input!, { target: { value: 'A completely new text body' } });
     });
 
     // Flush any initial microtasks and effect scheduling
@@ -448,11 +448,11 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
       jest.advanceTimersByTime(150);
     });
     expect(getDeliveries()).not.toBe(initialDeliveries);
-    expect(getDeliveries()).toContain('A completely new subject');
+    expect(getDeliveries()).toContain('A completely new text body');
 
     // Now test that submitting flushes immediately
     act(() => {
-      fireEvent.change(input!, { target: { value: 'Yet another subject edit' } });
+      fireEvent.change(input!, { target: { value: 'Yet another text edit' } });
     });
 
     // Flush hook-form update microtasks so it schedules the new timer
@@ -460,7 +460,7 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
       jest.advanceTimersByTime(0);
     });
 
-    expect(getDeliveries()).not.toContain('Yet another subject edit');
+    expect(getDeliveries()).not.toContain('Yet another text edit');
 
     // Simulate form submission
     const form = container.querySelector('form');
@@ -471,7 +471,7 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
     });
 
     // It should have flushed and updated immediately without any time advancing!
-    expect(getDeliveries()).toContain('Yet another subject edit');
+    expect(getDeliveries()).toContain('Yet another text edit');
 
     jest.useRealTimers();
   });

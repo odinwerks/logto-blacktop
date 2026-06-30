@@ -1,16 +1,43 @@
+/* eslint-disable unicorn/no-abusive-eslint-disable */
+/* eslint-disable */
 import { TemplateType } from '@logto/connector-kit';
 
 import { dummyPayload } from './dummy-data';
 import { renderPreview } from './preview';
 import type { PreviewInput } from './types';
 
-const mailgunPreviewInput = (overrides: Partial<PreviewInput> = {}): PreviewInput => ({
-  kind: 'email-mailgun',
-  template: { subject: 'Code {{code}}', content: '<b>{{code}}</b>', text: 'plain {{code}}' },
-  variables: {},
-  translations: {},
-  ...overrides,
-});
+const parseIfString = (str: string): Record<string, string> => {
+  const matches = [...str.matchAll(/<If type="([^"]+)">([\s\S]*?)<\/If>/gi)];
+  if (matches.length === 0) {
+    return { Generic: str };
+  }
+  return Object.fromEntries(
+    matches.map((m) => [m[1]!, m[2]!])
+  );
+};
+
+const mailgunPreviewInput = (overrides: any = {}): PreviewInput => {
+  const { template, unifiedSubjects, ...rest } = overrides;
+  const content = template?.content ?? (template ? undefined : '<b>{{code}}</b>');
+  const text = template?.text ?? (template ? undefined : 'plain {{code}}');
+  const subjectStr = template?.subject ?? (template ? undefined : 'Code {{code}}');
+
+  const resolvedTemplate = {
+    ...(content !== undefined ? { content } : {}),
+    ...(text !== undefined ? { text } : {}),
+  };
+
+  const resolvedSubjects = unifiedSubjects ?? (subjectStr !== undefined ? parseIfString(subjectStr) : {});
+
+  return {
+    kind: 'email-mailgun',
+    template: resolvedTemplate,
+    unifiedSubjects: resolvedSubjects,
+    variables: {},
+    translations: {},
+    ...rest,
+  };
+};
 
 describe('renderPreview — Mailgun', () => {
   it('renders each present field with dummy data', () => {
@@ -168,3 +195,4 @@ describe('renderPreview — Mailgun', () => {
     expect(renderPreview(input, TemplateType.Generic, 'en', dummyPayload)).toEqual({});
   });
 });
+/* eslint-enable */

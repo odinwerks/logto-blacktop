@@ -103,4 +103,60 @@ describe('<PerTypeTableEditor />', () => {
       key1: { Generic: 'value1-updated' },
     });
   });
+
+  it('renders fallback placeholders for empty per-type columns based on Generic fallback', () => {
+    const mockOnChange = jest.fn();
+    const initialData = {
+      greeting: { Generic: 'Hello', SignIn: '' },
+    };
+    const typeColumns = ['Generic', 'SignIn'];
+
+    const { getByPlaceholderText } = render(
+      <MemoryRouter>
+        <PerTypeTableEditor
+          data={initialData}
+          typeColumns={typeColumns}
+          addButtonLabel="connector_details.template_editor.add_key"
+          addPromptLabel="Add key"
+          jsonModeTitle="JSON Mode"
+          onChange={mockOnChange}
+        />
+      </MemoryRouter>
+    );
+
+    const fallbackInput = getByPlaceholderText('Hello');
+    expect(fallbackInput).not.toBeNull();
+  });
+
+  it('allows inline row adding when typing a key and hitting Enter or clicking "+"', () => {
+    const mockOnChange = jest.fn();
+    const initialData = {
+      greeting: { Generic: 'Hello' },
+    };
+    const typeColumns = ['Generic'];
+
+    const { getByPlaceholderText, getByText } = render(
+      <MemoryRouter>
+        <PerTypeTableEditor
+          data={initialData}
+          typeColumns={typeColumns}
+          addButtonLabel="connector_details.template_editor.add_key"
+          addPromptLabel="Add key"
+          jsonModeTitle="JSON Mode"
+          onChange={mockOnChange}
+        />
+      </MemoryRouter>
+    );
+
+    const input = getByPlaceholderText('Add key');
+    expect(input).not.toBeNull();
+
+    fireEvent.change(input, { target: { value: 'farewell' } });
+    fireEvent.click(getByText('+'));
+
+    expect(mockOnChange).toHaveBeenCalledWith({
+      greeting: { Generic: 'Hello' },
+      farewell: {},
+    });
+  });
 });

@@ -70,6 +70,7 @@ export type MailgunConfig = {
   variables?: Record<string, unknown>;
   unifiedTranslations?: Record<string, unknown>;
   templateEditorMode?: string;
+  unifiedSubjects?: Record<string, unknown>;
 };
 
 export const mailgunConfigGuard = z.object({
@@ -86,4 +87,5 @@ export const mailgunConfigGuard = z.object({
   variables: z.record(z.unknown()).optional(),
   unifiedTranslations: z.record(z.unknown()).optional(),
   templateEditorMode: z.string().optional(),
+  unifiedSubjects: z.record(z.unknown()).optional(),
 }) satisfies z.ZodType<MailgunConfig>;

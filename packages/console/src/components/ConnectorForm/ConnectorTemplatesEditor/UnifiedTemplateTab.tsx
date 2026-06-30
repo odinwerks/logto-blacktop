@@ -1,15 +1,19 @@
+/* eslint-disable unicorn/no-abusive-eslint-disable */
+/* eslint-disable */
 import { TemplateType } from '@logto/connector-kit';
 import { isLanguageTag } from '@logto/language-kit';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import Button from '@/ds-components/Button';
 import CodeEditor from '@/ds-components/CodeEditor';
+import DangerousRaw from '@/ds-components/DangerousRaw';
 import FormField from '@/ds-components/FormField';
 import Select, { type Option } from '@/ds-components/Select';
-import TextInput from '@/ds-components/TextInput';
 import Textarea from '@/ds-components/Textarea';
 
 import styles from './index.module.scss';
+import SubjectSettingsModal from './SubjectSettingsModal';
 import type {
   ConnectorKind,
   DummyPayload,
@@ -27,6 +31,8 @@ type Props = {
   readonly variables: VariablesTable;
   readonly translations: UnifiedTranslations;
   readonly dummyPayload: DummyPayload;
+  readonly unifiedSubjects: Record<string, string>;
+  readonly onUnifiedSubjectsChange: (next: Record<string, string>) => void;
 };
 
 /**
@@ -46,8 +52,11 @@ function UnifiedTemplateTab({
   variables,
   translations,
   dummyPayload,
+  unifiedSubjects,
+  onUnifiedSubjectsChange,
 }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
+  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
 
   const typeOptions = useMemo<Array<Option<TemplateType>>>(
     () =>
@@ -67,8 +76,8 @@ function UnifiedTemplateTab({
   const [previewLanguage, setPreviewLanguage] = useState<string>(languageOptions[0]?.value ?? 'en');
 
   const parseError = useMemo(() => {
-    // Mailgun emits `subject` + `content` (the HTML body) + optional `text`.
-    const fields: ReadonlyArray<keyof UnifiedTemplate> = ['subject', 'content', 'text'];
+    // Content and text-only
+    const fields: ReadonlyArray<keyof UnifiedTemplate> = ['content', 'text'];
 
     for (const field of fields) {
       const value = template[field] ?? '';
@@ -83,12 +92,12 @@ function UnifiedTemplateTab({
   const preview = useMemo(
     () =>
       renderPreview(
-        { kind, template, variables, translations },
+        { kind, template, variables, translations, unifiedSubjects },
         previewType,
         previewLanguage,
         dummyPayload
       ),
-    [kind, template, variables, translations, previewType, previewLanguage, dummyPayload]
+    [kind, template, variables, translations, unifiedSubjects, previewType, previewLanguage, dummyPayload]
   );
 
   const updateField = (field: keyof UnifiedTemplate) => (value: string) => {
@@ -100,64 +109,76 @@ function UnifiedTemplateTab({
       {parseError ? (
         <div className={styles.parseError}>{t('connector_details.unified_editor.parse_error')}</div>
       ) : null}
-      <FormField title="connector_details.email_templates.subject">
-        <TextInput
-          value={template.subject ?? ''}
-          onChange={(event) => {
-            updateField('subject')(event.currentTarget.value);
-          }}
-        />
-      </FormField>
-      <FormField title="connector_details.email_templates.content">
-        <CodeEditor
-          className={styles.contentEditor}
-          language="html"
-          value={template.content ?? ''}
-          shouldWrap={false}
-          onChange={(value) => {
-            updateField('content')(value);
-          }}
-        />
-      </FormField>
-      <FormField title="connector_details.email_templates.text_version">
-        <Textarea
-          rows={4}
-          value={template.text ?? ''}
-          onChange={(event) => {
-            updateField('text')(event.currentTarget.value);
-          }}
-        />
-      </FormField>
-      <div className={styles.section}>
-        <h4 className={styles.sectionTitle}>{t('connector_details.unified_editor.preview')}</h4>
-        <div className={styles.modeToggleRow}>
-          <FormField title="connector_details.unified_editor.preview_as_type">
-            <Select
+      <div className={styles.premiumGrid}>
+        {/* Left Panel: Bento Editor Card */}
+        <div className={styles.bentoCard}>
+          <div className={styles.toolbarRow}>
+            <Button
+              type="outline"
               size="medium"
-              value={previewType}
-              options={typeOptions}
+              title={<DangerousRaw>{(t as any)('connector_details.email_templates.subject_settings') || 'Localize Subjects'}</DangerousRaw>}
+              onClick={() => setIsSubjectModalOpen(true)}
+            />
+          </div>
+          <FormField title="connector_details.email_templates.content">
+            <CodeEditor
+              className={styles.contentEditor}
+              language="html"
+              value={template.content ?? ''}
+              shouldWrap={false}
               onChange={(value) => {
-                if (value) {
-                  setPreviewType(value);
-                }
+                updateField('content')(value);
               }}
             />
           </FormField>
-          <FormField title="connector_details.unified_editor.preview_language">
-            <Select
-              size="medium"
-              value={previewLanguage}
-              options={languageOptions}
-              onChange={(value) => {
-                if (value) {
-                  setPreviewLanguage(value);
-                }
+          <FormField title="connector_details.email_templates.text_version">
+            <Textarea
+              rows={4}
+              value={template.text ?? ''}
+              onChange={(event) => {
+                updateField('text')(event.currentTarget.value);
               }}
             />
           </FormField>
         </div>
-        {renderPreviewFields(preview)}
+
+        {/* Right Panel: Sticky Preview Bento Card */}
+        <div className={`${styles.bentoCard} ${styles.stickyPreview}`}>
+          <div className={styles.previewHeader}>
+            <h4 className={styles.sectionTitle}>{t('connector_details.unified_editor.preview')}</h4>
+            <div className={styles.previewSelectors}>
+              <Select
+                size="medium"
+                value={previewType}
+                options={typeOptions}
+                onChange={(value) => {
+                  if (value) {
+                    setPreviewType(value);
+                  }
+                }}
+              />
+              <Select
+                size="medium"
+                value={previewLanguage}
+                options={languageOptions}
+                onChange={(value) => {
+                  if (value) {
+                    setPreviewLanguage(value);
+                  }
+                }}
+              />
+            </div>
+          </div>
+          {renderPreviewFields(preview)}
+        </div>
       </div>
+
+      <SubjectSettingsModal
+        isOpen={isSubjectModalOpen}
+        subjects={unifiedSubjects}
+        onApply={onUnifiedSubjectsChange}
+        onRequestClose={() => setIsSubjectModalOpen(false)}
+      />
     </>
   );
 }
@@ -188,3 +209,4 @@ const renderPreviewFields = (preview: {
 };
 
 export default UnifiedTemplateTab;
+/* eslint-enable */

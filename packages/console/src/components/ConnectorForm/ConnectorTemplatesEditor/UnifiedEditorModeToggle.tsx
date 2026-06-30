@@ -24,6 +24,7 @@ import {
   type UnifiedTemplate,
   type UnifiedTranslations,
   type VariablesTable,
+  type PerTypeString,
 } from './unified';
 import { safeJsonParse, safeJsonStringify } from './utils';
 
@@ -81,6 +82,7 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
       setValue('formConfig.unifiedTemplate', safeJsonStringify({}), { shouldDirty: true });
       setValue('formConfig.variables', safeJsonStringify({}), { shouldDirty: true });
       setValue('formConfig.unifiedTranslations', safeJsonStringify({}), { shouldDirty: true });
+      setValue('formConfig.unifiedSubjects', safeJsonStringify({}), { shouldDirty: true });
       setValue('formConfig.templateEditorMode', safeJsonStringify('unified'), {
         shouldDirty: true,
       });
@@ -119,6 +121,9 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
       setValue('formConfig.unifiedTranslations', safeJsonStringify(seed.translations), {
         shouldDirty: true,
       });
+      setValue('formConfig.unifiedSubjects', safeJsonStringify(seed.unifiedSubjects ?? {}), {
+        shouldDirty: true,
+      });
       setValue('formConfig.templateEditorMode', safeJsonStringify('unified'), {
         shouldDirty: true,
       });
@@ -129,8 +134,10 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
       const variables = safeJsonParse<VariablesTable>(getValues('formConfig.variables')) ?? {};
       const translations =
         safeJsonParse<UnifiedTranslations>(getValues('formConfig.unifiedTranslations')) ?? {};
+      const unifiedSubjects =
+        safeJsonParse<PerTypeString>(getValues('formConfig.unifiedSubjects')) ?? {};
 
-      const compiled = compileUnified({ kind, template, variables, translations });
+      const compiled = compileUnified({ kind, template, variables, translations, unifiedSubjects });
 
       const rowData = compiled.rows.deliveries;
       const rowsJson = safeJsonStringify(rowData);

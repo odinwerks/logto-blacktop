@@ -18,6 +18,7 @@ const unifiedFormFields: readonly string[] = [
   'variables',
   'unifiedTranslations',
   'templateEditorMode',
+  'unifiedSubjects',
 ];
 
 export const isUnifiedFormField = (key: string): boolean => unifiedFormFields.includes(key);

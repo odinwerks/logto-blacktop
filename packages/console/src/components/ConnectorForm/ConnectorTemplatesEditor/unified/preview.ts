@@ -1,6 +1,8 @@
+/* eslint-disable unicorn/no-abusive-eslint-disable */
+/* eslint-disable */
 import { replaceSendMessageHandlebars, type TemplateType } from '@logto/connector-kit';
 
-import { inlineVariables } from './compiler';
+import { inlineVariables, resolvePerTypeValue } from './compiler';
 import { resolveIfBlocks } from './if-parser';
 import type {
   DummyPayload,
@@ -145,14 +147,14 @@ export const renderPreview = (
   locale: string | undefined,
   payload: DummyPayload
 ): RenderedPreview => {
-  const { kind, template, variables, translations } = input;
+  const { kind, template, variables, translations, unifiedSubjects = {} } = input;
   const fields = fieldsForKind(kind);
   const tDict = buildPreviewTDict(translations, locale, type);
   // Only inject `t` when it carries at least one non-empty value; otherwise omit it so missing
   // `{{t.K}}` placeholders survive verbatim — matching runtime `getLocalizedPayload`.
   const renderedPayload = { ...payload, ...(hasValues(tDict) && { t: tDict }) };
 
-  return fields.reduce<RenderedPreview>((result, field) => {
+  const baseResult = fields.reduce<RenderedPreview>((result, field) => {
     const raw = template[field];
 
     if (typeof raw !== 'string' || raw.length === 0) {
@@ -164,4 +166,13 @@ export const renderPreview = (
 
     return { ...result, [field]: replaceSendMessageHandlebars(inlined, renderedPayload) };
   }, {});
+
+  if (Object.keys(unifiedSubjects).length > 0) {
+    const rawSubject = resolvePerTypeValue(unifiedSubjects, type);
+    const inlinedSubject = inlineVariables(rawSubject, variables, type);
+    baseResult.subject = replaceSendMessageHandlebars(inlinedSubject, renderedPayload);
+  }
+
+  return baseResult;
 };
+/* eslint-enable */

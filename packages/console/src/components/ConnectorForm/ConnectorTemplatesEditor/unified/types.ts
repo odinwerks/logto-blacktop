@@ -58,8 +58,6 @@ export type UnifiedTemplate = {
   content?: string;
   /** Mailgun plain-text fallback part. */
   text?: string;
-  /** Mailgun email subject. */
-  subject?: string;
 };
 
 /**
@@ -119,6 +117,7 @@ export type CompileInput = {
   readonly template: UnifiedTemplate;
   readonly variables: VariablesTable;
   readonly translations: UnifiedTranslations;
+  readonly unifiedSubjects?: PerTypeString;
 };
 
 /** Output of {@link compileUnified}: the compiled rows + the flat runtime translations dict. */
@@ -138,6 +137,7 @@ export type SeedUnifiedFromClassicOutput = {
   readonly template: UnifiedTemplate;
   readonly variables: VariablesTable;
   readonly translations: UnifiedTranslations;
+  readonly unifiedSubjects?: PerTypeString;
 };
 
 /**

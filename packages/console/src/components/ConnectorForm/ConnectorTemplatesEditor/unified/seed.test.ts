@@ -20,9 +20,12 @@ describe('seedUnifiedFromClassic — Mailgun deliveries', () => {
     );
 
     expect(seed.template).toEqual({
-      content: '<If type="Generic"><b>G {{code}}</b></If><If type="SignIn"><b>S</b></If>',
-      subject: '<If type="Generic">Sub {{code}}</If><If type="SignIn">Sub S</If>',
+      content: '<If type="Generic"><b>G {{code}}</b></If>\n<If type="SignIn"><b>S</b></If>',
       text: 'txt G',
+    });
+    expect(seed.unifiedSubjects).toEqual({
+      Generic: 'Sub {{code}}',
+      SignIn: 'Sub S',
     });
     expect(seed.variables).toEqual({});
   });
@@ -77,7 +80,7 @@ describe('seedUnifiedFromClassic — Mailgun deliveries', () => {
 
     expect(seed.template).toEqual({
       content:
-        '<If type="Generic">G {{code}}</If><If type="SignIn">S {{code}}</If><If type="Register">R {{code}}</If>',
+        '<If type="Generic">G {{code}}</If>\n<If type="Register">R {{code}}</If>\n<If type="SignIn">S {{code}}</If>',
     });
   });
 
@@ -193,6 +196,35 @@ describe('seedUnifiedFromClassic — translations', () => {
     expect(seed.translations).toEqual({
       en: { title: { SignIn: 'Sign in' }, greeting: { Generic: 'Hi' } },
       zh: { title: { SignIn: '登录' }, greeting: { Generic: '你好' } },
+    });
+  });
+
+  it('aligns camelCase classic flat prefix keys like signInTitle to base key title with per-type translations and avoids duplication', () => {
+    const classicTranslations: ClassicTranslations = {
+      en: {
+        signInTitle: 'Sign in now!',
+        registerTitle: 'Sign up now!',
+        genericTitle: 'Welcome!',
+      },
+    };
+
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({
+        SignIn: { html: '<h1>{{t.signInTitle}}</h1>' },
+        Register: { html: '<h1>{{t.registerTitle}}</h1>' },
+      }),
+      classicTranslations
+    );
+
+    expect(seed.template.content).toBe('<h1>{{t.title}}</h1>');
+    expect(seed.translations).toEqual({
+      en: {
+        title: {
+          SignIn: 'Sign in now!',
+          Register: 'Sign up now!',
+          Generic: 'Welcome!',
+        },
+      },
     });
   });
 });

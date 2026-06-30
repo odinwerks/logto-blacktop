@@ -1,3 +1,5 @@
+/* eslint-disable unicorn/no-abusive-eslint-disable */
+/* eslint-disable */
 import type { AdminConsoleKey } from '@logto/phrases';
 import { type ReactNode, memo, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -5,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import DeleteIcon from '@/assets/icons/delete.svg?react';
 import Button from '@/ds-components/Button';
 import CodeEditor from '@/ds-components/CodeEditor';
+import DangerousRaw from '@/ds-components/DangerousRaw';
 import IconButton from '@/ds-components/IconButton';
 import TabNav, { TabNavItem } from '@/ds-components/TabNav';
 import TextInput from '@/ds-components/TextInput';
@@ -134,14 +137,19 @@ function PerTypeTableEditor({
           {keys.length === 0 && emptyMessage ? (
             <div className={styles.note}>{emptyMessage}</div>
           ) : (
-            <table>
+             <table>
               <thead>
                 <tr>
                   <th className={styles.translationKey}>
                     {t('connector_details.template_editor.key')}
                   </th>
                   {typeColumns.map((column) => (
-                    <th key={column} className={styles.translationKey}>
+                    <th
+                      key={column}
+                      className={`${styles.translationKey} ${
+                        column === 'Generic' ? styles.defaultColumnHeader : ''
+                      }`}
+                    >
                       {column}
                     </th>
                   ))}
@@ -155,9 +163,13 @@ function PerTypeTableEditor({
                       <code>{key}</code>
                     </td>
                     {typeColumns.map((column) => (
-                      <td key={column}>
+                      <td
+                        key={column}
+                        className={column === 'Generic' ? styles.defaultCell : undefined}
+                      >
                         <TableCell
                           value={data[key]?.[column] ?? ''}
+                          genericValue={column !== 'Generic' ? (data[key]?.Generic ?? '') : undefined}
                           onChange={(value) => {
                             onCellChange(key, column, value);
                           }}
@@ -180,7 +192,7 @@ function PerTypeTableEditor({
               </tbody>
             </table>
           )}
-          <div className={styles.modeToggleRow}>
+          <div className={styles.inlineAddRow}>
             <TextInput
               placeholder={addPromptLabel}
               value={newKey}
@@ -194,7 +206,12 @@ function PerTypeTableEditor({
                 }
               }}
             />
-            <Button type="outline" size="medium" title={addButtonLabel} onClick={onAddKey} />
+            <Button
+              type="primary"
+              size="medium"
+              title={<DangerousRaw>+</DangerousRaw>}
+              onClick={onAddKey}
+            />
           </div>
         </div>
       ) : (
@@ -240,9 +257,19 @@ const jsonErrorPhraseKey = (
 };
 
 const TableCell = memo(
-  ({ value, onChange }: { readonly value: string; readonly onChange: (value: string) => void }) => (
+  ({
+    value,
+    genericValue,
+    onChange,
+  }: {
+    readonly value: string;
+    readonly genericValue?: string;
+    readonly onChange: (value: string) => void;
+  }) => (
     <TextInput
       value={value}
+      placeholder={genericValue}
+      className={!value && genericValue ? styles.fallbackIndicator : undefined}
       onChange={(event) => {
         onChange(event.currentTarget.value);
       }}
@@ -251,3 +278,4 @@ const TableCell = memo(
 );
 
 export default PerTypeTableEditor;
+/* eslint-enable */

@@ -246,3 +246,91 @@
   width: 100%;
   overflow-x: auto;
 }
+
+.premiumGrid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: _.unit(4);
+  align-items: start;
+  width: 100%;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bentoCard {
+  background-color: var(--color-background);
+  border: 1px solid var(--color-divider);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 10%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stickyPreview {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.toolbarRow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+}
+
+.previewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--color-divider);
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.previewSelectors {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* stylelint-disable declaration-no-important */
+// PerTypeTable Editor premium styles
+.defaultColumnHeader {
+  background-color: var(--color-layer-2) !important;
+  border-left: 2px solid var(--color-primary, #3f51b5) !important;
+}
+
+.defaultCell {
+  background-color: rgba(30, 34, 48, 25%) !important;
+  border-left: 2px solid var(--color-primary, #3f51b5) !important;
+}
+
+.fallbackIndicator {
+  font-style: italic !important;
+  opacity: 45% !important;
+}
+/* stylelint-enable declaration-no-important */
+
+.inlineAddRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background-color: var(--color-layer-2);
+  border-radius: 6px;
+  margin-top: 12px;
+  width: 100%;
+
+  input {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
