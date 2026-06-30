@@ -8,14 +8,6 @@ import {
 } from './compiler';
 import type { CompileInput } from './types';
 
-const ubillInput = (overrides: Partial<CompileInput> = {}): CompileInput => ({
-  kind: 'sms-ubill',
-  template: { content: 'Your code is {{code}}.' },
-  variables: {},
-  translations: {},
-  ...overrides,
-});
-
 const mailgunInput = (overrides: Partial<CompileInput> = {}): CompileInput => ({
   kind: 'email-mailgun',
   template: { subject: 'Code {{code}}', content: 'Your code is {{code}}.' },
@@ -124,91 +116,6 @@ describe('flattenTranslationsForType', () => {
   });
 });
 
-describe('compileUnified — Ubill SMS', () => {
-  it('emits one templates row per type for a shared-body template (no <If> blocks)', () => {
-    const output = compileUnified(ubillInput());
-
-    expect(output.rows.kind).toBe('sms-ubill');
-
-    if (output.rows.kind === 'sms-ubill') {
-      // Every supported type gets the shared body (9 in total), so 9 rows.
-      expect(output.rows.templates).toHaveLength(Object.values(TemplateType).length);
-      expect(output.rows.templates[0]).toEqual({
-        usageType: TemplateType.SignIn,
-        content: 'Your code is {{code}}.',
-      });
-    }
-  });
-
-  it('keeps matching <If> inner and drops non-matching blocks per type', () => {
-    const output = compileUnified(
-      ubillInput({
-        template: {
-          content:
-            '<If type="SignIn">Sign in: {{code}}</If><If type="Register">Sign up: {{code}}</If>Code only: {{code}}',
-        },
-      })
-    );
-
-    if (output.rows.kind === 'sms-ubill') {
-      const byType = new Map(output.rows.templates.map((row) => [row.usageType, row.content]));
-      expect(byType.get(TemplateType.SignIn)).toBe('Sign in: {{code}}Code only: {{code}}');
-      expect(byType.get(TemplateType.Register)).toBe('Sign up: {{code}}Code only: {{code}}');
-      // A type with no matching If still gets the shared trailing body.
-      expect(byType.get(TemplateType.ForgotPassword)).toBe('Code only: {{code}}');
-    }
-  });
-
-  it('skips empty-content types but always emits a Generic row', () => {
-    const output = compileUnified(
-      ubillInput({ template: { content: '<If type="SignIn">Sign in {{code}}</If>' } })
-    );
-
-    if (output.rows.kind === 'sms-ubill') {
-      const types = output.rows.templates.map((row) => row.usageType);
-      expect(types).toContain(TemplateType.SignIn);
-      expect(types).toContain(TemplateType.Generic);
-      // Non-Generic empty types are skipped (Generic is the only empty emitted).
-      expect(types.filter((usageType) => usageType !== TemplateType.Generic).length).toBe(1);
-    }
-  });
-
-  it('inlines variables per type and leaves {{t.K}} rewritten to namespaced keys', () => {
-    const output = compileUnified(
-      ubillInput({
-        template: { content: '{{var.brand}} {{t.greeting}} {{code}}' },
-        variables: { brand: { SignIn: 'Sign-in App', Generic: 'Logto' } },
-        translations: { en: { greeting: { SignIn: 'Welcome back!', Generic: 'Hello!' } } },
-      })
-    );
-
-    if (output.rows.kind === 'sms-ubill') {
-      const signIn = output.rows.templates.find((row) => row.usageType === TemplateType.SignIn);
-      expect(signIn?.content).toBe('Sign-in App {{t.greeting__SignIn}} {{code}}');
-    }
-
-    expect(output.translations).toEqual({
-      en: {
-        greeting__SignIn: 'Welcome back!',
-        greeting__Register: 'Hello!',
-        greeting__ForgotPassword: 'Hello!',
-        greeting__Generic: 'Hello!',
-        greeting__OrganizationInvitation: 'Hello!',
-        greeting__UserPermissionValidation: 'Hello!',
-        greeting__BindNewIdentifier: 'Hello!',
-        greeting__MfaVerification: 'Hello!',
-        greeting__BindMfa: 'Hello!',
-      },
-    });
-  });
-
-  it('emits empty translations when no {{t.K}} placeholders are referenced', () => {
-    const output = compileUnified(ubillInput({ template: { content: '{{code}}' } }));
-
-    expect(output.translations).toEqual({});
-  });
-});
-
 describe('compileUnified — Mailgun', () => {
   it('emits a deliveries record with subject/html (and optional text) per type', () => {
     const output = compileUnified(
@@ -219,35 +126,29 @@ describe('compileUnified — Mailgun', () => {
 
     expect(output.rows.kind).toBe('email-mailgun');
 
-    if (output.rows.kind === 'email-mailgun') {
-      const signIn = output.rows.deliveries[TemplateType.SignIn];
-      expect(signIn).toEqual({
-        subject: 'Code {{code}}',
-        html: '<b>{{code}}</b>',
-        text: 'plain {{code}}',
-      });
-    }
+    const signIn = output.rows.deliveries[TemplateType.SignIn];
+    expect(signIn).toEqual({
+      subject: 'Code {{code}}',
+      html: '<b>{{code}}</b>',
+      text: 'plain {{code}}',
+    });
   });
 
   it('omits subject/text when the template does not define them', () => {
     const output = compileUnified(mailgunInput({ template: { content: '<b>{{code}}</b>' } }));
 
-    if (output.rows.kind === 'email-mailgun') {
-      const signIn = output.rows.deliveries[TemplateType.SignIn];
-      expect(signIn).toEqual({ html: '<b>{{code}}</b>' });
-      expect(signIn?.subject).toBeUndefined();
-      expect(signIn?.text).toBeUndefined();
-    }
+    const signIn = output.rows.deliveries[TemplateType.SignIn];
+    expect(signIn).toEqual({ html: '<b>{{code}}</b>' });
+    expect(signIn?.subject).toBeUndefined();
+    expect(signIn?.text).toBeUndefined();
   });
 
   it('always emits a Generic deliveries row even when html is empty', () => {
     const output = compileUnified(mailgunInput({ template: { content: '' } }));
 
-    if (output.rows.kind === 'email-mailgun') {
-      expect(output.rows.deliveries[TemplateType.Generic]).toEqual({ html: '' });
-      // Non-Generic empty types are skipped.
-      expect(output.rows.deliveries[TemplateType.SignIn]).toBeUndefined();
-    }
+    expect(output.rows.deliveries[TemplateType.Generic]).toEqual({ html: '' });
+    // Non-Generic empty types are skipped.
+    expect(output.rows.deliveries[TemplateType.SignIn]).toBeUndefined();
   });
 
   it('rewrites {{t.K}} per field and unions the keys across subject/content/text', () => {
@@ -267,12 +168,10 @@ describe('compileUnified — Mailgun', () => {
       })
     );
 
-    if (output.rows.kind === 'email-mailgun') {
-      const signIn = output.rows.deliveries[TemplateType.SignIn];
-      expect(signIn?.subject).toBe('{{t.subjectTitle__SignIn}} {{code}}');
-      expect(signIn?.html).toBe('<b>{{t.bodyTitle__SignIn}}</b> {{code}}');
-      expect(signIn?.text).toBe('{{t.bodyTitle__SignIn}} {{code}}');
-    }
+    const signIn = output.rows.deliveries[TemplateType.SignIn];
+    expect(signIn?.subject).toBe('{{t.subjectTitle__SignIn}} {{code}}');
+    expect(signIn?.html).toBe('<b>{{t.bodyTitle__SignIn}}</b> {{code}}');
+    expect(signIn?.text).toBe('{{t.bodyTitle__SignIn}} {{code}}');
 
     expect(output.translations.en).toEqual({
       subjectTitle__SignIn: 'Your code',
@@ -298,19 +197,9 @@ describe('compileUnified — Mailgun', () => {
 });
 
 describe('compileUnified — empty template', () => {
-  it('emits a single empty Generic row for an empty SMS template', () => {
-    const output = compileUnified(ubillInput({ template: {} }));
-
-    if (output.rows.kind === 'sms-ubill') {
-      expect(output.rows.templates).toEqual([{ usageType: TemplateType.Generic, content: '' }]);
-    }
-  });
-
   it('emits a single empty Generic row for an empty Mailgun template', () => {
     const output = compileUnified(mailgunInput({ template: {} }));
 
-    if (output.rows.kind === 'email-mailgun') {
-      expect(output.rows.deliveries).toEqual({ [TemplateType.Generic]: { html: '' } });
-    }
+    expect(output.rows.deliveries).toEqual({ [TemplateType.Generic]: { html: '' } });
   });
 });

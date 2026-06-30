@@ -21,7 +21,7 @@ import {
 import { safeJsonParse, safeJsonStringify } from './utils';
 
 type Props = {
-  /** The owning connector's type; derives the compiler kind (Sms → Ubill, Email → Mailgun). */
+  /** The owning connector's type (always `Email` for the allowlisted Mailgun connector). */
   readonly connectorType: ConnectorType;
 };
 
@@ -32,12 +32,12 @@ const EMPTY_VARIABLES: VariablesTable = {};
 const EMPTY_TRANSLATIONS: UnifiedTranslations = {};
 
 /**
- * The dev-flagged Unified template editor for Ubill-SMS + Mailgun. A three-tab host (Template /
+ * The dev-flagged Unified template editor for Mailgun. A three-tab host (Template /
  * Variables / Localizations) that owns four defensive `formConfig` fields
  * (`unifiedTemplate`, `variables`, `unifiedTranslations`, `templateEditorMode`) and compiles them
- * on edit into the existing `templates`/`deliveries` + `translations` mirror fields the
- * connectors already consume — so the persisted + runtime contract is byte-for-byte unchanged and
- * the send path needs zero changes.
+ * on edit into the existing `deliveries` + `translations` mirror fields the Mailgun connector
+ * already consumes — so the persisted + runtime contract is byte-for-byte unchanged and the send
+ * path needs zero changes.
  *
  * The compile-on-edit effect re-runs `compileUnified` whenever the unified source changes and
  * writes the compiled rows + flat translations to the mirror fields ONLY when they differ from the
@@ -54,11 +54,7 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
 
   const kind = kindForConnectorType(connectorType);
 
-  // The mirror field path for the compiled rows: `formConfig.templates` (Ubill) or
-  // `formConfig.deliveries` (Mailgun). Both literals are valid `FieldPath` members (formConfig is a
-  // `Record<string, unknown>`), so no runtime-derived-key cast is needed.
-  const rowsField: FieldPath<ConnectorFormType> =
-    kind === 'sms-ubill' ? 'formConfig.templates' : 'formConfig.deliveries';
+  const rowsField: FieldPath<ConnectorFormType> = 'formConfig.deliveries';
 
   const templateRaw: unknown = useWatch({ name: 'formConfig.unifiedTemplate' });
   const variablesRaw: unknown = useWatch({ name: 'formConfig.variables' });
@@ -94,10 +90,9 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
       return;
     }
 
-    // `compiled.rows` is the discriminated `CompiledRows` wrapper; emit only the inner
-    // `templates` array (Ubill) or `deliveries` record (Mailgun) the connector consumes.
-    const rowData =
-      compiled.rows.kind === 'sms-ubill' ? compiled.rows.templates : compiled.rows.deliveries;
+    // `compiled.rows` is the `CompiledRows` wrapper; emit the inner `deliveries` record the
+    // Mailgun connector consumes.
+    const rowData = compiled.rows.deliveries;
     const rowsJson = safeJsonStringify(rowData);
     const translationsJson = safeJsonStringify(compiled.translations);
     const currentRows = getValues(rowsField);

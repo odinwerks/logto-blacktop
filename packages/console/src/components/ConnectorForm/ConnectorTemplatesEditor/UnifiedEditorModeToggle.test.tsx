@@ -82,25 +82,31 @@ i18next.addResourceBundle('en', 'translation', {
 
 Modal.setAppElement(document.body);
 
-const templatesItem: ConnectorConfigFormItem = {
-  key: 'templates',
-  label: 'Templates',
+// Mailgun email uses a `deliveries` form item (the row the unified editor compiles into).
+const deliveriesItem: ConnectorConfigFormItem = {
+  key: 'deliveries',
+  label: 'Deliveries',
   type: ConnectorConfigFormItemType.Json,
   required: false,
-  defaultValue: [],
+  defaultValue: {},
 };
 
 type RenderOptions = {
-  readonly templates?: unknown;
+  readonly deliveries?: unknown;
   readonly connectorFactoryId?: string;
 };
 
-const buildDefaultValues = (overrides?: { templates?: unknown }): Record<string, unknown> => ({
+const buildDefaultValues = (overrides?: { deliveries?: unknown }): Record<string, unknown> => ({
   syncProfile: SyncProfileMode.OnlyAtRegister,
   jsonConfig: '{}',
   formConfig: {
-    templates: JSON.stringify(
-      overrides?.templates ?? [{ usageType: 'Generic', content: 'Your code is {{code}}.' }],
+    deliveries: JSON.stringify(
+      overrides?.deliveries ?? {
+        Generic: {
+          subject: 'Logto generic template {{code}}',
+          html: 'Your Logto generic verification code is {{code}}.',
+        },
+      },
       null,
       2
     ),
@@ -110,8 +116,8 @@ const buildDefaultValues = (overrides?: { templates?: unknown }): Record<string,
   enableTokenStorage: false,
 });
 
-const renderEditor = ({ templates, connectorFactoryId }: RenderOptions = {}) => {
-  const defaultValues = buildDefaultValues({ templates });
+const renderEditor = ({ deliveries, connectorFactoryId }: RenderOptions = {}) => {
+  const defaultValues = buildDefaultValues({ deliveries });
 
   function Harness() {
     const methods = useForm<ConnectorFormType>({ defaultValues });
@@ -120,8 +126,8 @@ const renderEditor = ({ templates, connectorFactoryId }: RenderOptions = {}) => 
       <FormProvider {...methods}>
         <MemoryRouter>
           <ConnectorTemplatesEditor
-            formItem={templatesItem}
-            connectorType={ConnectorType.Sms}
+            formItem={deliveriesItem}
+            connectorType={ConnectorType.Email}
             connectorFactoryId={connectorFactoryId}
           />
         </MemoryRouter>
@@ -155,21 +161,30 @@ function CommittedUnifiedProbe() {
 
 describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
   it('hides the Unified toggle when the connector factory id is not in the allowlist', () => {
-    const { getButtonByText } = renderEditor({ connectorFactoryId: 'aliyun-sms' });
+    const { getButtonByText } = renderEditor({ connectorFactoryId: 'aliyun-dm' });
 
     expect(getButtonByText('Classic per-type')).toBeUndefined();
     expect(getButtonByText('Unified')).toBeUndefined();
   });
 
-  it('shows the Classic/Unified toggle for an allowlisted connector factory id', () => {
+  it('does NOT show the Unified toggle for the ubill-sms connector factory id', () => {
+    // SMS connectors are no longer allowlisted for the Unified editor — the SMS classic per-type
+    // editor is the only surface for Ubill-SMS after the SMS unified support was removed.
     const { getButtonByText } = renderEditor({ connectorFactoryId: 'ubill-sms' });
+
+    expect(getButtonByText('Classic per-type')).toBeUndefined();
+    expect(getButtonByText('Unified')).toBeUndefined();
+  });
+
+  it('shows the Classic/Unified toggle for the Mailgun email connector factory id', () => {
+    const { getButtonByText } = renderEditor({ connectorFactoryId: 'mailgun-email' });
 
     expect(getButtonByText('Classic per-type')).not.toBeUndefined();
     expect(getButtonByText('Unified')).not.toBeUndefined();
   });
 
-  it('switches to the Unified three-tab editor on toggle and seeds from classic rows', async () => {
-    const { getButtonByText, getTabByText } = renderEditor({ connectorFactoryId: 'ubill-sms' });
+  it('switches to the Unified three-tab editor on toggle and seeds from classic deliveries', async () => {
+    const { getButtonByText, getTabByText } = renderEditor({ connectorFactoryId: 'mailgun-email' });
 
     // Classic mode initially: no Unified sub-tabs.
     expect(getTabByText('Variables')).toBeUndefined();
@@ -177,8 +192,8 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
     // Switch to Unified.
     fireEvent.click(getButtonByText('Unified')!);
 
-    // The reverse-compile seed writes a unifiedTemplate (with the Generic body) + compiles the
-    // mirror; the UnifiedTemplateEditor mounts and renders its three sub-tabs.
+    // The reverse-compile seed writes a unifiedTemplate (with the Generic html body as `content`)
+    // + compiles the mirror; the UnifiedTemplateEditor mounts and renders its three sub-tabs.
     await waitFor(() => {
       expect(getTabByText('Template')).not.toBeUndefined();
       expect(getTabByText('Variables')).not.toBeUndefined();

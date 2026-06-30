@@ -6,8 +6,8 @@ import { TemplateType } from '@logto/connector-kit';
  * saves/reloads. The host reads it (defaulting to `'classic'` when absent) to decide whether to
  * render the classic per-type rows or the {@link UnifiedTemplateEditor}.
  *
- * Gated behind `isDevFeaturesEnabled` + an allowlist of connector factory ids (Ubill-SMS +
- * Mailgun); every other connector stays on `'classic'` regardless.
+ * Gated behind `isDevFeaturesEnabled` + an allowlist of connector factory ids (Mailgun only);
+ * every other connector stays on `'classic'` regardless.
  */
 export type TemplateEditorMode = 'classic' | 'unified';
 
@@ -39,12 +39,10 @@ export type PerTypeString = Partial<Record<string, string>>;
  * Which connector the unified compiler is targeting. Drives the compiled row shape and which
  * localizable string fields the unified template carries.
  *
- * - `'sms-ubill'` — Ubill-SMS. The unified template carries a single `content` field; the compiler
- *   emits `templates: Array<{ usageType, content }>`.
- * - `'email-mailgun'` — Mailgun. The unified template carries `subject`, `html`, and an optional
- *   `text` field; the compiler emits `deliveries: Record<usageType, { subject?, html, text? }>`.
+ * `'email-mailgun'` — Mailgun. The unified template carries `subject`, `html`, and an optional
+ * `text` field; the compiler emits `deliveries: Record<usageType, { subject?, html, text? }>`.
  */
-export type ConnectorKind = 'sms-ubill' | 'email-mailgun';
+export type ConnectorKind = 'email-mailgun';
 
 /**
  * The single canonical unified template body for a connector. Carries optional `<If type="…">`
@@ -52,11 +50,11 @@ export type ConnectorKind = 'sms-ubill' | 'email-mailgun';
  * at compile time; `{{t.K}}` placeholders are rewritten to namespaced `{{t.K__T}}` keys so the
  * existing runtime resolver resolves per-type localizations with zero send-path changes.
  *
- * - SMS (Ubill): only `content` is used.
- * - Email (Mailgun): `subject`, `html`, and an optional `text` plain-text part are used.
+ * Email (Mailgun): `subject`, `html` (carried in the `content` field), and an optional `text`
+ * plain-text part are used.
  */
 export type UnifiedTemplate = {
-  /** SMS body (Ubill) or the email HTML body (Mailgun). */
+  /** The email HTML body (Mailgun). Emitted as the deliveries row's `html` field. */
   content?: string;
   /** Mailgun plain-text fallback part. */
   text?: string;
@@ -88,19 +86,13 @@ export type VariablesTable = Record<string, PerTypeString>;
 export type UnifiedTranslations = Record<string, Record<string, PerTypeString>>;
 
 /** The connector factory ids whose connectors gain the Unified editor toggle. */
-export const unifiedConnectorFactoryIds: ReadonlySet<string> = new Set([
-  'ubill-sms',
-  'mailgun-email',
-]);
+export const unifiedConnectorFactoryIds: ReadonlySet<string> = new Set(['mailgun-email']);
 
 /** The ordered column set rendered in the Variables / Localizations per-type tables. */
 export const typeColumns: readonly TypeColumn[] = [
   'Generic',
   ...Object.values(TemplateType).filter((value) => value !== TemplateType.Generic),
 ];
-
-/** A compiled Ubill-SMS templates row, matching the connector's existing `templates` shape. */
-export type SmsCompiledRow = { readonly usageType: TemplateType; readonly content: string };
 
 /** A compiled Mailgun deliveries row, matching the connector's existing `deliveries` shape. */
 export type EmailCompiledRow = {
@@ -110,13 +102,13 @@ export type EmailCompiledRow = {
 };
 
 /**
- * The compiled rows emitted by {@link compileUnified} — a discriminated union on {@link ConnectorKind}
- * so the host writes back the exact shape the connector already consumes (`templates[]` for SMS,
- * `deliveries{}` for Mailgun).
+ * The compiled rows emitted by {@link compileUnified} — the Mailgun `deliveries` record shape the
+ * connector already consumes.
  */
-export type CompiledRows =
-  | { readonly kind: 'sms-ubill'; readonly templates: SmsCompiledRow[] }
-  | { readonly kind: 'email-mailgun'; readonly deliveries: Record<string, EmailCompiledRow> };
+export type CompiledRows = {
+  readonly kind: 'email-mailgun';
+  readonly deliveries: Record<string, EmailCompiledRow>;
+};
 
 /** The flat runtime translations dictionary: `Record<LanguageTag, Record<TranslationKey, string>>`. */
 export type CompiledTranslations = Record<string, Record<string, string>>;
@@ -136,15 +128,10 @@ export type CompileOutput = {
 };
 
 /** The classic per-type rows a reverse-compile seeds the unified model from. */
-export type SeedUnifiedFromClassicInput =
-  | {
-      readonly kind: 'sms-ubill';
-      readonly templates: ReadonlyArray<{ usageType: string; content?: string }>;
-    }
-  | {
-      readonly kind: 'email-mailgun';
-      readonly deliveries: Record<string, { subject?: string; html?: string; text?: string }>;
-    };
+export type SeedUnifiedFromClassicInput = {
+  readonly kind: 'email-mailgun';
+  readonly deliveries: Record<string, { subject?: string; html?: string; text?: string }>;
+};
 
 /** Output of {@link seedUnifiedFromClassic}: the best-effort unified model template + (empty) variables + per-type-reconstructed translations. */
 export type SeedUnifiedFromClassicOutput = {

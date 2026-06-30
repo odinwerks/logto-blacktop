@@ -1,100 +1,12 @@
-import { TemplateType } from '@logto/connector-kit';
-
 import { seedUnifiedFromClassic } from './compiler';
 import type { SeedUnifiedFromClassicInput } from './types';
 
 // A flat runtime translations dictionary mirror type (the classic shape the reverse-compile reads).
 type ClassicTranslations = Record<string, Record<string, string>>;
 
-// Convenience SMS input builder: `smsRows([{ usageType, content }])`.
-const smsRows = (
-  rows: ReadonlyArray<{ usageType: string; content?: string }>
-): SeedUnifiedFromClassicInput => ({ kind: 'sms-ubill', templates: rows });
-
 const mailgunRows = (
   deliveries: Record<string, { subject?: string; html?: string; text?: string }>
 ): SeedUnifiedFromClassicInput => ({ kind: 'email-mailgun', deliveries });
-
-describe('seedUnifiedFromClassic — SMS templates', () => {
-  it('seeds a shared body when only a Generic row exists (no <If> blocks)', () => {
-    const seed = seedUnifiedFromClassic(
-      smsRows([{ usageType: TemplateType.Generic, content: 'Your code is {{code}}.' }]),
-      {}
-    );
-
-    expect(seed.template).toEqual({ content: 'Your code is {{code}}.' });
-    expect(seed.variables).toEqual({});
-    expect(seed.translations).toEqual({});
-  });
-
-  it('emits per-type <If> blocks (Generic first) when types differ — no shared body', () => {
-    // Per `seedField`'s documented semantics, when not every configured type shares identical
-    // content the reverse-compile drops the shared body and emits an `<If>` block per configured
-    // type (Generic first, then the rest in first-seen order). This faithfully round-trips classic
-    // per-type rows that *replace* rather than *add to* the Generic fallback.
-    const seed = seedUnifiedFromClassic(
-      smsRows([
-        { usageType: TemplateType.Generic, content: 'G {{code}}' },
-        { usageType: TemplateType.SignIn, content: 'S {{code}}' },
-        { usageType: TemplateType.Register, content: 'R {{code}}' },
-      ]),
-      {}
-    );
-
-    expect(seed.template).toEqual({
-      content:
-        '<If type="Generic">G {{code}}</If><If type="SignIn">S {{code}}</If><If type="Register">R {{code}}</If>',
-    });
-  });
-
-  it('collapses identical per-type rows into a shared body (no <If> blocks)', () => {
-    const shared = 'Your code is {{code}}.';
-
-    const seed = seedUnifiedFromClassic(
-      smsRows([
-        { usageType: TemplateType.Generic, content: shared },
-        { usageType: TemplateType.SignIn, content: shared },
-        { usageType: TemplateType.Register, content: shared },
-      ]),
-      {}
-    );
-
-    expect(seed.template).toEqual({ content: shared });
-  });
-
-  it('seeds a single non-Generic type as a shared body (promotes a fallback)', () => {
-    // When only one non-Generic type has content (no Generic fallback), `seedField` returns it as a
-    // shared body (the single entry trivially satisfies `allSame`). On recompile, every type then
-    // gets that content — i.e. the seed promotes a (previously absent) Generic fallback.
-    const seed = seedUnifiedFromClassic(
-      smsRows([{ usageType: TemplateType.SignIn, content: 'Sign in: {{code}}' }]),
-      {}
-    );
-
-    expect(seed.template).toEqual({ content: 'Sign in: {{code}}' });
-  });
-
-  it('drops unknown usage types (only recognized TemplateType values are seeded)', () => {
-    const seed = seedUnifiedFromClassic(
-      smsRows([
-        { usageType: TemplateType.Generic, content: 'G' },
-        // A custom usage type the enum does not know is not seeded.
-        { usageType: 'CustomType', content: 'C' },
-      ]),
-      {}
-    );
-
-    expect(seed.template).toEqual({ content: 'G' });
-  });
-
-  it('returns an empty content body for an empty templates array', () => {
-    const seed = seedUnifiedFromClassic(smsRows([]), {});
-
-    expect(seed.template).toEqual({ content: '' });
-    expect(seed.variables).toEqual({});
-    expect(seed.translations).toEqual({});
-  });
-});
 
 describe('seedUnifiedFromClassic — Mailgun deliveries', () => {
   it('seeds subject/content/text from per-type deliveries (html → content)', () => {
@@ -137,6 +49,74 @@ describe('seedUnifiedFromClassic — Mailgun deliveries', () => {
     expect(seed.variables).toEqual({});
     expect(seed.translations).toEqual({});
   });
+
+  it('seeds a shared body when only a Generic deliveries row exists (no <If> blocks)', () => {
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({ Generic: { html: 'Your code is {{code}}.' } }),
+      {}
+    );
+
+    expect(seed.template).toEqual({ content: 'Your code is {{code}}.' });
+    expect(seed.variables).toEqual({});
+    expect(seed.translations).toEqual({});
+  });
+
+  it('emits per-type <If> blocks (Generic first) when types differ — no shared body', () => {
+    // Per `seedField`'s documented semantics, when not every configured type shares identical
+    // content the reverse-compile drops the shared body and emits an `<If>` block per configured
+    // type (Generic first, then the rest in first-seen order). This faithfully round-trips classic
+    // per-type rows that *replace* rather than *add to* the Generic fallback.
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({
+        Generic: { html: 'G {{code}}' },
+        SignIn: { html: 'S {{code}}' },
+        Register: { html: 'R {{code}}' },
+      }),
+      {}
+    );
+
+    expect(seed.template).toEqual({
+      content:
+        '<If type="Generic">G {{code}}</If><If type="SignIn">S {{code}}</If><If type="Register">R {{code}}</If>',
+    });
+  });
+
+  it('collapses identical per-type html rows into a shared body (no <If> blocks)', () => {
+    const shared = 'Your code is {{code}}.';
+
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({
+        Generic: { html: shared },
+        SignIn: { html: shared },
+        Register: { html: shared },
+      }),
+      {}
+    );
+
+    expect(seed.template).toEqual({ content: shared });
+  });
+
+  it('seeds a single non-Generic type as a shared body (promotes a fallback)', () => {
+    // When only one non-Generic type has content (no Generic fallback), `seedField` returns it as a
+    // shared body (the single entry trivially satisfies `allSame`). On recompile, every type then
+    // gets that content — i.e. the seed promotes a (previously absent) Generic fallback.
+    const seed = seedUnifiedFromClassic(mailgunRows({ SignIn: { html: 'Sign in: {{code}}' } }), {});
+
+    expect(seed.template).toEqual({ content: 'Sign in: {{code}}' });
+  });
+
+  it('drops unknown usage types (only recognized TemplateType values are seeded)', () => {
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({
+        Generic: { html: 'G' },
+        // A custom usage type the enum does not know is not seeded.
+        CustomType: { html: 'C' },
+      }),
+      {}
+    );
+
+    expect(seed.template).toEqual({ content: 'G' });
+  });
 });
 
 describe('seedUnifiedFromClassic — translations', () => {
@@ -149,7 +129,7 @@ describe('seedUnifiedFromClassic — translations', () => {
       },
     };
 
-    const seed = seedUnifiedFromClassic(smsRows([]), classicTranslations);
+    const seed = seedUnifiedFromClassic(mailgunRows({}), classicTranslations);
 
     expect(seed.translations).toEqual({
       en: {
@@ -163,7 +143,7 @@ describe('seedUnifiedFromClassic — translations', () => {
       en: { title__signin: 'Sign in' },
     };
 
-    const seed = seedUnifiedFromClassic(smsRows([]), classicTranslations);
+    const seed = seedUnifiedFromClassic(mailgunRows({}), classicTranslations);
 
     expect(seed.translations).toEqual({
       en: { title: { SignIn: 'Sign in' } },
@@ -178,7 +158,7 @@ describe('seedUnifiedFromClassic — translations', () => {
       en: { greeting: 'Hi', farewell: 'Bye' },
     };
 
-    const seed = seedUnifiedFromClassic(smsRows([]), classicTranslations);
+    const seed = seedUnifiedFromClassic(mailgunRows({}), classicTranslations);
 
     expect(seed.translations).toEqual({
       en: {
@@ -195,7 +175,7 @@ describe('seedUnifiedFromClassic — translations', () => {
       en: { greeting__custom: 'Hi' },
     };
 
-    const seed = seedUnifiedFromClassic(smsRows([]), classicTranslations);
+    const seed = seedUnifiedFromClassic(mailgunRows({}), classicTranslations);
 
     expect(seed.translations).toEqual({
       en: { greeting__custom: { Generic: 'Hi' } },
@@ -208,7 +188,7 @@ describe('seedUnifiedFromClassic — translations', () => {
       zh: { title__SignIn: '登录', greeting: '你好' },
     };
 
-    const seed = seedUnifiedFromClassic(smsRows([]), classicTranslations);
+    const seed = seedUnifiedFromClassic(mailgunRows({}), classicTranslations);
 
     expect(seed.translations).toEqual({
       en: { title: { SignIn: 'Sign in' }, greeting: { Generic: 'Hi' } },
@@ -223,7 +203,7 @@ describe('seedUnifiedFromClassic — variables (best-effort, one-way-lossy)', ()
     // returns `{}`. The `{{var.X}}` placeholders survive in the seeded body as text (the admin
     // re-defines the variables), which the compiler then inlines once a value is provided.
     const seed = seedUnifiedFromClassic(
-      smsRows([{ usageType: TemplateType.Generic, content: 'Hi {{var.name}} {{code}}' }]),
+      mailgunRows({ Generic: { html: 'Hi {{var.name}} {{code}}' } }),
       {}
     );
 

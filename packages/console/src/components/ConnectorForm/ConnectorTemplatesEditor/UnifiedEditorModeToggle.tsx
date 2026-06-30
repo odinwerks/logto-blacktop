@@ -1,6 +1,6 @@
 import { type ConnectorConfigFormItem, type ConnectorType } from '@logto/connector-kit';
 import { type ReactNode, useCallback } from 'react';
-import { useFormContext, useWatch, type FieldPath } from 'react-hook-form';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { isDevFeaturesEnabled } from '@/consts/env';
@@ -10,11 +10,9 @@ import type { ConnectorFormType } from '@/types/connector';
 import UnifiedTemplateEditor from './UnifiedTemplateEditor';
 import styles from './index.module.scss';
 import {
-  kindForConnectorType,
   seedUnifiedFromClassic,
   unifiedConnectorFactoryIds,
   type EmailCompiledRow,
-  type SmsCompiledRow,
   type TemplateEditorMode,
 } from './unified';
 import { safeJsonParse, safeJsonStringify } from './utils';
@@ -22,9 +20,9 @@ import { safeJsonParse, safeJsonStringify } from './utils';
 type Props = {
   /** The `templates`/`deliveries` form item this editor is rendered for. */
   readonly formItem: ConnectorConfigFormItem;
-  /** The owning connector's type; gates the toggle + derives the compiler kind. */
+  /** The owning connector's type; retained for the {@link UnifiedTemplateEditor} prop contract. */
   readonly connectorType: ConnectorType;
-  /** The connector factory id (e.g. `ubill-sms`, `mailgun-email`); gates the Unified toggle. */
+  /** The connector factory id (e.g. `mailgun-email`); gates the Unified toggle. */
   readonly connectorFactoryId?: string;
   /** The classic editor content (rendered when not in Unified mode). */
   readonly children: ReactNode;
@@ -35,18 +33,19 @@ type Props = {
 type TranslationMap = Record<string, Record<string, string>>;
 
 /**
- * The Classic/Unified editor-mode toggle + render switch (dev-flagged: Ubill-SMS + Mailgun only).
+ * The Classic/Unified editor-mode toggle + render switch (dev-flagged: Mailgun only).
  * Encapsulates reading + persisting `formConfig.templateEditorMode`, the `isDevFeaturesEnabled` +
  * connector-factory-id allowlist gate, the best-effort reverse-compile seed on Classic → Unified,
  * and rendering either the {@link UnifiedTemplateEditor} or the host's classic children.
  *
- * Extracted from `ConnectorTemplatesEditor` to keep that host under the shared `max-lines` limit.
+ * Only `mailgun-email` is allowlisted; SMS connectors keep the classic per-type editor and never
+ * show this toggle. Extracted from `ConnectorTemplatesEditor` to keep that host under the shared
+ * `max-lines` limit.
  */
 function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, children }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { getValues, setValue } = useFormContext<ConnectorFormType>();
 
-  const kind = kindForConnectorType(connectorType);
   const isDeliveries = formItem.key === 'deliveries';
 
   const isUnifiedToggleVisible =
@@ -62,11 +61,6 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
   const templateEditorMode: TemplateEditorMode =
     parsedEditorMode === 'unified' ? 'unified' : 'classic';
   const isUnifiedMode = isUnifiedToggleVisible && templateEditorMode === 'unified';
-
-  // The classic rows mirror field: `formConfig.templates` (Ubill) or `formConfig.deliveries`
-  // (Mailgun). Both literals are valid `FieldPath` members, so no runtime-derived-key cast.
-  const classicRowsField: FieldPath<ConnectorFormType> =
-    kind === 'sms-ubill' ? 'formConfig.templates' : 'formConfig.deliveries';
 
   const switchEditorMode = useCallback(
     (next: TemplateEditorMode) => {
@@ -88,26 +82,19 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
         // existing content (and the compile-on-edit effect does not clobber the classic mirror).
         const existingUnified = safeJsonParse<unknown>(getValues('formConfig.unifiedTemplate'));
 
-        if (!existingUnified) {
-          const classicRowsRaw = getValues(classicRowsField);
+        if (!existingUnified && isDeliveries) {
+          // Mailgun reverse-compile (the only allowlisted connector kind).
+          const classicRowsRaw = getValues('formConfig.deliveries');
           const classicTranslations =
             safeJsonParse<TranslationMap>(getValues('formConfig.translations')) ?? {};
 
-          const seed = isDeliveries
-            ? seedUnifiedFromClassic(
-                {
-                  kind: 'email-mailgun',
-                  deliveries: safeJsonParse<Record<string, EmailCompiledRow>>(classicRowsRaw) ?? {},
-                },
-                classicTranslations
-              )
-            : seedUnifiedFromClassic(
-                {
-                  kind: 'sms-ubill',
-                  templates: safeJsonParse<SmsCompiledRow[]>(classicRowsRaw) ?? [],
-                },
-                classicTranslations
-              );
+          const seed = seedUnifiedFromClassic(
+            {
+              kind: 'email-mailgun',
+              deliveries: safeJsonParse<Record<string, EmailCompiledRow>>(classicRowsRaw) ?? {},
+            },
+            classicTranslations
+          );
 
           applySeed(seed);
         }
@@ -115,7 +102,7 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
 
       setValue('formConfig.templateEditorMode', safeJsonStringify(next), { shouldDirty: true });
     },
-    [getValues, setValue, classicRowsField, isDeliveries]
+    [getValues, setValue, isDeliveries]
   );
 
   return (

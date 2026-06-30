@@ -30,9 +30,10 @@ type Props = {
 };
 
 /**
- * The Template tab of the unified editor: one editor per localizable string field the connector
- * compiles (SMS `content`; Mailgun `subject` + `html` + optional `text`), plus a preview pane
- * (usage-type + language selectors rendering the compiled body with dummy payload data).
+ * The Template tab of the unified editor: one editor per localizable string field the Mailgun
+ * connector compiles (`subject` + `html` via the `content` field + optional `text`), plus a
+ * preview pane (usage-type + language selectors rendering the compiled body with dummy payload
+ * data).
  *
  * Parse errors from {@link parseIfBlocks} (nested/unclosed/extra-attribute `<If>` blocks) surface as
  * a banner above the editors so the admin notices malformations before they leak into a sent
@@ -66,8 +67,8 @@ function UnifiedTemplateTab({
   const [previewLanguage, setPreviewLanguage] = useState<string>(languageOptions[0]?.value ?? 'en');
 
   const parseError = useMemo(() => {
-    const fields: ReadonlyArray<keyof UnifiedTemplate> =
-      kind === 'sms-ubill' ? ['content'] : ['subject', 'content', 'text'];
+    // Mailgun emits `subject` + `content` (the HTML body) + optional `text`.
+    const fields: ReadonlyArray<keyof UnifiedTemplate> = ['subject', 'content', 'text'];
 
     for (const field of fields) {
       const value = template[field] ?? '';
@@ -77,7 +78,7 @@ function UnifiedTemplateTab({
         return result.errorKey;
       }
     }
-  }, [kind, template]);
+  }, [template]);
 
   const preview = useMemo(
     () =>
@@ -99,48 +100,34 @@ function UnifiedTemplateTab({
       {parseError ? (
         <div className={styles.parseError}>{t('connector_details.unified_editor.parse_error')}</div>
       ) : null}
-      {kind === 'sms-ubill' ? (
-        <FormField title="connector_details.email_templates.content">
-          <Textarea
-            rows={6}
-            value={template.content ?? ''}
-            onChange={(event) => {
-              updateField('content')(event.currentTarget.value);
-            }}
-          />
-        </FormField>
-      ) : (
-        <>
-          <FormField title="connector_details.email_templates.subject">
-            <TextInput
-              value={template.subject ?? ''}
-              onChange={(event) => {
-                updateField('subject')(event.currentTarget.value);
-              }}
-            />
-          </FormField>
-          <FormField title="connector_details.email_templates.content">
-            <CodeEditor
-              className={styles.contentEditor}
-              language="html"
-              value={template.content ?? ''}
-              shouldWrap={false}
-              onChange={(value) => {
-                updateField('content')(value);
-              }}
-            />
-          </FormField>
-          <FormField title="connector_details.email_templates.text_version">
-            <Textarea
-              rows={4}
-              value={template.text ?? ''}
-              onChange={(event) => {
-                updateField('text')(event.currentTarget.value);
-              }}
-            />
-          </FormField>
-        </>
-      )}
+      <FormField title="connector_details.email_templates.subject">
+        <TextInput
+          value={template.subject ?? ''}
+          onChange={(event) => {
+            updateField('subject')(event.currentTarget.value);
+          }}
+        />
+      </FormField>
+      <FormField title="connector_details.email_templates.content">
+        <CodeEditor
+          className={styles.contentEditor}
+          language="html"
+          value={template.content ?? ''}
+          shouldWrap={false}
+          onChange={(value) => {
+            updateField('content')(value);
+          }}
+        />
+      </FormField>
+      <FormField title="connector_details.email_templates.text_version">
+        <Textarea
+          rows={4}
+          value={template.text ?? ''}
+          onChange={(event) => {
+            updateField('text')(event.currentTarget.value);
+          }}
+        />
+      </FormField>
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>{t('connector_details.unified_editor.preview')}</h4>
         <div className={styles.modeToggleRow}>

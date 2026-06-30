@@ -179,16 +179,16 @@ const compileField = (
 const isFieldNonEmpty = (body: string): boolean => body.length > 0;
 
 /**
- * Compiles the unified model into the exact `templates`/`deliveries` + `translations` shapes the
- * target connector already consumes, so the persisted + runtime contract is byte-for-byte
- * unchanged and the send path needs zero changes.
+ * Compiles the unified model into the exact `deliveries` + `translations` shapes the Mailgun
+ * connector already consumes, so the persisted + runtime contract is byte-for-byte unchanged and
+ * the send path needs zero changes.
  *
  * Per target type `T` (every {@link TemplateType}):
  * 1. `resolveIfBlocks(template[field], T)` — keep matching `<If>` blocks, drop others.
  * 2. `inlineVariables(body, variables, T)` — replace `{{var.X}}` with the per-type / Generic value.
  * 3. Capture the `{{t.K}}` keys referenced in the resolved body, then
  *    `rewriteLocalizations(body, T)` — replace `{{t.K}}` with `{{t.K__T}}`.
- * 4. Build the row for type `T` in the connector's shape.
+ * 4. Build the deliveries row for type `T` in the Mailgun shape.
  * 5. Merge `flattenTranslationsForType(unified, keysForT, T)` into the compiled translations dict,
  *    so the runtime `payload.t` carries `K__T` for every reference.
  *
@@ -215,36 +215,6 @@ export const compileUnified = (input: CompileInput): CompileOutput => {
       ),
     ])
   );
-
-  if (kind === 'sms-ubill') {
-    const { templates, translations: compiledTranslations } = allTemplateTypes.reduce<{
-      templates: Array<{ usageType: TemplateType; content: string }>;
-      translations: CompiledTranslations;
-    }>(
-      (accumulator, targetType) => {
-        const compiledFields = compiledByType.get(targetType);
-        const content = compiledFields?.content?.body ?? '';
-
-        if (!isFieldNonEmpty(content) && targetType !== TemplateType.Generic) {
-          return accumulator;
-        }
-
-        const keysForType = new Set(compiledFields?.content?.keys ?? []);
-        const fragment = flattenTranslationsForType(translations, keysForType, targetType);
-
-        return {
-          templates: [...accumulator.templates, { usageType: targetType, content }],
-          translations: mergeTranslationsFragments(accumulator.translations, fragment),
-        };
-      },
-      { templates: [], translations: {} }
-    );
-
-    return {
-      rows: { kind: 'sms-ubill', templates },
-      translations: compiledTranslations,
-    };
-  }
 
   const { deliveries, translations: compiledTranslations } = allTemplateTypes.reduce<{
     deliveries: Record<string, { subject?: string; html: string; text?: string }>;
@@ -391,7 +361,7 @@ const seedTranslations = (classicTranslations: CompiledTranslations): UnifiedTra
   );
 
 /**
- * Best-effort reverse-compile of a connector's classic per-type `templates`/`deliveries` +
+ * Best-effort reverse-compile of a Mailgun connector's classic per-type `deliveries` +
  * `translations` into the unified model, used when an admin toggles Classic → Unified so the
  * existing per-type content surfaces in the unified editor (instead of an empty template that would
  * clobber the classic data on the next compile).
@@ -406,18 +376,6 @@ export const seedUnifiedFromClassic = (
   input: SeedUnifiedFromClassicInput,
   classicTranslations: CompiledTranslations
 ): SeedUnifiedFromClassicOutput => {
-  if (input.kind === 'sms-ubill') {
-    const byType = collectFieldByType(
-      input.templates.map((row) => ({ usageType: row.usageType, value: row.content }))
-    );
-
-    return {
-      template: { content: seedField(byType) },
-      variables: {},
-      translations: seedTranslations(classicTranslations),
-    };
-  }
-
   const byTypeSubject = collectFieldByType(
     Object.entries(input.deliveries).map(([usageType, row]) => ({ usageType, value: row.subject }))
   );

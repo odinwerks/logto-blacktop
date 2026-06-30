@@ -134,9 +134,8 @@ const hasValues = (dict: Record<string, string>): boolean =>
  *    payload. Unknown placeholders survive verbatim (matching runtime behavior).
  *
  * Returns a {@link RenderedPreview} carrying each present field rendered (so a Mailgun preview can
- * show `subject` + `html` + `text` independently; a Ubill-SMS preview carries only `content`). A
- * single string return cannot represent a multi-field Mailgun template, so the per-field object is
- * the practical, faithful shape.
+ * show `subject` + `html` + `text` independently). A single string return cannot represent a
+ * multi-field Mailgun template, so the per-field object is the practical, faithful shape.
  */
 export const renderPreview = (
   input: PreviewInput,

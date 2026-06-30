@@ -1,4 +1,4 @@
-import { ConnectorType } from '@logto/connector-kit';
+import { type ConnectorType } from '@logto/connector-kit';
 
 import { safeParseJson } from '@/utils/json';
 
@@ -7,25 +7,29 @@ import { isPlainObject } from '../utils';
 import type { ConnectorKind, PerTypeString, UnifiedTemplate } from './types';
 
 /**
- * The localizable string fields a {@link ConnectorKind} compiles (and previews). Both kinds carry
- * the body in the unified `content` field (SMS content for Ubill; the HTML body for Mailgun) — the
- * compiler maps it to the connector-specific row key (`content` for SMS, `html` for Mailgun) on
- * emit. Mailgun additionally carries `subject` and an optional `text` plain-text part.
+ * The localizable string fields a {@link ConnectorKind} compiles (and previews). The unified
+ * template carries the Mailgun HTML body in the `content` field (the compiler maps it to the
+ * delivery row's `html` key on emit). Mailgun additionally carries `subject` and an optional
+ * `text` plain-text part.
  *
  * Single source of truth for the compiler (`compileUnified`) and the preview (`renderPreview`),
  * which previously each carried their own identical copy.
  */
-export const fieldsForKind = (kind: ConnectorKind): ReadonlyArray<keyof UnifiedTemplate> =>
-  kind === 'sms-ubill' ? ['content'] : ['subject', 'content', 'text'];
+export const fieldsForKind = (kind: ConnectorKind): ReadonlyArray<keyof UnifiedTemplate> => [
+  'subject',
+  'content',
+  'text',
+];
 
 /**
  * Maps a connector's {@link ConnectorType} to the unified compiler {@link ConnectorKind} it
- * targets. `Sms` → Ubill-SMS, everything else (Email is the only other editor-bearing type) →
- * Mailgun. Single source of truth for the toggle host and the {@link UnifiedTemplateEditor}, which
- * previously each carried their own identical copy.
+ * targets. Only Mailgun (`Email`) is supported by the unified editor; SMS connectors keep the
+ * classic per-type editor and never reach this path (the {@link UnifiedEditorModeToggle} allowlist
+ * gates the toggle to `mailgun-email` only). Single source of truth for the toggle host and the
+ * {@link UnifiedTemplateEditor}.
  */
 export const kindForConnectorType = (connectorType: ConnectorType): ConnectorKind =>
-  connectorType === ConnectorType.Sms ? 'sms-ubill' : 'email-mailgun';
+  'email-mailgun';
 
 /**
  * Narrows a parsed JSON value for one `PerTypeString` cell map to the cleaned shape the unified

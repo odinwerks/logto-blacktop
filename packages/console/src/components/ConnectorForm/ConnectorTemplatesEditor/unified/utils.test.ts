@@ -10,20 +10,12 @@ import {
 } from './utils';
 
 describe('fieldsForKind', () => {
-  it('returns only `content` for the SMS kind', () => {
-    expect(fieldsForKind('sms-ubill')).toEqual(['content']);
-  });
-
   it('returns subject/content/text for the Mailgun kind', () => {
     expect(fieldsForKind('email-mailgun')).toEqual(['subject', 'content', 'text']);
   });
 });
 
 describe('kindForConnectorType', () => {
-  it('maps Sms to the sms-ubill kind', () => {
-    expect(kindForConnectorType(ConnectorType.Sms)).toBe('sms-ubill');
-  });
-
   it('maps Email to the email-mailgun kind', () => {
     expect(kindForConnectorType(ConnectorType.Email)).toBe('email-mailgun');
   });
