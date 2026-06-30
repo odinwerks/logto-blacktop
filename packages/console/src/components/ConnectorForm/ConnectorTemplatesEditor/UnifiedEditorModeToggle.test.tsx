@@ -3,7 +3,7 @@ import {
   ConnectorType,
   type ConnectorConfigFormItem,
 } from '@logto/connector-kit';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import Modal from 'react-modal';
@@ -47,7 +47,11 @@ jest.mock('@/ds-components/CodeEditor', () => ({
 
 i18next.addResourceBundle('en', 'translation', {
   admin_console: {
-    general: { type_to_search: 'Type to search' },
+    general: {
+      type_to_search: 'Type to search',
+      confirm: 'Confirm',
+      cancel: 'Cancel',
+    },
     connector_details: {
       template_editor: {
         template_translations_available: 'Template translations available',
@@ -94,9 +98,13 @@ const deliveriesItem: ConnectorConfigFormItem = {
 type RenderOptions = {
   readonly deliveries?: unknown;
   readonly connectorFactoryId?: string;
+  readonly templateEditorMode?: string;
 };
 
-const buildDefaultValues = (overrides?: { deliveries?: unknown }): Record<string, unknown> => ({
+const buildDefaultValues = (overrides?: {
+  deliveries?: unknown;
+  templateEditorMode?: string;
+}): Record<string, unknown> => ({
   syncProfile: SyncProfileMode.OnlyAtRegister,
   jsonConfig: '{}',
   formConfig: {
@@ -111,13 +119,18 @@ const buildDefaultValues = (overrides?: { deliveries?: unknown }): Record<string
       2
     ),
     translations: '{}',
+    templateEditorMode: overrides?.templateEditorMode,
   },
   rawConfig: {},
   enableTokenStorage: false,
 });
 
-const renderEditor = ({ deliveries, connectorFactoryId }: RenderOptions = {}) => {
-  const defaultValues = buildDefaultValues({ deliveries });
+const renderEditor = ({
+  deliveries,
+  connectorFactoryId,
+  templateEditorMode,
+}: RenderOptions = {}) => {
+  const defaultValues = buildDefaultValues({ deliveries, templateEditorMode });
 
   function Harness() {
     const methods = useForm<ConnectorFormType>({ defaultValues });
@@ -125,13 +138,20 @@ const renderEditor = ({ deliveries, connectorFactoryId }: RenderOptions = {}) =>
     return (
       <FormProvider {...methods}>
         <MemoryRouter>
-          <ConnectorTemplatesEditor
-            formItem={deliveriesItem}
-            connectorType={ConnectorType.Email}
-            connectorFactoryId={connectorFactoryId}
-          />
+          <form
+            onSubmit={methods.handleSubmit(() => {
+              /* Noop */
+            })}
+          >
+            <ConnectorTemplatesEditor
+              formItem={deliveriesItem}
+              connectorType={ConnectorType.Email}
+              connectorFactoryId={connectorFactoryId}
+            />
+          </form>
         </MemoryRouter>
         <CommittedUnifiedProbe />
+        <CommittedDeliveriesProbe />
       </FormProvider>
     );
   }
@@ -148,6 +168,9 @@ const renderEditor = ({ deliveries, connectorFactoryId }: RenderOptions = {}) =>
       Array.from(document.querySelectorAll('[role="tab"]')).find((tab) =>
         tab.textContent?.includes(text)
       ),
+    getDeliveries: () => {
+      return document.querySelector('[data-testid="committed-deliveries"]')?.textContent ?? '';
+    },
   };
 };
 
@@ -157,6 +180,12 @@ function CommittedUnifiedProbe() {
   const value: unknown = useWatch({ name: 'formConfig.templateEditorMode' });
 
   return <div data-testid="committed-mode">{typeof value === 'string' ? value : ''}</div>;
+}
+
+function CommittedDeliveriesProbe() {
+  const value: unknown = useWatch({ name: 'formConfig.deliveries' });
+
+  return <div data-testid="committed-deliveries">{typeof value === 'string' ? value : ''}</div>;
 }
 
 describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
@@ -192,6 +221,9 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
     // Switch to Unified.
     fireEvent.click(getButtonByText('Unified')!);
 
+    // Confirm the modal
+    fireEvent.click(getButtonByText('Confirm')!);
+
     // The reverse-compile seed writes a unifiedTemplate (with the Generic html body as `content`)
     // + compiles the mirror; the UnifiedTemplateEditor mounts and renders its three sub-tabs.
     await waitFor(() => {
@@ -199,5 +231,152 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
       expect(getTabByText('Variables')).not.toBeUndefined();
       expect(getTabByText('Localizations')).not.toBeUndefined();
     });
+  });
+
+  it('switches to the Unified three-tab editor on toggle, shows confirmation modal, cancels, then confirms', async () => {
+    const { getButtonByText, getTabByText } = renderEditor({ connectorFactoryId: 'mailgun-email' });
+
+    // Classic mode initially: no Unified sub-tabs.
+    expect(getTabByText('Variables')).toBeUndefined();
+
+    // Click Unified.
+    fireEvent.click(getButtonByText('Unified')!);
+
+    // Confirmation modal should be visible.
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Switch to Unified Mode?');
+      expect(document.body.textContent).toContain(
+        'This will generate a unified template with <If> blocks'
+      );
+    });
+
+    // Click Cancel.
+    fireEvent.click(getButtonByText('Cancel')!);
+
+    // Should not have switched.
+    expect(getTabByText('Variables')).toBeUndefined();
+
+    // Click Unified again.
+    fireEvent.click(getButtonByText('Unified')!);
+
+    // Click Confirm.
+    fireEvent.click(getButtonByText('Confirm')!);
+
+    // Now it should have switched.
+    await waitFor(() => {
+      expect(getTabByText('Template')).not.toBeUndefined();
+      expect(getTabByText('Variables')).not.toBeUndefined();
+      expect(getTabByText('Localizations')).not.toBeUndefined();
+    });
+  });
+
+  it('switches to the Classic editor on toggle, shows confirmation modal, cancels, then confirms', async () => {
+    // Render initially in unified mode
+    const { getButtonByText, getTabByText } = renderEditor({
+      connectorFactoryId: 'mailgun-email',
+      templateEditorMode: JSON.stringify('unified'),
+    });
+
+    // Unified mode initially: Unified sub-tabs are visible.
+    await waitFor(() => {
+      expect(getTabByText('Variables')).not.toBeUndefined();
+    });
+
+    // Click Classic.
+    fireEvent.click(getButtonByText('Classic per-type')!);
+
+    // Confirmation modal should be visible.
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Switch to Classic Mode?');
+      expect(document.body.textContent).toContain('This will keep your current compiled templates');
+    });
+
+    // Click Cancel.
+    fireEvent.click(getButtonByText('Cancel')!);
+
+    // Should still be in Unified mode.
+    expect(getTabByText('Variables')).not.toBeUndefined();
+
+    // Click Classic again.
+    fireEvent.click(getButtonByText('Classic per-type')!);
+
+    // Click Confirm.
+    fireEvent.click(getButtonByText('Confirm')!);
+
+    // Should have switched back to classic.
+    await waitFor(() => {
+      expect(getTabByText('Variables')).toBeUndefined();
+    });
+  });
+
+  it('debounces the compiled write-back by 250ms and flushes immediately on submit', async () => {
+    jest.useFakeTimers();
+
+    const { getTabByText, getDeliveries, container } = renderEditor({
+      connectorFactoryId: 'mailgun-email',
+      templateEditorMode: JSON.stringify('unified'),
+    });
+
+    // Make sure we are in unified mode
+    await waitFor(() => {
+      expect(getTabByText('Template')).not.toBeUndefined();
+    });
+
+    const initialDeliveries = getDeliveries();
+    expect(initialDeliveries).toContain('Logto generic template');
+
+    // Find the subject input field and edit it.
+    const input = container.querySelector('input');
+    expect(input).not.toBeNull();
+
+    act(() => {
+      fireEvent.change(input!, { target: { value: 'A completely new subject' } });
+    });
+
+    // Flush any initial microtasks and effect scheduling
+    act(() => {
+      jest.advanceTimersByTime(0);
+    });
+
+    // The deliveries mirror field should NOT have updated immediately due to debounce.
+    expect(getDeliveries()).toBe(initialDeliveries);
+
+    // If we advance time by 100ms, it still should not have updated.
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(getDeliveries()).toBe(initialDeliveries);
+
+    // If we advance time by another 150ms (total 250ms), it should update!
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+    expect(getDeliveries()).not.toBe(initialDeliveries);
+    expect(getDeliveries()).toContain('A completely new subject');
+
+    // Now test that submitting flushes immediately
+    act(() => {
+      fireEvent.change(input!, { target: { value: 'Yet another subject edit' } });
+    });
+
+    // Flush hook-form update microtasks so it schedules the new timer
+    act(() => {
+      jest.advanceTimersByTime(0);
+    });
+
+    expect(getDeliveries()).not.toContain('Yet another subject edit');
+
+    // Simulate form submission
+    const form = container.querySelector('form');
+    expect(form).not.toBeNull();
+
+    act(() => {
+      fireEvent.submit(form!);
+    });
+
+    // It should have flushed and updated immediately without any time advancing!
+    expect(getDeliveries()).toContain('Yet another subject edit');
+
+    jest.useRealTimers();
   });
 });

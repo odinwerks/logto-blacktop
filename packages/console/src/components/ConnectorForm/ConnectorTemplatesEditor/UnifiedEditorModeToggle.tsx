@@ -1,9 +1,11 @@
 import { type ConnectorConfigFormItem, type ConnectorType } from '@logto/connector-kit';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useState } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import Button from '@/ds-components/Button';
+import ConfirmModal from '@/ds-components/ConfirmModal';
+import DangerousRaw from '@/ds-components/DangerousRaw';
 import type { ConnectorFormType } from '@/types/connector';
 
 import UnifiedTemplateEditor from './UnifiedTemplateEditor';
@@ -44,6 +46,8 @@ type TranslationMap = Record<string, Record<string, string>>;
 function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, children }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { getValues, setValue } = useFormContext<ConnectorFormType>();
+
+  const [pendingMode, setPendingMode] = useState<TemplateEditorMode | undefined>(undefined);
 
   const isDeliveries = formItem.key === 'deliveries';
 
@@ -112,7 +116,9 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
             title="connector_details.unified_editor.mode_classic"
             data-testid="editor-mode-classic"
             onClick={() => {
-              switchEditorMode('classic');
+              if (templateEditorMode !== 'classic') {
+                setPendingMode('classic');
+              }
             }}
           />
           <Button
@@ -121,7 +127,9 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
             title="connector_details.unified_editor.mode_unified"
             data-testid="editor-mode-unified"
             onClick={() => {
-              switchEditorMode('unified');
+              if (templateEditorMode !== 'unified') {
+                setPendingMode('unified');
+              }
             }}
           />
         </div>
@@ -131,6 +139,42 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
       ) : (
         children
       )}
+      <ConfirmModal
+        isOpen={pendingMode !== undefined}
+        title={
+          pendingMode === 'unified' ? (
+            <DangerousRaw>Switch to Unified Mode?</DangerousRaw>
+          ) : (
+            <DangerousRaw>Switch to Classic Mode?</DangerousRaw>
+          )
+        }
+        confirmButtonText="general.confirm"
+        cancelButtonText="general.cancel"
+        confirmButtonType="primary"
+        onCancel={() => {
+          setPendingMode(undefined);
+        }}
+        onConfirm={() => {
+          if (pendingMode) {
+            switchEditorMode(pendingMode);
+          }
+          setPendingMode(undefined);
+        }}
+      >
+        {pendingMode === 'unified' ? (
+          <DangerousRaw>
+            This will generate a unified template with &lt;If&gt; blocks from your current classic
+            templates. Any per-type custom overrides may be altered or lost. Are you sure you want
+            to proceed?
+          </DangerousRaw>
+        ) : (
+          <DangerousRaw>
+            This will keep your current compiled templates, but you will lose the ability to edit
+            them as a single unified template. Your unified source fields will be kept as-is, but
+            further edits will happen in Classic mode. Are you sure?
+          </DangerousRaw>
+        )}
+      </ConfirmModal>
     </>
   );
 }

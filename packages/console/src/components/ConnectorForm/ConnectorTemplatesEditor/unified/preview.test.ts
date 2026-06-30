@@ -63,6 +63,17 @@ describe('renderPreview — Mailgun', () => {
     );
   });
 
+  it('falls back to Generic for variables when the specific column is an empty string', () => {
+    const input = mailgunPreviewInput({
+      template: { subject: '{{var.brand}} code {{code}}', content: '<b>{{code}}</b>' },
+      variables: { brand: { SignIn: '', Generic: 'Logto' } },
+    });
+
+    expect(renderPreview(input, TemplateType.SignIn, 'en', dummyPayload).subject).toBe(
+      'Logto code 000000'
+    );
+  });
+
   it('resolves {{t.K}} from the preview locale dict (per-type with Generic fallback)', () => {
     const input = mailgunPreviewInput({
       template: { subject: '{{t.greeting}} {{code}}', content: '<b>{{code}}</b>' },
@@ -73,6 +84,17 @@ describe('renderPreview — Mailgun', () => {
       'Welcome back! 000000'
     );
     expect(renderPreview(input, TemplateType.Register, 'en', dummyPayload).subject).toBe(
+      'Hello! 000000'
+    );
+  });
+
+  it('falls back to Generic for translations when the specific column is an empty string', () => {
+    const input = mailgunPreviewInput({
+      template: { subject: '{{t.greeting}} {{code}}', content: '<b>{{code}}</b>' },
+      translations: { en: { greeting: { SignIn: '', Generic: 'Hello!' } } },
+    });
+
+    expect(renderPreview(input, TemplateType.SignIn, 'en', dummyPayload).subject).toBe(
       'Hello! 000000'
     );
   });

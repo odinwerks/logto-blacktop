@@ -98,7 +98,9 @@ const buildPreviewTDict = (
   return Object.fromEntries(
     Object.entries(dict).map(([key, perType]): [string, string] => [
       key,
-      perType[targetType] ?? perType.Generic ?? '',
+      perType[targetType] !== undefined && perType[targetType] !== ''
+        ? perType[targetType]
+        : (perType.Generic ?? ''),
     ])
   );
 };

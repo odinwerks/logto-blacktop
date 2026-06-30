@@ -1,5 +1,5 @@
 import { type ConnectorType } from '@logto/connector-kit';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext, useWatch, type FieldPath } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -49,7 +49,8 @@ const EMPTY_TRANSLATIONS: UnifiedTranslations = {};
  */
 function UnifiedTemplateEditor({ connectorType }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
-  const { setValue, getValues } = useFormContext<ConnectorFormType>();
+  const { setValue, getValues, formState } = useFormContext<ConnectorFormType>();
+  const { isSubmitting } = formState;
   const [activeTab, setActiveTab] = useState<TabKey>('template');
 
   const kind = kindForConnectorType(connectorType);
@@ -83,10 +84,12 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
     [template]
   );
 
-  useEffect(() => {
+  const debounceTimerRef = useRef<NodeJS.Timeout>();
+  const flushRef = useRef<() => void>();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const writeBack = useCallback(() => {
     if (!hasUnifiedContent) {
-      // No authored unified content yet — do not clobber the classic per-type rows with an empty
-      // compile. The compile resumes as soon as the admin authors a unified template.
       return;
     }
 
@@ -110,6 +113,81 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
     }
   }, [compiled, hasUnifiedContent, rowsField, setValue, getValues]);
 
+  useEffect(() => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    flushRef.current = writeBack;
+  }, [writeBack]);
+
+  useEffect(() => {
+    if (!hasUnifiedContent) {
+      return;
+    }
+
+    // Only queue a debounce when the compiled output differs from the form's current mirror value.
+    // On initial mount / loading, they are identical, so this prevents scheduling a timer on load.
+    const rowData = compiled.rows.deliveries;
+    const rowsJson = safeJsonStringify(rowData);
+    const translationsJson = safeJsonStringify(compiled.translations);
+    const currentRows = getValues(rowsField);
+    const currentTranslations = getValues('formConfig.translations');
+
+    if (
+      rowsJson === (typeof currentRows === 'string' ? currentRows : '') &&
+      translationsJson === (typeof currentTranslations === 'string' ? currentTranslations : '')
+    ) {
+      return;
+    }
+
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    debounceTimerRef.current = setTimeout(() => {
+      writeBack();
+      // eslint-disable-next-line @silverhand/fp/no-mutation
+      debounceTimerRef.current = undefined;
+    }, 250);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        // eslint-disable-next-line @silverhand/fp/no-mutation
+        debounceTimerRef.current = undefined;
+      }
+    };
+  }, [compiled, hasUnifiedContent, writeBack, getValues, rowsField]);
+
+  // Flush on form submit event
+  useEffect(() => {
+    const form = containerRef.current?.closest('form');
+    if (!form) {
+      return;
+    }
+
+    const handleSubmit = () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        // eslint-disable-next-line @silverhand/fp/no-mutation
+        debounceTimerRef.current = undefined;
+      }
+      flushRef.current?.();
+    };
+
+    form.addEventListener('submit', handleSubmit);
+    return () => {
+      form.removeEventListener('submit', handleSubmit);
+    };
+  }, []);
+
+  // Flush when react-hook-form reports isSubmitting is true
+  useEffect(() => {
+    if (isSubmitting) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        // eslint-disable-next-line @silverhand/fp/no-mutation
+        debounceTimerRef.current = undefined;
+      }
+      flushRef.current?.();
+    }
+  }, [isSubmitting]);
+
   const onTemplateChange = (next: UnifiedTemplate) => {
     setValue('formConfig.unifiedTemplate', safeJsonStringify(next), { shouldDirty: true });
   };
@@ -123,7 +201,7 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
   };
 
   return (
-    <div className={styles.unifiedHost}>
+    <div ref={containerRef} className={styles.unifiedHost}>
       <TabNav>
         <TabNavItem
           isActive={activeTab === 'template'}

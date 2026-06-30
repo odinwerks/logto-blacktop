@@ -43,7 +43,13 @@ const translationPattern = /\{\{\s*t\.([a-zA-Z0-9_.-]+)\s*\}\}/gu;
 const resolvePerTypeValue = (
   perType: PerTypeString | undefined,
   targetType: TemplateType
-): string => perType?.[targetType] ?? perType?.Generic ?? '';
+): string => {
+  const value = perType?.[targetType];
+  if (value !== undefined && value !== '') {
+    return value;
+  }
+  return perType?.Generic ?? '';
+};
 
 /**
  * Inlines `{{var.X}}` placeholders with the per-type variable value (with `Generic` fallback).
@@ -202,6 +208,13 @@ export const compileUnified = (input: CompileInput): CompileOutput => {
   const { kind, template, variables, translations } = input;
   const fields = fieldsForKind(kind);
 
+  const allDefinedKeys = new Set<string>();
+  for (const perKeyDict of Object.values(translations)) {
+    for (const key of Object.keys(perKeyDict)) {
+      allDefinedKeys.add(key);
+    }
+  }
+
   // Pre-compile every (type, field) once via a `Map` built from a `.map` (no `Map.set` mutation),
   // so the row-emission pass can look each (type, field) up without recompiling.
   const compiledByType = new Map(
@@ -240,6 +253,7 @@ export const compileUnified = (input: CompileInput): CompileOutput => {
       };
 
       const keysForType = new Set<string>([
+        ...allDefinedKeys,
         ...(compiledFields?.subject?.keys ?? []),
         ...(compiledFields?.content?.keys ?? []),
         ...(compiledFields?.text?.keys ?? []),

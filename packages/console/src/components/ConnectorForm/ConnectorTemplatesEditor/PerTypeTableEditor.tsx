@@ -10,12 +10,7 @@ import TabNav, { TabNavItem } from '@/ds-components/TabNav';
 import TextInput from '@/ds-components/TextInput';
 
 import styles from './index.module.scss';
-import {
-  mergePerTypeTable,
-  parsePerTypeTableJson,
-  type PerTypeString,
-  type PerTypeTableParseError,
-} from './unified';
+import { parsePerTypeTableJson, type PerTypeString, type PerTypeTableParseError } from './unified';
 import { safeJsonStringify } from './utils';
 
 type Props = {
@@ -97,10 +92,10 @@ function PerTypeTableEditor({
       return;
     }
 
-    onChange(mergePerTypeTable(data, parsed.data));
+    onChange(parsed.data);
     setJsonError(undefined);
     setMode('form');
-  }, [data, jsonText, typeColumns, onChange]);
+  }, [jsonText, typeColumns, onChange]);
 
   const onCellChange = (key: string, column: string, value: string) => {
     const perType = data[key] ?? {};

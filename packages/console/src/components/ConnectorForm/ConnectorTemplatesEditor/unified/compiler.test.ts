@@ -37,6 +37,14 @@ describe('inlineVariables', () => {
     );
   });
 
+  it('falls back to the Generic column when the type column is an empty string', () => {
+    const variables = { appName: { SignIn: '', Generic: 'Logto' } };
+
+    expect(inlineVariables('Welcome to {{var.appName}}', variables, TemplateType.SignIn)).toBe(
+      'Welcome to Logto'
+    );
+  });
+
   it('inlines the empty string for an undefined variable key', () => {
     expect(inlineVariables('Hi {{var.unknown}}', {}, TemplateType.SignIn)).toBe('Hi ');
   });
@@ -192,6 +200,33 @@ describe('compileUnified — Mailgun', () => {
       bodyTitle__BindNewIdentifier: 'Code',
       bodyTitle__MfaVerification: 'Code',
       bodyTitle__BindMfa: 'Code',
+    });
+  });
+
+  it('preserves defined but unreferenced translation keys', () => {
+    const output = compileUnified(
+      mailgunInput({
+        template: {
+          content: 'No references here.',
+        },
+        translations: {
+          en: {
+            unreferencedKey: { Generic: 'This should survive' },
+          },
+        },
+      })
+    );
+
+    expect(output.translations.en).toEqual({
+      unreferencedKey__SignIn: 'This should survive',
+      unreferencedKey__Register: 'This should survive',
+      unreferencedKey__ForgotPassword: 'This should survive',
+      unreferencedKey__Generic: 'This should survive',
+      unreferencedKey__OrganizationInvitation: 'This should survive',
+      unreferencedKey__UserPermissionValidation: 'This should survive',
+      unreferencedKey__BindNewIdentifier: 'This should survive',
+      unreferencedKey__MfaVerification: 'This should survive',
+      unreferencedKey__BindMfa: 'This should survive',
     });
   });
 });
