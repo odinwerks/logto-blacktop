@@ -4,6 +4,7 @@ import { type ConnectorConfigFormItem } from '@logto/connector-kit';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import EditIcon from '@/assets/icons/edit.svg?react';
 import Button from '@/ds-components/Button';
 import CodeEditor from '@/ds-components/CodeEditor';
 import DangerousRaw from '@/ds-components/DangerousRaw';
@@ -59,8 +60,8 @@ function UnifiedTemplateTab({
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   const parseError = useMemo(() => {
-    // Content and text-only
-    const fields: ReadonlyArray<keyof UnifiedTemplate> = ['content', 'text'];
+    // Content only
+    const fields: ReadonlyArray<keyof UnifiedTemplate> = ['content'];
 
     for (const field of fields) {
       const value = template[field] ?? '';
@@ -85,18 +86,22 @@ function UnifiedTemplateTab({
         {/* Full-Width Bento Editor Card */}
         <div className={styles.bentoCard}>
           <div className={styles.toolbarRow}>
-            <Button
-              type="outline"
-              size="medium"
-              title={<DangerousRaw>{(t as any)('connector_details.email_templates.subject_settings') || 'Localize Subjects'}</DangerousRaw>}
-              onClick={() => setIsSubjectModalOpen(true)}
-            />
-            <Button
-              type="primary"
-              size="medium"
-              title={<DangerousRaw>Preview & Test</DangerousRaw>}
-              onClick={() => setIsPreviewModalOpen(true)}
-            />
+            <span className={styles.toolbarTitle}>Template Editor</span>
+            <div className={styles.toolbarActions}>
+              <Button
+                type="outline"
+                size="medium"
+                icon={<EditIcon />}
+                title={<DangerousRaw>Configure Subjects</DangerousRaw>}
+                onClick={() => setIsSubjectModalOpen(true)}
+              />
+              <Button
+                type="primary"
+                size="medium"
+                title={<DangerousRaw>Preview & Test</DangerousRaw>}
+                onClick={() => setIsPreviewModalOpen(true)}
+              />
+            </div>
           </div>
           <FormField title="connector_details.email_templates.content">
             <CodeEditor
@@ -106,15 +111,6 @@ function UnifiedTemplateTab({
               shouldWrap={false}
               onChange={(value) => {
                 updateField('content')(value);
-              }}
-            />
-          </FormField>
-          <FormField title="connector_details.email_templates.text_version">
-            <Textarea
-              rows={4}
-              value={template.text ?? ''}
-              onChange={(event) => {
-                updateField('text')(event.currentTarget.value);
               }}
             />
           </FormField>

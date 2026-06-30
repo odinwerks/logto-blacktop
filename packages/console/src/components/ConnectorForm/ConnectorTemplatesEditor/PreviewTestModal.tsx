@@ -241,12 +241,14 @@ export default function PreviewTestModal({
 
           <div className={styles.bodyArea}>
             {viewMode === 'rendered' ? (
-              <iframe
-                className={styles.previewIframe}
-                srcDoc={compiledHTML}
-                sandbox="allow-same-origin"
-                title="Template Preview"
-              />
+              <div className={styles.iframeContainer}>
+                <iframe
+                  className={styles.previewIframe}
+                  srcDoc={compiledHTML}
+                  sandbox="allow-same-origin"
+                  title="Template Preview"
+                />
+              </div>
             ) : (
               <CodeEditor
                 isReadonly

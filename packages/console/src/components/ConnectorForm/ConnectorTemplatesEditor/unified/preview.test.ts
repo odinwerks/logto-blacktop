@@ -19,12 +19,10 @@ const parseIfString = (str: string): Record<string, string> => {
 const mailgunPreviewInput = (overrides: any = {}): PreviewInput => {
   const { template, unifiedSubjects, ...rest } = overrides;
   const content = template?.content ?? (template ? undefined : '<b>{{code}}</b>');
-  const text = template?.text ?? (template ? undefined : 'plain {{code}}');
   const subjectStr = template?.subject ?? (template ? undefined : 'Code {{code}}');
 
   const resolvedTemplate = {
     ...(content !== undefined ? { content } : {}),
-    ...(text !== undefined ? { text } : {}),
   };
 
   const resolvedSubjects = unifiedSubjects ?? (subjectStr !== undefined ? parseIfString(subjectStr) : {});
@@ -44,18 +42,7 @@ describe('renderPreview — Mailgun', () => {
     expect(renderPreview(mailgunPreviewInput(), TemplateType.SignIn, 'en', dummyPayload)).toEqual({
       subject: 'Code 000000',
       content: '<b>000000</b>',
-      text: 'plain 000000',
     });
-  });
-
-  it('omits the text field when the template does not define it', () => {
-    const input = mailgunPreviewInput({
-      template: { subject: 'S {{code}}', content: '<b>{{code}}</b>' },
-    });
-    const result = renderPreview(input, TemplateType.SignIn, 'en', dummyPayload);
-
-    expect(result.text).toBeUndefined();
-    expect(result.subject).toBe('S 000000');
   });
 
   it('resolves <If> blocks per field for the selected type', () => {

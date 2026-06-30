@@ -274,10 +274,23 @@
 
 .toolbarRow {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
   width: 100%;
+  margin-bottom: 8px;
+}
+
+.toolbarTitle {
+  font: var(--font-headline-4);
+  font-weight: bold;
+  color: var(--color-text-primary);
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .previewHeader {

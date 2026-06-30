@@ -56,8 +56,6 @@ export type ConnectorKind = 'email-mailgun';
 export type UnifiedTemplate = {
   /** The email HTML body (Mailgun). Emitted as the deliveries row's `html` field. */
   content?: string;
-  /** Mailgun plain-text fallback part. */
-  text?: string;
 };
 
 /**

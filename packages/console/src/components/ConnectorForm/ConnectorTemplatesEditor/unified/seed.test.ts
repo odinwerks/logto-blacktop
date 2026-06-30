@@ -9,11 +9,11 @@ const mailgunRows = (
 ): SeedUnifiedFromClassicInput => ({ kind: 'email-mailgun', deliveries });
 
 describe('seedUnifiedFromClassic — Mailgun deliveries', () => {
-  it('seeds subject/content/text from per-type deliveries (html → content)', () => {
-    // The classic deliveries `html` is the unified `content` body; subject/text seed independently.
+  it('seeds subject/content from per-type deliveries (html → content)', () => {
+    // The classic deliveries `html` is the unified `content` body; subject seeds independently.
     const seed = seedUnifiedFromClassic(
       mailgunRows({
-        Generic: { subject: 'Sub {{code}}', html: '<b>G {{code}}</b>', text: 'txt G' },
+        Generic: { subject: 'Sub {{code}}', html: '<b>G {{code}}</b>' },
         SignIn: { subject: 'Sub S', html: '<b>S</b>' },
       }),
       {}
@@ -21,7 +21,6 @@ describe('seedUnifiedFromClassic — Mailgun deliveries', () => {
 
     expect(seed.template).toEqual({
       content: '<If type="Generic"><b>G {{code}}</b></If>\n<If type="SignIn"><b>S</b></If>',
-      text: 'txt G',
     });
     expect(seed.unifiedSubjects).toEqual({
       Generic: 'Sub {{code}}',
@@ -30,7 +29,7 @@ describe('seedUnifiedFromClassic — Mailgun deliveries', () => {
     expect(seed.variables).toEqual({});
   });
 
-  it('carries subject/text only when non-empty, and collapses identical html into a shared body', () => {
+  it('carries subject only when non-empty, and collapses identical html into a shared body', () => {
     const seed = seedUnifiedFromClassic(
       mailgunRows({
         Generic: { html: 'X {{code}}' },
@@ -39,10 +38,9 @@ describe('seedUnifiedFromClassic — Mailgun deliveries', () => {
       {}
     );
 
-    // No subject/text in the classic deliveries → not carried into the unified template.
+    // No subject in the classic deliveries → not carried into the unified template.
     expect(seed.template).toEqual({ content: 'X {{code}}' });
     expect('subject' in seed.template).toBe(false);
-    expect('text' in seed.template).toBe(false);
   });
 
   it('returns an empty content body for an empty deliveries record', () => {
@@ -241,5 +239,80 @@ describe('seedUnifiedFromClassic — variables (best-effort, one-way-lossy)', ()
 
     expect(seed.template).toEqual({ content: 'Hi {{var.name}} {{code}}' });
     expect(seed.variables).toEqual({});
+  });
+});
+
+describe('seedUnifiedFromClassic — Mathematical Common-Suffix Key-Alignment v3', () => {
+  it('mathematically aligns keys with a common suffix >= 3 chars, e.g. signInTitle and registerTitle to title', () => {
+    const classicTranslations: ClassicTranslations = {
+      en: {
+        signInTitle: 'Sign In Title',
+        registerTitle: 'Register Title',
+      },
+    };
+
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({
+        SignIn: { html: '<div>{{t.signInTitle}}</div>' },
+        Register: { html: '<div>{{t.registerTitle}}</div>' },
+      }),
+      classicTranslations
+    );
+
+    expect(seed.template.content).toBe('<div>{{t.title}}</div>');
+    expect(seed.translations).toEqual({
+      en: {
+        title: {
+          SignIn: 'Sign In Title',
+          Register: 'Register Title',
+        },
+      },
+    });
+  });
+
+  it('falls back to sequential names variable1, variable2 when there is no common suffix >= 3 chars', () => {
+    const classicTranslations: ClassicTranslations = {
+      en: {
+        abc: 'ABC Val',
+        xyz: 'XYZ Val',
+      },
+    };
+
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({
+        SignIn: { html: '<span>{{t.abc}}</span>' },
+        Register: { html: '<span>{{t.xyz}}</span>' },
+      }),
+      classicTranslations
+    );
+
+    expect(seed.template.content).toBe('<span>{{t.variable1}}</span>');
+    expect(seed.translations).toEqual({
+      en: {
+        variable1: {
+          SignIn: 'ABC Val',
+          Register: 'XYZ Val',
+        },
+      },
+    });
+  });
+
+  it('merges identical lines containing aligned placeholders without producing If blocks', () => {
+    const classicTranslations: ClassicTranslations = {
+      en: {
+        signInHeader: 'Header for Sign In',
+        registerHeader: 'Header for Register',
+      },
+    };
+
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({
+        SignIn: { html: '<p>Welcome</p>\n<div>{{t.signInHeader}}</div>\n<p>Footer</p>' },
+        Register: { html: '<p>Welcome</p>\n<div>{{t.registerHeader}}</div>\n<p>Footer</p>' },
+      }),
+      classicTranslations
+    );
+
+    expect(seed.template.content).toBe('<p>Welcome</p>\n<div>{{t.header}}</div>\n<p>Footer</p>');
   });
 });

@@ -23,12 +23,10 @@ const parseIfString = (str: string): Record<string, string> => {
 const mailgunInput = (overrides: any = {}): CompileInput => {
   const { template, unifiedSubjects, ...rest } = overrides;
   const content = template?.content ?? (template ? undefined : 'Your code is {{code}}.');
-  const text = template?.text ?? (template ? undefined : undefined);
   const subjectStr = template?.subject ?? (template ? undefined : 'Code {{code}}');
 
   const resolvedTemplate = {
     ...(content !== undefined ? { content } : {}),
-    ...(text !== undefined ? { text } : {}),
   };
 
   const resolvedSubjects = unifiedSubjects ?? (subjectStr !== undefined ? parseIfString(subjectStr) : {});
@@ -152,10 +150,10 @@ describe('flattenTranslationsForType', () => {
 });
 
 describe('compileUnified — Mailgun', () => {
-  it('emits a deliveries record with subject/html (and optional text) per type', () => {
+  it('emits a deliveries record with subject/html per type', () => {
     const output = compileUnified(
       mailgunInput({
-        template: { subject: 'Code {{code}}', content: '<b>{{code}}</b>', text: 'plain {{code}}' },
+        template: { subject: 'Code {{code}}', content: '<b>{{code}}</b>' },
       })
     );
 
@@ -165,17 +163,15 @@ describe('compileUnified — Mailgun', () => {
     expect(signIn).toEqual({
       subject: 'Code {{code}}',
       html: '<b>{{code}}</b>',
-      text: 'plain {{code}}',
     });
   });
 
-  it('omits subject/text when the template does not define them', () => {
+  it('omits subject when the template does not define it', () => {
     const output = compileUnified(mailgunInput({ template: { content: '<b>{{code}}</b>' } }));
 
     const signIn = output.rows.deliveries[TemplateType.SignIn];
     expect(signIn).toEqual({ html: '<b>{{code}}</b>' });
     expect(signIn?.subject).toBeUndefined();
-    expect(signIn?.text).toBeUndefined();
   });
 
   it('always emits a Generic deliveries row even when html is empty', () => {
@@ -186,13 +182,12 @@ describe('compileUnified — Mailgun', () => {
     expect(output.rows.deliveries[TemplateType.SignIn]).toBeUndefined();
   });
 
-  it('rewrites {{t.K}} per field and unions the keys across subject/content/text', () => {
+  it('rewrites {{t.K}} per field and unions the keys across subject/content', () => {
     const output = compileUnified(
       mailgunInput({
         template: {
           subject: '{{t.subjectTitle}} {{code}}',
           content: '<b>{{t.bodyTitle}}</b> {{code}}',
-          text: '{{t.bodyTitle}} {{code}}',
         },
         translations: {
           en: {
@@ -206,7 +201,6 @@ describe('compileUnified — Mailgun', () => {
     const signIn = output.rows.deliveries[TemplateType.SignIn];
     expect(signIn?.subject).toBe('{{t.subjectTitle__SignIn}} {{code}}');
     expect(signIn?.html).toBe('<b>{{t.bodyTitle__SignIn}}</b> {{code}}');
-    expect(signIn?.text).toBe('{{t.bodyTitle__SignIn}} {{code}}');
 
     expect(output.translations.en).toEqual({
       subjectTitle__SignIn: 'Your code',

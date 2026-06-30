@@ -232,14 +232,13 @@ export const compileUnified = (input: CompileInput): CompileOutput => {
   );
 
   const { deliveries, translations: compiledTranslations } = allTemplateTypes.reduce<{
-    deliveries: Record<string, { subject?: string; html: string; text?: string }>;
+    deliveries: Record<string, { subject?: string; html: string }>;
     translations: CompiledTranslations;
   }>(
     (accumulator, targetType) => {
       const compiledFields = compiledByType.get(targetType);
       // The unified `content` field is the Mailgun HTML body; emit it as the row's `html`.
       const html = compiledFields?.content?.body ?? '';
-      const text = compiledFields?.text?.body ?? '';
 
       // Compile subject on the fly directly from unifiedSubjects
       const rawSubject = resolvePerTypeValue(unifiedSubjects, targetType);
@@ -250,19 +249,17 @@ export const compileUnified = (input: CompileInput): CompileOutput => {
         return accumulator;
       }
 
-      // The Mailgun guard requires a non-optional `html` on every deliveries row; subject/text are
-      // only emitted when non-empty (matching the classic row's `showText` gating).
-      const row: { subject?: string; html: string; text?: string } = {
+      // The Mailgun guard requires a non-optional `html` on every deliveries row; subject is
+      // only emitted when non-empty.
+      const row: { subject?: string; html: string } = {
         html,
         ...(subject ? { subject } : {}),
-        ...(text ? { text } : {}),
       };
 
       const keysForType = new Set<string>([
         ...allDefinedKeys,
         ...(compiledSubject.keys ?? []),
         ...(compiledFields?.content?.keys ?? []),
-        ...(compiledFields?.text?.keys ?? []),
       ]);
       const fragment = flattenTranslationsForType(translations, keysForType, targetType);
 
@@ -420,58 +417,27 @@ const seedTranslations = (classicTranslations: CompiledTranslations): UnifiedTra
     {}
   );
 
-const alignKeysAndExtractTranslations = (
-  html: string,
-  currentType: string,
-  classicTranslations: CompiledTranslations,
-  unifiedTranslations: UnifiedTranslations
-): string => {
-  if (!html) {
+const findLongestCommonSuffix = (words: string[]): string => {
+  if (words.length === 0) {
     return '';
   }
-
-  const translationPattern = /\{\{\s*t\.([a-zA-Z0-9_.-]+)\s*\}\}/gu;
-
-  return html.replaceAll(translationPattern, (fullMatch, fullKey: string) => {
-    let baseKey = fullKey;
-    let matchedType = currentType;
-
-    // Detect if key has standard camelCase prefix
-    for (const prefix of standardPrefixes) {
-      if (fullKey.startsWith(prefix)) {
-        const remainder = fullKey.slice(prefix.length);
-        if (remainder.length > 0 && remainder[0]! === remainder[0]!.toUpperCase()) {
-          baseKey = remainder[0]!.toLowerCase() + remainder.slice(1);
-          matchedType = prefixToTypeMap[prefix]!;
-          break;
-        }
-      }
+  let suffix = words[0] ?? '';
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i] ?? '';
+    let j = 0;
+    const minLen = Math.min(suffix.length, word.length);
+    while (j < minLen && suffix[suffix.length - 1 - j] === word[word.length - 1 - j]) {
+      j++;
     }
-
-    // Populate the translation values across all language tags
-    for (const [lang, flatDict] of Object.entries(classicTranslations)) {
-      if (flatDict[fullKey] !== undefined) {
-        if (!unifiedTranslations[lang]) {
-          unifiedTranslations[lang] = {};
-        }
-        if (!unifiedTranslations[lang]![baseKey]) {
-          unifiedTranslations[lang]![baseKey] = {};
-        }
-        unifiedTranslations[lang]![baseKey]![matchedType] = flatDict[fullKey]!;
-
-        // Clean up the original unaligned key if we performed an alignment
-        if (baseKey !== fullKey && unifiedTranslations[lang]![fullKey]) {
-          delete unifiedTranslations[lang]![fullKey];
-        }
-      }
-    }
-
-    return `{{t.${baseKey}}}`;
-  });
+    suffix = suffix.slice(suffix.length - j);
+  }
+  return suffix;
 };
 
 const performGroupedLineDiff = (
-  normalizedTemplates: Record<string, string>
+  normalizedTemplates: Record<string, string>,
+  classicTranslations: CompiledTranslations = {},
+  unifiedTranslations: UnifiedTranslations = {}
 ): string => {
   const activeTypes = Object.keys(normalizedTemplates);
   if (activeTypes.length === 0) {
@@ -512,19 +478,160 @@ const performGroupedLineDiff = (
     hasAccumulated = false;
   };
 
+  let variableCounter = 0;
+  let collisionCounter = 0;
+  // Track assigned baseKey -> mapping of { [type]: originalKey }
+  const alignedKeysRegistry = new Map<string, Record<string, string>>();
+
   for (let i = 0; i < maxLines; i++) {
     const linesAtIdx = Object.fromEntries(
       Object.entries(splitTemplates).map(([type, lines]) => [type, lines[i]])
     );
 
     const nonNullLines = Object.values(linesAtIdx).filter((l) => l !== undefined);
+    const allDefined = nonNullLines.length === activeTypes.length;
+
+    // Check identical
     const allIdentical =
-      nonNullLines.length === activeTypes.length &&
+      allDefined &&
       nonNullLines.every((line) => line === nonNullLines[0]);
 
     if (allIdentical) {
       flushAccumulator();
       resultLines.push(nonNullLines[0]!);
+      continue;
+    }
+
+    // Structural alignment check
+    let alignedSkeletonsMatch = false;
+    let alignedUnifiedLine: string | null = null;
+
+    if (allDefined) {
+      // Find all translations patterns in each line
+      const translationPatternLocal = /\{\{\s*t\.([a-zA-Z0-9_.-]+)\s*\}\}/gu;
+
+      // Extract original keys and mask them
+      const skeletons: Record<string, string> = {};
+      const originalKeysPerTypeAndPlaceholder: Record<string, string[]> = {}; // placeholder_idx -> list of keys for each type
+
+      let firstPlaceholderCount = -1;
+      let isStructuralIdentical = true;
+
+      for (const type of activeTypes) {
+        const line = linesAtIdx[type]!;
+        const matches = [...line.matchAll(translationPatternLocal)];
+        const placeholderCount = matches.length;
+
+        if (firstPlaceholderCount === -1) {
+          firstPlaceholderCount = placeholderCount;
+        } else if (placeholderCount !== firstPlaceholderCount) {
+          isStructuralIdentical = false;
+          break;
+        }
+
+        // Construct skeleton
+        let skeleton = line;
+        matches.forEach((match, idx) => {
+          const key = match[1]!;
+          skeleton = skeleton.replace(match[0], `__PLACEHOLDER_${idx}__`);
+          if (!originalKeysPerTypeAndPlaceholder[idx]) {
+            originalKeysPerTypeAndPlaceholder[idx] = [];
+          }
+          originalKeysPerTypeAndPlaceholder[idx].push(key);
+        });
+
+        skeletons[type] = skeleton;
+      }
+
+      // Check skeletons are identical and we have at least one placeholder to align
+      if (isStructuralIdentical && firstPlaceholderCount > 0) {
+        const skeletonValues = Object.values(skeletons);
+        const allSkeletonsIdentical = skeletonValues.every((sk) => sk === skeletonValues[0]);
+
+        if (allSkeletonsIdentical) {
+          // Align them!
+          alignedSkeletonsMatch = true;
+          let unifiedLine = skeletonValues[0]!;
+
+          for (let k = 0; k < firstPlaceholderCount; k++) {
+            const originalKeys = originalKeysPerTypeAndPlaceholder[k]!;
+            const suffix = findLongestCommonSuffix(originalKeys);
+
+            let baseKey = '';
+            if (suffix.length >= 3) {
+              baseKey = suffix[0]!.toLowerCase() + suffix.slice(1);
+            } else {
+              variableCounter++;
+              baseKey = `variable${variableCounter}`;
+            }
+
+            // Collision check
+            // If baseKey is already used with a different set of aligned values/types, append an increment
+            while (true) {
+              const registeredMapping = alignedKeysRegistry.get(baseKey);
+              if (!registeredMapping) {
+                break;
+              }
+              // Check if the registered mapping is identical to our current mapping
+              let mappingMatches = true;
+              for (let tIdx = 0; tIdx < activeTypes.length; tIdx++) {
+                const type = activeTypes[tIdx]!;
+                const origKey = originalKeys[tIdx]!;
+                if (registeredMapping[type] !== origKey) {
+                  mappingMatches = false;
+                  break;
+                }
+              }
+              if (mappingMatches) {
+                break;
+              }
+              // It's a collision! Increment and append
+              collisionCounter++;
+              baseKey = `${baseKey.replace(/\d+$/g, '')}${collisionCounter}`;
+            }
+
+            // Record alignment mapping
+            const currentMapping: Record<string, string> = {};
+            activeTypes.forEach((type, tIdx) => {
+              currentMapping[type] = originalKeys[tIdx]!;
+            });
+            alignedKeysRegistry.set(baseKey, currentMapping);
+
+            // Populate the translation values in unifiedTranslations
+            for (const lang of Object.keys(classicTranslations)) {
+              for (let tIdx = 0; tIdx < activeTypes.length; tIdx++) {
+                const type = activeTypes[tIdx]!;
+                const originalKey = originalKeys[tIdx]!;
+                const flatDict = classicTranslations[lang];
+                if (flatDict && flatDict[originalKey] !== undefined) {
+                  if (!unifiedTranslations[lang]) {
+                    unifiedTranslations[lang] = {};
+                  }
+                  if (!unifiedTranslations[lang]![baseKey]) {
+                    unifiedTranslations[lang]![baseKey] = {};
+                  }
+                  unifiedTranslations[lang]![baseKey]![type] = flatDict[originalKey]!;
+
+                  // Delete originalKey from unifiedTranslations[lang] so it doesn't leave duplicates behind
+                  if (unifiedTranslations[lang]![originalKey]) {
+                    delete unifiedTranslations[lang]![originalKey];
+                  }
+                }
+              }
+            }
+
+            // Rewrite placeholder in line
+            unifiedLine = unifiedLine.replace(`__PLACEHOLDER_${k}__`, `{{t.${baseKey}}}`);
+          }
+
+          alignedUnifiedLine = unifiedLine;
+        }
+      }
+    }
+
+    if (alignedSkeletonsMatch && alignedUnifiedLine !== null) {
+      flushAccumulator();
+      resultLines.push(alignedUnifiedLine);
     } else {
       hasAccumulated = true;
       for (const type of activeTypes) {
@@ -575,34 +682,19 @@ export const seedUnifiedFromClassic = (
   }
 
   // Pre-normalize all template HTML fields and extract translation values
-  const normalizedHtmlTemplates: Record<string, string> = {};
+  const htmlTemplates: Record<string, string> = {};
   for (const [type, row] of Object.entries(filteredDeliveries)) {
     if (row.html) {
-      normalizedHtmlTemplates[type] = alignKeysAndExtractTranslations(
-        row.html,
-        type,
-        classicTranslations,
-        unifiedTranslations
-      );
+      htmlTemplates[type] = row.html;
     }
   }
 
-  // Perform diff to compute unified template content
-  const content = performGroupedLineDiff(normalizedHtmlTemplates);
-
-  // Collapse plain text body if identical; otherwise perform the same diff
-  const textTemplates: Record<string, string> = {};
-  for (const [type, row] of Object.entries(filteredDeliveries)) {
-    if (row.text) {
-      textTemplates[type] = row.text;
-    }
-  }
-  const text = performGroupedLineDiff(textTemplates);
+  // Perform diff to compute unified template content and align translation keys
+  const content = performGroupedLineDiff(htmlTemplates, classicTranslations, unifiedTranslations);
 
   return {
     template: {
       content: content || '',
-      ...(text ? { text } : {}),
     },
     variables: {},
     translations: unifiedTranslations,
