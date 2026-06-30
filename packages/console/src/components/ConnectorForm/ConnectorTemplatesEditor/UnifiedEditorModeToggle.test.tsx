@@ -152,6 +152,10 @@ const renderEditor = ({
         </MemoryRouter>
         <CommittedUnifiedProbe />
         <CommittedDeliveriesProbe />
+        <CommittedUnifiedTemplateProbe />
+        <CommittedVariablesProbe />
+        <CommittedUnifiedTranslationsProbe />
+        <CommittedTranslationsProbe />
       </FormProvider>
     );
   }
@@ -171,8 +175,48 @@ const renderEditor = ({
     getDeliveries: () => {
       return document.querySelector('[data-testid="committed-deliveries"]')?.textContent ?? '';
     },
+    getUnifiedTemplate: () => {
+      return (
+        document.querySelector('[data-testid="committed-unified-template"]')?.textContent ?? ''
+      );
+    },
+    getVariables: () => {
+      return document.querySelector('[data-testid="committed-variables"]')?.textContent ?? '';
+    },
+    getUnifiedTranslations: () => {
+      return (
+        document.querySelector('[data-testid="committed-unified-translations"]')?.textContent ?? ''
+      );
+    },
+    getTranslations: () => {
+      return document.querySelector('[data-testid="committed-translations"]')?.textContent ?? '';
+    },
   };
 };
+
+function CommittedUnifiedTemplateProbe() {
+  const value: unknown = useWatch({ name: 'formConfig.unifiedTemplate' });
+  return (
+    <div data-testid="committed-unified-template">{typeof value === 'string' ? value : ''}</div>
+  );
+}
+
+function CommittedVariablesProbe() {
+  const value: unknown = useWatch({ name: 'formConfig.variables' });
+  return <div data-testid="committed-variables">{typeof value === 'string' ? value : ''}</div>;
+}
+
+function CommittedUnifiedTranslationsProbe() {
+  const value: unknown = useWatch({ name: 'formConfig.unifiedTranslations' });
+  return (
+    <div data-testid="committed-unified-translations">{typeof value === 'string' ? value : ''}</div>
+  );
+}
+
+function CommittedTranslationsProbe() {
+  const value: unknown = useWatch({ name: 'formConfig.translations' });
+  return <div data-testid="committed-translations">{typeof value === 'string' ? value : ''}</div>;
+}
 
 // Mirrors the committed `formConfig.templateEditorMode` into the DOM so the toggle test can
 // observe the persisted mode.
@@ -221,8 +265,8 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
     // Switch to Unified.
     fireEvent.click(getButtonByText('Unified')!);
 
-    // Confirm the modal
-    fireEvent.click(getButtonByText('Confirm')!);
+    // Confirm the modal with Attempt Conversion
+    fireEvent.click(getButtonByText('Attempt Conversion')!);
 
     // The reverse-compile seed writes a unifiedTemplate (with the Generic html body as `content`)
     // + compiles the mirror; the UnifiedTemplateEditor mounts and renders its three sub-tabs.
@@ -246,7 +290,7 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
     await waitFor(() => {
       expect(document.body.textContent).toContain('Switch to Unified Mode?');
       expect(document.body.textContent).toContain(
-        'This will generate a unified template with <If> blocks'
+        'This will transition your template editor to Unified Mode.'
       );
     });
 
@@ -259,8 +303,8 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
     // Click Unified again.
     fireEvent.click(getButtonByText('Unified')!);
 
-    // Click Confirm.
-    fireEvent.click(getButtonByText('Confirm')!);
+    // Click Attempt Conversion.
+    fireEvent.click(getButtonByText('Attempt Conversion')!);
 
     // Now it should have switched.
     await waitFor(() => {
@@ -288,7 +332,9 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
     // Confirmation modal should be visible.
     await waitFor(() => {
       expect(document.body.textContent).toContain('Switch to Classic Mode?');
-      expect(document.body.textContent).toContain('This will keep your current compiled templates');
+      expect(document.body.textContent).toContain(
+        'This will transition your template editor back to Classic Mode.'
+      );
     });
 
     // Click Cancel.
@@ -300,13 +346,63 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
     // Click Classic again.
     fireEvent.click(getButtonByText('Classic per-type')!);
 
-    // Click Confirm.
-    fireEvent.click(getButtonByText('Confirm')!);
+    // Click Attempt Conversion.
+    fireEvent.click(getButtonByText('Attempt Conversion')!);
 
     // Should have switched back to classic.
     await waitFor(() => {
       expect(getTabByText('Variables')).toBeUndefined();
     });
+  });
+
+  it('switches to the Unified three-tab editor on toggle and starts fresh with empty template', async () => {
+    const { getButtonByText, getTabByText, getUnifiedTemplate } = renderEditor({
+      connectorFactoryId: 'mailgun-email',
+    });
+
+    // Classic mode initially: no Unified sub-tabs.
+    expect(getTabByText('Variables')).toBeUndefined();
+
+    // Switch to Unified.
+    fireEvent.click(getButtonByText('Unified')!);
+
+    // Click Start Fresh.
+    fireEvent.click(getButtonByText('Start Fresh')!);
+
+    // Now it should have switched to unified mode.
+    await waitFor(() => {
+      expect(getTabByText('Template')).not.toBeUndefined();
+    });
+
+    // Confirms unifiedTemplate has been set to "{}"
+    expect(getUnifiedTemplate()).toBe('{}');
+  });
+
+  it('switches to the Classic editor on toggle and starts fresh with empty classic structures', async () => {
+    // Render initially in unified mode
+    const { getButtonByText, getTabByText, getDeliveries } = renderEditor({
+      connectorFactoryId: 'mailgun-email',
+      templateEditorMode: JSON.stringify('unified'),
+    });
+
+    // Unified mode initially: Unified sub-tabs are visible.
+    await waitFor(() => {
+      expect(getTabByText('Variables')).not.toBeUndefined();
+    });
+
+    // Click Classic.
+    fireEvent.click(getButtonByText('Classic per-type')!);
+
+    // Click Start Fresh.
+    fireEvent.click(getButtonByText('Start Fresh')!);
+
+    // Should have switched back to classic.
+    await waitFor(() => {
+      expect(getTabByText('Variables')).toBeUndefined();
+    });
+
+    // Confirms deliveries has been reset to "{}"
+    expect(getDeliveries()).toBe('{}');
   });
 
   it('debounces the compiled write-back by 250ms and flushes immediately on submit', async () => {
