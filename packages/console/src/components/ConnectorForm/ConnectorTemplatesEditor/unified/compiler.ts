@@ -5,7 +5,6 @@ import type {
   CompileInput,
   CompileOutput,
   CompiledTranslations,
-  ConnectorKind,
   PerTypeString,
   SeedUnifiedFromClassicInput,
   SeedUnifiedFromClassicOutput,
@@ -13,6 +12,7 @@ import type {
   UnifiedTranslations,
   VariablesTable,
 } from './types';
+import { fieldsForKind } from './utils';
 
 /**
  * Every supported {@link TemplateType}, cached once for the per-type compile loop. Because
@@ -34,15 +34,6 @@ const variablePattern = /\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*\}\}/gu;
  * `/{{\s*([\w.]+)\s*}}/g` capture, restricted to the `t.` prefix.
  */
 const translationPattern = /\{\{\s*t\.([a-zA-Z0-9_.-]+)\s*\}\}/gu;
-
-/**
- * The localizable string fields a {@link ConnectorKind} compiles. Both kinds carry the body in
- * the unified `content` field (SMS content for Ubill; the HTML body for Mailgun) — the compiler
- * maps it to the connector-specific row key (`content` for SMS, `html` for Mailgun) on emit.
- * Mailgun additionally carries `subject` and an optional `text` plain-text part.
- */
-const fieldsForKind = (kind: ConnectorKind): ReadonlyArray<keyof UnifiedTemplate> =>
-  kind === 'sms-ubill' ? ['content'] : ['subject', 'content', 'text'];
 
 /**
  * Resolves a per-type value for `targetType` from a {@link PerTypeString}, falling back to the

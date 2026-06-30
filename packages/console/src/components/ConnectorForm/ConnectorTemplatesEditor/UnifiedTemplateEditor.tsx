@@ -1,4 +1,4 @@
-import { ConnectorType } from '@logto/connector-kit';
+import { type ConnectorType } from '@logto/connector-kit';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormContext, useWatch, type FieldPath } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,7 @@ import styles from './index.module.scss';
 import {
   compileUnified,
   dummyPayload,
-  type ConnectorKind,
+  kindForConnectorType,
   type UnifiedTemplate,
   type UnifiedTranslations,
   type VariablesTable,
@@ -30,9 +30,6 @@ type TabKey = 'template' | 'variables' | 'localizations';
 const EMPTY_TEMPLATE: UnifiedTemplate = {};
 const EMPTY_VARIABLES: VariablesTable = {};
 const EMPTY_TRANSLATIONS: UnifiedTranslations = {};
-
-const kindForConnectorType = (connectorType: ConnectorType): ConnectorKind =>
-  connectorType === ConnectorType.Sms ? 'sms-ubill' : 'email-mailgun';
 
 /**
  * The dev-flagged Unified template editor for Ubill-SMS + Mailgun. A three-tab host (Template /

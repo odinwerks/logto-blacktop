@@ -1,4 +1,4 @@
-import { type ConnectorConfigFormItem, ConnectorType } from '@logto/connector-kit';
+import { type ConnectorConfigFormItem, type ConnectorType } from '@logto/connector-kit';
 import { type ReactNode, useCallback } from 'react';
 import { useFormContext, useWatch, type FieldPath } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import type { ConnectorFormType } from '@/types/connector';
 import UnifiedTemplateEditor from './UnifiedTemplateEditor';
 import styles from './index.module.scss';
 import {
+  kindForConnectorType,
   seedUnifiedFromClassic,
   unifiedConnectorFactoryIds,
   type EmailCompiledRow,
@@ -32,9 +33,6 @@ type Props = {
 // A flat translation dictionary mirror type, re-declared here to avoid importing the host's private
 // `TranslationMap` alias.
 type TranslationMap = Record<string, Record<string, string>>;
-
-const kindForConnectorType = (connectorType: ConnectorType): 'sms-ubill' | 'email-mailgun' =>
-  connectorType === ConnectorType.Sms ? 'sms-ubill' : 'email-mailgun';
 
 /**
  * The Classic/Unified editor-mode toggle + render switch (dev-flagged: Ubill-SMS + Mailgun only).

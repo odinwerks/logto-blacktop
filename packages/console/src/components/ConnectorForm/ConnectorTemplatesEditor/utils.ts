@@ -268,10 +268,13 @@ export type TranslationsParseResult =
 /**
  * Narrows a parsed JSON value to a plain object (`Record<string, unknown>`). Rejects `null`,
  * arrays, and non-objects so `Object.entries` is safe to call on the narrowed value. Defined as a
- * type guard (rather than a cast) so the rest of {@link parseTranslationsJson} stays type-safe
- * without `as`.
+ * type guard (rather than a cast) so the rest of {@link parseTranslationsJson} (and the unified
+ * per-type table parser in `./unified/utils.ts`) stays type-safe without `as`.
+ *
+ * Exported so the unified editor's per-type table JSON parser (`parsePerTypeTableJson`) reuses the
+ * same narrowing instead of re-declaring it.
  */
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+export const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /**

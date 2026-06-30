@@ -3,14 +3,13 @@ import { replaceSendMessageHandlebars, type TemplateType } from '@logto/connecto
 import { inlineVariables } from './compiler';
 import { resolveIfBlocks } from './if-parser';
 import type {
-  ConnectorKind,
   DummyPayload,
   PerTypeString,
   PreviewInput,
   RenderedPreview,
-  UnifiedTemplate,
   UnifiedTranslations,
 } from './types';
+import { fieldsForKind } from './utils';
 
 /**
  * Matches a plausible BCP-47-style language tag: a 2–3 letter primary subtag optionally followed by
@@ -114,10 +113,6 @@ const buildPreviewTDict = (
  */
 const hasValues = (dict: Record<string, string>): boolean =>
   Object.values(dict).some((value) => value.length > 0);
-
-/** The localizable string fields a {@link ConnectorKind} previews (mirrors the compiler). */
-const fieldsForKind = (kind: ConnectorKind): ReadonlyArray<keyof UnifiedTemplate> =>
-  kind === 'sms-ubill' ? ['content'] : ['subject', 'content', 'text'];
 
 /**
  * Renders the unified template for a selected {@link TemplateType} + optional preview locale with
