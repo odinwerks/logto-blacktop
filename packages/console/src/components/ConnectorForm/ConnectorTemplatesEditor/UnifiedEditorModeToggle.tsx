@@ -3,7 +3,6 @@ import { type ReactNode, useCallback } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
-import { isDevFeaturesEnabled } from '@/consts/env';
 import Button from '@/ds-components/Button';
 import type { ConnectorFormType } from '@/types/connector';
 
@@ -33,8 +32,8 @@ type Props = {
 type TranslationMap = Record<string, Record<string, string>>;
 
 /**
- * The Classic/Unified editor-mode toggle + render switch (dev-flagged: Mailgun only).
- * Encapsulates reading + persisting `formConfig.templateEditorMode`, the `isDevFeaturesEnabled` +
+ * The Classic/Unified editor-mode toggle + render switch (Mailgun only).
+ * Encapsulates reading + persisting `formConfig.templateEditorMode`, the
  * connector-factory-id allowlist gate, the best-effort reverse-compile seed on Classic → Unified,
  * and rendering either the {@link UnifiedTemplateEditor} or the host's classic children.
  *
@@ -49,9 +48,7 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
   const isDeliveries = formItem.key === 'deliveries';
 
   const isUnifiedToggleVisible =
-    isDevFeaturesEnabled &&
-    connectorFactoryId !== undefined &&
-    unifiedConnectorFactoryIds.has(connectorFactoryId);
+    connectorFactoryId !== undefined && unifiedConnectorFactoryIds.has(connectorFactoryId);
 
   const templateEditorModeRaw: unknown = useWatch({ name: 'formConfig.templateEditorMode' });
   const parsedEditorMode =

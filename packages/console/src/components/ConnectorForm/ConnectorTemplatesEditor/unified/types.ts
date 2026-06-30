@@ -6,7 +6,7 @@ import { TemplateType } from '@logto/connector-kit';
  * saves/reloads. The host reads it (defaulting to `'classic'` when absent) to decide whether to
  * render the classic per-type rows or the {@link UnifiedTemplateEditor}.
  *
- * Gated behind `isDevFeaturesEnabled` + an allowlist of connector factory ids (Mailgun only);
+ * Gated behind an allowlist of connector factory ids (Mailgun only);
  * every other connector stays on `'classic'` regardless.
  */
 export type TemplateEditorMode = 'classic' | 'unified';

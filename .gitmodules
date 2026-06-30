@@ -1,4 +1,4 @@
 [submodule "packages/connectors/connector-ubill-sms"]
 	path = packages/connectors/connector-ubill-sms
 	url = https://github.com/odinwerks/connector-ubill-sms.git
-	branch = ubill-blacktop-extended
+	branch = blacktop
