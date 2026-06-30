@@ -76,6 +76,12 @@ function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Prop
   const isSocialConnector = connectorType === ConnectorType.Social;
   const isEmailServiceConnector = connectorId === ServiceConnector.Email;
 
+  const templateEditorModeRaw = watch('formConfig.templateEditorMode');
+  const isUnifiedMode =
+    typeof templateEditorModeRaw === 'string'
+      ? safeJsonParse<string>(templateEditorModeRaw) === 'unified'
+      : false;
+
   const configParser = useConnectorFormConfigParser();
 
   const onSubmit = handleSubmit(
@@ -180,7 +186,7 @@ function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Prop
           </FormCard>
         )}
         {connectorId === GoogleConnector.factoryId && <GoogleOneTapCard />}
-        {!isSocialConnector && (
+        {!isSocialConnector && !isUnifiedMode && (
           <FormCard title="connector_details.test_connection">
             <ConnectorTester
               connectorFactoryId={connectorId}

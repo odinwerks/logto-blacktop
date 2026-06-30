@@ -35,6 +35,8 @@ type Props = {
   readonly connectorType: ConnectorType;
   /** The connector factory id (e.g. `mailgun-email`); gates the Unified toggle. */
   readonly connectorFactoryId?: string;
+  /** The list of all form items in the configuration. */
+  readonly formItems?: ConnectorConfigFormItem[];
   /** The classic editor content (rendered when not in Unified mode). */
   readonly children: ReactNode;
 };
@@ -53,7 +55,13 @@ type TranslationMap = Record<string, Record<string, string>>;
  * show this toggle. Extracted from `ConnectorTemplatesEditor` to keep that host under the shared
  * `max-lines` limit.
  */
-function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, children }: Props) {
+function UnifiedEditorModeToggle({
+  formItem,
+  connectorType,
+  connectorFactoryId,
+  formItems,
+  children,
+}: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { getValues, setValue } = useFormContext<ConnectorFormType>();
 
@@ -106,10 +114,39 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
       const classicTranslations =
         safeJsonParse<TranslationMap>(getValues('formConfig.translations')) ?? {};
 
+      const getNormalizedDeliveries = (): Record<string, EmailCompiledRow> => {
+        if (isDeliveries) {
+          return safeJsonParse<Record<string, EmailCompiledRow>>(classicRowsRaw) ?? {};
+        }
+
+        const templatesArray = safeJsonParse<Array<Record<string, unknown>>>(classicRowsRaw) ?? [];
+        return templatesArray.reduce<Record<string, EmailCompiledRow>>((accumulator, item) => {
+          const usageType = String(item.usageType || '');
+          if (!usageType) {
+            return accumulator;
+          }
+          return {
+            ...accumulator,
+            [usageType]: {
+              subject: typeof item.subject === 'string' ? item.subject : undefined,
+              html:
+                typeof item.html === 'string'
+                  ? item.html
+                  : typeof item.content === 'string'
+                    ? item.content
+                    : '',
+              text: typeof item.text === 'string' ? item.text : undefined,
+            },
+          };
+        }, {});
+      };
+
+      const normalizedDeliveries = getNormalizedDeliveries();
+
       const seed = seedUnifiedFromClassic(
         {
           kind: kindForConnectorType(connectorType),
-          deliveries: safeJsonParse<Record<string, EmailCompiledRow>>(classicRowsRaw) ?? {},
+          deliveries: normalizedDeliveries,
         },
         classicTranslations
       );
@@ -182,7 +219,11 @@ function UnifiedEditorModeToggle({ formItem, connectorType, connectorFactoryId, 
         </div>
       )}
       {isUnifiedToggleVisible && isUnifiedMode ? (
-        <UnifiedTemplateEditor connectorType={connectorType} />
+        <UnifiedTemplateEditor
+          connectorType={connectorType}
+          connectorFactoryId={connectorFactoryId}
+          formItems={formItems}
+        />
       ) : (
         children
       )}

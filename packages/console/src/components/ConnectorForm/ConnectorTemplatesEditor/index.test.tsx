@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {
   ConnectorConfigFormItemType,
   ConnectorType,
@@ -29,6 +30,17 @@ jest.mock('@/consts/env', () => ({
   postHogUiHost: undefined,
   ossSurveyEndpoint: undefined,
 }));
+
+jest.mock('@/hooks/use-api', () => {
+  return () => ({
+    get: jest.fn(),
+    post: jest.fn(() => ({
+      json: jest.fn().mockResolvedValue({}),
+    })),
+    put: jest.fn(),
+    delete: jest.fn(),
+  });
+});
 
 // `CodeEditor` pulls in `react-syntax-highlighter` (ESM) that Jest cannot transform by default.
 // Upgrade the stub to a controllable `<textarea>` so JSON-mode tests can drive `value`/`onChange`
@@ -562,3 +574,4 @@ describe('<ConnectorTemplatesEditor />', () => {
     expect(getGridCells()).toHaveLength(0);
   });
 });
+/* eslint-enable max-lines */

@@ -1,7 +1,6 @@
 /* eslint-disable unicorn/no-abusive-eslint-disable */
 /* eslint-disable */
-import { TemplateType } from '@logto/connector-kit';
-import { isLanguageTag } from '@logto/language-kit';
+import { type ConnectorConfigFormItem } from '@logto/connector-kit';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,20 +8,19 @@ import Button from '@/ds-components/Button';
 import CodeEditor from '@/ds-components/CodeEditor';
 import DangerousRaw from '@/ds-components/DangerousRaw';
 import FormField from '@/ds-components/FormField';
-import Select, { type Option } from '@/ds-components/Select';
 import Textarea from '@/ds-components/Textarea';
 
 import styles from './index.module.scss';
+import PreviewTestModal from './PreviewTestModal';
 import SubjectSettingsModal from './SubjectSettingsModal';
 import type {
   ConnectorKind,
   DummyPayload,
-  TypeColumn,
   UnifiedTemplate,
   UnifiedTranslations,
   VariablesTable,
 } from './unified';
-import { parseIfBlocks, renderPreview, typeColumns } from './unified';
+import { parseIfBlocks } from './unified';
 
 type Props = {
   readonly kind: ConnectorKind;
@@ -33,17 +31,16 @@ type Props = {
   readonly dummyPayload: DummyPayload;
   readonly unifiedSubjects: Record<string, string>;
   readonly onUnifiedSubjectsChange: (next: Record<string, string>) => void;
+  readonly connectorFactoryId?: string;
+  readonly formItems?: ConnectorConfigFormItem[];
 };
 
 /**
  * The Template tab of the unified editor: one editor per localizable string field the Mailgun
- * connector compiles (`subject` + `html` via the `content` field + optional `text`), plus a
- * preview pane (usage-type + language selectors rendering the compiled body with dummy payload
- * data).
+ * connector compiles (`subject` + `html` via the `content` field + optional `text`).
  *
- * Parse errors from {@link parseIfBlocks} (nested/unclosed/extra-attribute `<If>` blocks) surface as
- * a banner above the editors so the admin notices malformations before they leak into a sent
- * message (the lenient {@link resolveIfBlocks} used by the compiler leaves malformed blocks verbatim).
+ * It features a toolbar with buttons to "Localize Subjects" and "Preview & Test" to open
+ * the beautifully rendered floating Sandbox iframe-based PreviewTestModal.
  */
 function UnifiedTemplateTab({
   kind,
@@ -54,26 +51,12 @@ function UnifiedTemplateTab({
   dummyPayload,
   unifiedSubjects,
   onUnifiedSubjectsChange,
+  connectorFactoryId,
+  formItems,
 }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
-
-  const typeOptions = useMemo<Array<Option<TemplateType>>>(
-    () =>
-      typeColumns.map((column) => toTemplateType(column)).map((value) => ({ value, title: value })),
-    []
-  );
-
-  const languageOptions = useMemo<Array<Option<string>>>(
-    () =>
-      Object.keys(translations)
-        .filter((tag): tag is string => isLanguageTag(tag))
-        .map((tag) => ({ value: tag, title: tag })),
-    [translations]
-  );
-
-  const [previewType, setPreviewType] = useState<TemplateType>(TemplateType.Generic);
-  const [previewLanguage, setPreviewLanguage] = useState<string>(languageOptions[0]?.value ?? 'en');
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   const parseError = useMemo(() => {
     // Content and text-only
@@ -89,17 +72,6 @@ function UnifiedTemplateTab({
     }
   }, [template]);
 
-  const preview = useMemo(
-    () =>
-      renderPreview(
-        { kind, template, variables, translations, unifiedSubjects },
-        previewType,
-        previewLanguage,
-        dummyPayload
-      ),
-    [kind, template, variables, translations, unifiedSubjects, previewType, previewLanguage, dummyPayload]
-  );
-
   const updateField = (field: keyof UnifiedTemplate) => (value: string) => {
     onTemplateChange({ ...template, [field]: value });
   };
@@ -110,7 +82,7 @@ function UnifiedTemplateTab({
         <div className={styles.parseError}>{t('connector_details.unified_editor.parse_error')}</div>
       ) : null}
       <div className={styles.premiumGrid}>
-        {/* Left Panel: Bento Editor Card */}
+        {/* Full-Width Bento Editor Card */}
         <div className={styles.bentoCard}>
           <div className={styles.toolbarRow}>
             <Button
@@ -118,6 +90,12 @@ function UnifiedTemplateTab({
               size="medium"
               title={<DangerousRaw>{(t as any)('connector_details.email_templates.subject_settings') || 'Localize Subjects'}</DangerousRaw>}
               onClick={() => setIsSubjectModalOpen(true)}
+            />
+            <Button
+              type="primary"
+              size="medium"
+              title={<DangerousRaw>Preview & Test</DangerousRaw>}
+              onClick={() => setIsPreviewModalOpen(true)}
             />
           </div>
           <FormField title="connector_details.email_templates.content">
@@ -141,36 +119,6 @@ function UnifiedTemplateTab({
             />
           </FormField>
         </div>
-
-        {/* Right Panel: Sticky Preview Bento Card */}
-        <div className={`${styles.bentoCard} ${styles.stickyPreview}`}>
-          <div className={styles.previewHeader}>
-            <h4 className={styles.sectionTitle}>{t('connector_details.unified_editor.preview')}</h4>
-            <div className={styles.previewSelectors}>
-              <Select
-                size="medium"
-                value={previewType}
-                options={typeOptions}
-                onChange={(value) => {
-                  if (value) {
-                    setPreviewType(value);
-                  }
-                }}
-              />
-              <Select
-                size="medium"
-                value={previewLanguage}
-                options={languageOptions}
-                onChange={(value) => {
-                  if (value) {
-                    setPreviewLanguage(value);
-                  }
-                }}
-              />
-            </div>
-          </div>
-          {renderPreviewFields(preview)}
-        </div>
       </div>
 
       <SubjectSettingsModal
@@ -179,34 +127,22 @@ function UnifiedTemplateTab({
         onApply={onUnifiedSubjectsChange}
         onRequestClose={() => setIsSubjectModalOpen(false)}
       />
+
+      <PreviewTestModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        kind={kind}
+        template={template}
+        variables={variables}
+        localizations={translations}
+        subjects={unifiedSubjects}
+        dummyPayload={dummyPayload}
+        connectorFactoryId={connectorFactoryId}
+        formItems={formItems}
+      />
     </>
   );
 }
-
-const toTemplateType = (column: TypeColumn): TemplateType =>
-  Object.values(TemplateType).find((value) => value === column) ?? TemplateType.Generic;
-
-const renderPreviewFields = (preview: {
-  content?: string;
-  subject?: string;
-  html?: string;
-  text?: string;
-}) => {
-  const entries = Object.entries(preview).filter(
-    (entry): entry is [string, string] => typeof entry[1] === 'string'
-  );
-
-  if (entries.length === 0) {
-    return null;
-  }
-
-  return entries.map(([field, value]) => (
-    <div key={field} className={styles.previewField}>
-      <span className={styles.previewFieldTitle}>{field}</span>
-      <pre className={styles.previewOutput}>{value}</pre>
-    </div>
-  ));
-};
 
 export default UnifiedTemplateTab;
 /* eslint-enable */

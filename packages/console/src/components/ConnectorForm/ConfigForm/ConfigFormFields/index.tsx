@@ -87,6 +87,7 @@ function ConfigFormFields({ formItems, connectorType, connectorFactoryId }: Prop
           formItem={item}
           connectorType={connectorType}
           connectorFactoryId={connectorFactoryId}
+          formItems={formItems}
         />
       );
     }

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import type { ConnectorConfigFormItem, ConnectorType } from '@logto/connector-kit';
 import {
   isLanguageTag,
@@ -41,6 +42,8 @@ type Props = {
   readonly connectorType: ConnectorType;
   /** The connector factory id (e.g. `ubill-sms`, `mailgun-email`); gates the Unified toggle. */
   readonly connectorFactoryId?: string;
+  /** The list of all form items in the configuration. */
+  readonly formItems?: ConnectorConfigFormItem[];
 };
 
 /**
@@ -90,7 +93,12 @@ const TRANSLATIONS_FIELD: FieldPath<ConnectorFormType> = 'formConfig.translation
  * renders `LanguageItem` pills directly so the pill click opens the modal (the shared
  * `LocalizationNav` is left untouched).
  */
-function ConnectorTemplatesEditor({ formItem, connectorType, connectorFactoryId }: Props) {
+function ConnectorTemplatesEditor({
+  formItem,
+  connectorType,
+  connectorFactoryId,
+  formItems,
+}: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { watch, getValues, setValue } = useFormContext<ConnectorFormType>();
   const { context, Provider } = useLocalizationEditorContext();
@@ -373,6 +381,7 @@ function ConnectorTemplatesEditor({ formItem, connectorType, connectorFactoryId 
           formItem={formItem}
           connectorType={connectorType}
           connectorFactoryId={connectorFactoryId}
+          formItems={formItems}
         >
           <section className={styles.section}>
             <h4 className={styles.sectionTitle}>
@@ -441,3 +450,4 @@ function ConnectorTemplatesEditor({ formItem, connectorType, connectorFactoryId 
 }
 
 export default ConnectorTemplatesEditor;
+/* eslint-enable max-lines */

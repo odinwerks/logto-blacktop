@@ -1,4 +1,4 @@
-import { type ConnectorType } from '@logto/connector-kit';
+import { type ConnectorConfigFormItem, type ConnectorType } from '@logto/connector-kit';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext, useWatch, type FieldPath } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,8 @@ import { safeJsonParse, safeJsonStringify } from './utils';
 type Props = {
   /** The owning connector's type (always `Email` for the allowlisted Mailgun connector). */
   readonly connectorType: ConnectorType;
+  readonly connectorFactoryId?: string;
+  readonly formItems?: ConnectorConfigFormItem[];
 };
 
 type TabKey = 'template' | 'variables' | 'localizations';
@@ -47,7 +49,7 @@ const EMPTY_TRANSLATIONS: UnifiedTranslations = {};
  * unified content does not clobber the classic per-type rows (the {@link UnifiedEditorModeToggle}
  * seeds the unified fields best-effort from the classic rows first).
  */
-function UnifiedTemplateEditor({ connectorType }: Props) {
+function UnifiedTemplateEditor({ connectorType, connectorFactoryId, formItems }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { setValue, getValues, formState } = useFormContext<ConnectorFormType>();
   const { isSubmitting } = formState;
@@ -247,6 +249,8 @@ function UnifiedTemplateEditor({ connectorType }: Props) {
           translations={translations}
           dummyPayload={dummyPayload}
           unifiedSubjects={unifiedSubjects}
+          connectorFactoryId={connectorFactoryId}
+          formItems={formItems}
           onTemplateChange={onTemplateChange}
           onUnifiedSubjectsChange={onUnifiedSubjectsChange}
         />

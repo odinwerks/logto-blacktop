@@ -30,6 +30,17 @@ jest.mock('@/consts/env', () => ({
   ossSurveyEndpoint: undefined,
 }));
 
+jest.mock('@/hooks/use-api', () => {
+  return () => ({
+    get: jest.fn(),
+    post: jest.fn(() => ({
+      json: jest.fn().mockResolvedValue({}),
+    })),
+    put: jest.fn(),
+    delete: jest.fn(),
+  });
+});
+
 // `CodeEditor` pulls in `react-syntax-highlighter` (ESM) that Jest cannot transform by default.
 // Stub it as a `<textarea>` so JSON-mode (and the unified Template tab) stays drivable.
 jest.mock('@/ds-components/CodeEditor', () => ({
@@ -95,14 +106,25 @@ const deliveriesItem: ConnectorConfigFormItem = {
   defaultValue: {},
 };
 
+const templatesItem: ConnectorConfigFormItem = {
+  key: 'templates',
+  label: 'Templates',
+  type: ConnectorConfigFormItemType.Json,
+  required: false,
+  defaultValue: [],
+};
+
 type RenderOptions = {
   readonly deliveries?: unknown;
+  readonly templates?: unknown;
+  readonly formItem?: ConnectorConfigFormItem;
   readonly connectorFactoryId?: string;
   readonly templateEditorMode?: string;
 };
 
 const buildDefaultValues = (overrides?: {
   deliveries?: unknown;
+  templates?: unknown;
   templateEditorMode?: string;
 }): Record<string, unknown> => ({
   syncProfile: SyncProfileMode.OnlyAtRegister,
@@ -118,6 +140,17 @@ const buildDefaultValues = (overrides?: {
       null,
       2
     ),
+    templates: JSON.stringify(
+      overrides?.templates ?? [
+        {
+          usageType: 'Generic',
+          subject: 'Logto generic template {{code}}',
+          html: 'Your Logto generic verification code is {{code}}.',
+        },
+      ],
+      null,
+      2
+    ),
     translations: '{}',
     templateEditorMode: overrides?.templateEditorMode,
   },
@@ -127,10 +160,12 @@ const buildDefaultValues = (overrides?: {
 
 const renderEditor = ({
   deliveries,
+  templates,
+  formItem = deliveriesItem,
   connectorFactoryId,
   templateEditorMode,
 }: RenderOptions = {}) => {
-  const defaultValues = buildDefaultValues({ deliveries, templateEditorMode });
+  const defaultValues = buildDefaultValues({ deliveries, templates, templateEditorMode });
 
   function Harness() {
     const methods = useForm<ConnectorFormType>({ defaultValues });
@@ -144,7 +179,7 @@ const renderEditor = ({
             })}
           >
             <ConnectorTemplatesEditor
-              formItem={deliveriesItem}
+              formItem={formItem}
               connectorType={ConnectorType.Email}
               connectorFactoryId={connectorFactoryId}
             />
@@ -258,6 +293,37 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
 
   it('switches to the Unified three-tab editor on toggle and seeds from classic deliveries', async () => {
     const { getButtonByText, getTabByText } = renderEditor({ connectorFactoryId: 'mailgun-email' });
+
+    // Classic mode initially: no Unified sub-tabs.
+    expect(getTabByText('Variables')).toBeUndefined();
+
+    // Switch to Unified.
+    fireEvent.click(getButtonByText('Unified')!);
+
+    // Confirm the modal with Attempt Conversion
+    fireEvent.click(getButtonByText('Attempt Conversion')!);
+
+    // The reverse-compile seed writes a unifiedTemplate (with the Generic html body as `content`)
+    // + compiles the mirror; the UnifiedTemplateEditor mounts and renders its three sub-tabs.
+    await waitFor(() => {
+      expect(getTabByText('Template')).not.toBeUndefined();
+      expect(getTabByText('Variables')).not.toBeUndefined();
+      expect(getTabByText('Localizations')).not.toBeUndefined();
+    });
+  });
+
+  it('switches to the Unified three-tab editor on toggle and seeds from classic standard array templates', async () => {
+    const { getButtonByText, getTabByText } = renderEditor({
+      connectorFactoryId: 'mailgun-email',
+      formItem: templatesItem,
+      templates: [
+        {
+          usageType: 'Generic',
+          subject: 'Standard template subject',
+          html: 'Standard template HTML',
+        },
+      ],
+    });
 
     // Classic mode initially: no Unified sub-tabs.
     expect(getTabByText('Variables')).toBeUndefined();

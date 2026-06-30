@@ -1,0 +1,96 @@
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 900px;
+  max-width: 95vw;
+  height: 700px;
+  max-height: 85vh;
+  color: var(--color-text-primary);
+  padding: 16px 24px;
+}
+
+.controlsRow {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--color-divider);
+  padding-bottom: 16px;
+
+  > div {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.viewModeToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.subjectPreviewRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background-color: rgba(30, 34, 48, 20%);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+
+  .subjectLabel {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  .subjectText {
+    font-size: 14px;
+    font-weight: 500;
+    word-break: break-all;
+  }
+}
+
+.bodyArea {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  background-color: var(--color-layer-2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.previewIframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background-color: #fff;
+}
+
+.codeEditor {
+  width: 100%;
+  height: 100%;
+}
+
+.testSendRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  border-top: 1px solid var(--color-divider);
+  padding-top: 16px;
+  width: 100%;
+
+  .emailInput {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sendButton {
+    flex-shrink: 0;
+  }
+}
