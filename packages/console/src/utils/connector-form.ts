@@ -7,11 +7,11 @@ import { SyncProfileMode, type ConnectorFormType } from '@/types/connector';
 import { safeParseJson } from '@/utils/json';
 
 /**
- * The four `formConfig` fields the inline Unified template editor (dev-flagged, Ubill-SMS +
- * Mailgun only) owns. They are NOT declared in either connector's `formItems` (UI-owned, exactly
- * like `translations` for non-localized connectors), so they round-trip via the defensive
- * seed/preserve pattern below: `initFormData` seeds them from `config` and `parseFormConfig`
- * preserves them on save (otherwise they would be silently dropped at line 68's `!formItem` drop).
+ * The four `formConfig` fields the inline Unified template editor (dev-flagged, Mailgun only)
+ * owns. They are NOT declared in Mailgun's `formItems` (UI-owned, exactly like `translations` for
+ * non-localized connectors), so they round-trip via the defensive seed/preserve pattern below:
+ * `initFormData` seeds them from `config` and `parseFormConfig` preserves them on save (otherwise
+ * they would be silently dropped at line 68's `!formItem` drop).
  */
 const unifiedFormFields: readonly string[] = [
   'unifiedTemplate',
