@@ -11,10 +11,10 @@ import LanguageItem from '@/components/LocalizationEditor/LanguageItem';
 import AddLocalizationsButton from './AddLocalizationsButton';
 import UnifiedLanguageDictEditor from './UnifiedLanguageDictEditor';
 import styles from './index.module.scss';
-import type { PerTypeString, UnifiedTranslations } from './unified';
+import type { UnifiedTranslations } from './unified';
 
 /** A per-language dictionary in the unified translations model. */
-type LanguageDict = Record<string, PerTypeString>;
+type LanguageDict = Record<string, string>;
 
 type Props = {
   readonly translations: UnifiedTranslations;

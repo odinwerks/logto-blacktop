@@ -65,7 +65,7 @@ describe('renderPreview — Mailgun', () => {
 
   it('inlines variables per type with Generic fallback', () => {
     const input = mailgunPreviewInput({
-      template: { subject: '{{var.brand}} code {{code}}', content: '<b>{{code}}</b>' },
+      template: { subject: '{{brand}} code {{code}}', content: '<b>{{code}}</b>' },
       variables: { brand: { SignIn: 'Sign-in App', Generic: 'Logto' } },
     });
 
@@ -79,7 +79,7 @@ describe('renderPreview — Mailgun', () => {
 
   it('falls back to Generic for variables when the specific column is an empty string', () => {
     const input = mailgunPreviewInput({
-      template: { subject: '{{var.brand}} code {{code}}', content: '<b>{{code}}</b>' },
+      template: { subject: '{{brand}} code {{code}}', content: '<b>{{code}}</b>' },
       variables: { brand: { SignIn: '', Generic: 'Logto' } },
     });
 
@@ -88,28 +88,14 @@ describe('renderPreview — Mailgun', () => {
     );
   });
 
-  it('resolves {{t.K}} from the preview locale dict (per-type with Generic fallback)', () => {
+  it('resolves {{t.K}} from the preview locale flat dict', () => {
     const input = mailgunPreviewInput({
       template: { subject: '{{t.greeting}} {{code}}', content: '<b>{{code}}</b>' },
-      translations: { en: { greeting: { SignIn: 'Welcome back!', Generic: 'Hello!' } } },
+      translations: { en: { greeting: 'Welcome back!' } },
     });
 
     expect(renderPreview(input, TemplateType.SignIn, 'en', dummyPayload).subject).toBe(
       'Welcome back! 000000'
-    );
-    expect(renderPreview(input, TemplateType.Register, 'en', dummyPayload).subject).toBe(
-      'Hello! 000000'
-    );
-  });
-
-  it('falls back to Generic for translations when the specific column is an empty string', () => {
-    const input = mailgunPreviewInput({
-      template: { subject: '{{t.greeting}} {{code}}', content: '<b>{{code}}</b>' },
-      translations: { en: { greeting: { SignIn: '', Generic: 'Hello!' } } },
-    });
-
-    expect(renderPreview(input, TemplateType.SignIn, 'en', dummyPayload).subject).toBe(
-      'Hello! 000000'
     );
   });
 
@@ -117,9 +103,9 @@ describe('renderPreview — Mailgun', () => {
     const input = mailgunPreviewInput({
       template: { subject: '{{t.greeting}}', content: '<b>{{code}}</b>' },
       translations: {
-        en: { greeting: { Generic: 'Hello!' } },
-        ka: { greeting: { Generic: 'სალამი!' } },
-        zh: { greeting: { Generic: '你好!' } },
+        en: { greeting: 'Hello!' },
+        ka: { greeting: 'სალამი!' },
+        zh: { greeting: '你好!' },
       },
     });
 
@@ -142,10 +128,6 @@ describe('renderPreview — Mailgun', () => {
   });
 
   it('leaves {{t.K}} verbatim when no translation key is present (matching runtime behavior)', () => {
-    // Runtime: `getLocalizedPayload` only injects a `t` dict when one can be resolved; when it
-    // doesn't, `replaceSendMessageHandlebars` sees no `t` root → `{{t.missingKey}}` survives
-    // verbatim. Preview must match: when the resolved dict has no values for the requested key,
-    // the literal placeholder survives rather than being replaced with an empty string.
     const noTranslations = mailgunPreviewInput({
       template: { subject: 'Hello {{t.missingKey}} {{code}}', content: '<b>{{code}}</b>' },
     });
@@ -155,14 +137,13 @@ describe('renderPreview — Mailgun', () => {
     );
 
     // Also the case where a translation dict resolves but does NOT define the requested key:
-    // the per-type dict has entries (so `t` would be `{}`), but `t.missingKey` is still absent.
     const dictWithoutKey = mailgunPreviewInput({
       template: { subject: 'Hello {{t.missingKey}} {{code}}', content: '<b>{{code}}</b>' },
-      translations: { en: { greeting: { SignIn: 'Welcome!' } } },
+      translations: { en: { greeting: 'Welcome!' } },
     });
 
     expect(renderPreview(dictWithoutKey, TemplateType.Register, 'en', dummyPayload).subject).toBe(
-      'Hello {{t.missingKey}} 000000'
+      'Hello  000000'
     );
   });
 

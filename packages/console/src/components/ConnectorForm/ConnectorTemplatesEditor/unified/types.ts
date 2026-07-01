@@ -69,17 +69,12 @@ export type UnifiedTemplate = {
 export type VariablesTable = Record<string, PerTypeString>;
 
 /**
- * The unified per-language + per-type localization table. Runtime-resolved via the namespacing
- * rewrite: for target type `T`, key `K`, locale `L`, the compiler emits
- * `translations[L][`${K}__${T}`] = unifiedTranslations[L]?.[K]?.[T] ?? unifiedTranslations[L]?.[K]?.['Generic'] ?? ''`,
- * and the compiled row's `{{t.K}}` is rewritten to `{{t.K__T}}`, which the existing runtime
- * `replaceSendMessageHandlebars` resolver reads as a single dot-free key under `payload.t`.
- *
- * Keyed by language tag at the top level (kept as `string` to round-trip arbitrary tags the way the
- * sibling `translations` field does; values are validated as language tags only at the editor/UI
- * edge).
+ * Under Unified v4, Localizations are standard flat dictionaries of Key | Value per language tag.
+ * Keyed by language tag at the top level. No per-type nesting or namespacing is needed.
  */
-export type UnifiedTranslations = Record<string, Record<string, PerTypeString>>;
+export type UnifiedTranslations = Record<string, Record<string, string>>;
+
+export type UnifiedLocalizations = UnifiedTranslations;
 
 /** The connector factory ids whose connectors gain the Unified editor toggle. */
 export const unifiedConnectorFactoryIds: ReadonlySet<string> = new Set(['mailgun-email']);

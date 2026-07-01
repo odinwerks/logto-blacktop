@@ -3,9 +3,7 @@
 import { TemplateType } from '@logto/connector-kit';
 
 import {
-  flattenTranslationsForType,
   inlineVariables,
-  rewriteLocalizations,
   compileUnified,
 } from './compiler';
 import type { CompileInput } from './types';
@@ -46,10 +44,10 @@ describe('inlineVariables', () => {
     expect(inlineVariables('', { app: { Generic: 'Logto' } }, TemplateType.SignIn)).toBe('');
   });
 
-  it('replaces {{var.X}} with the per-type value', () => {
+  it('replaces {{X}} with the per-type value', () => {
     const variables = { appName: { SignIn: 'Sign-in app', Generic: 'Logto' } };
 
-    expect(inlineVariables('Welcome to {{var.appName}}', variables, TemplateType.SignIn)).toBe(
+    expect(inlineVariables('Welcome to {{appName}}', variables, TemplateType.SignIn)).toBe(
       'Welcome to Sign-in app'
     );
   });
@@ -57,7 +55,7 @@ describe('inlineVariables', () => {
   it('falls back to the Generic column when the type column is absent', () => {
     const variables = { appName: { Generic: 'Logto' } };
 
-    expect(inlineVariables('Welcome to {{var.appName}}', variables, TemplateType.SignIn)).toBe(
+    expect(inlineVariables('Welcome to {{appName}}', variables, TemplateType.SignIn)).toBe(
       'Welcome to Logto'
     );
   });
@@ -65,87 +63,22 @@ describe('inlineVariables', () => {
   it('falls back to the Generic column when the type column is an empty string', () => {
     const variables = { appName: { SignIn: '', Generic: 'Logto' } };
 
-    expect(inlineVariables('Welcome to {{var.appName}}', variables, TemplateType.SignIn)).toBe(
+    expect(inlineVariables('Welcome to {{appName}}', variables, TemplateType.SignIn)).toBe(
       'Welcome to Logto'
     );
   });
 
-  it('inlines the empty string for an undefined variable key', () => {
-    expect(inlineVariables('Hi {{var.unknown}}', {}, TemplateType.SignIn)).toBe('Hi ');
+  it('leaves the placeholder untouched for an undefined variable key', () => {
+    expect(inlineVariables('Hi {{unknown}}', {}, TemplateType.SignIn)).toBe('Hi {{unknown}}');
   });
 
   it('does not touch {{t.key}} localization placeholders or runtime payload handlebars', () => {
     const variables = { appName: { Generic: 'Logto' } };
-    const body = '{{var.appName}} {{t.greeting}} {{code}}';
+    const body = '{{appName}} {{t.greeting}} {{code}}';
 
     expect(inlineVariables(body, variables, TemplateType.SignIn)).toBe(
       'Logto {{t.greeting}} {{code}}'
     );
-  });
-});
-
-describe('rewriteLocalizations', () => {
-  it('returns the empty string for an empty body', () => {
-    expect(rewriteLocalizations('', TemplateType.SignIn)).toBe('');
-  });
-
-  it('rewrites {{t.K}} to namespaced {{t.K__T}} for the target type', () => {
-    expect(rewriteLocalizations('Hello {{t.title}}', TemplateType.SignIn)).toBe(
-      'Hello {{t.title__SignIn}}'
-    );
-  });
-
-  it('rewrites every {{t.K}} occurrence in a multi-key body', () => {
-    expect(rewriteLocalizations('{{t.a}} and {{t.b}}', TemplateType.Register)).toBe(
-      '{{t.a__Register}} and {{t.b__Register}}'
-    );
-  });
-
-  it('does not touch {{var.X}} or runtime payload handlebars', () => {
-    expect(rewriteLocalizations('{{var.x}} {{code}}', TemplateType.SignIn)).toBe(
-      '{{var.x}} {{code}}'
-    );
-  });
-});
-
-describe('flattenTranslationsForType', () => {
-  it('emits K__T = per-type value with Generic fallback', () => {
-    const translations = {
-      en: { greeting: { SignIn: 'Sign in!', Generic: 'Hello!' } },
-      ka: { greeting: { Generic: 'სალამი!' } },
-    };
-
-    expect(
-      flattenTranslationsForType(translations, new Set(['greeting']), TemplateType.SignIn)
-    ).toEqual({
-      en: { greeting__SignIn: 'Sign in!' },
-      ka: { greeting__SignIn: 'სალამი!' },
-    });
-  });
-
-  it('omits empty values and drops empty per-language dictionaries', () => {
-    const translations = {
-      en: { greeting: { Generic: 'Hello!' }, missing: { Generic: '' } },
-      ka: { greeting: { Generic: '' } },
-    };
-
-    expect(
-      flattenTranslationsForType(
-        translations,
-        new Set(['greeting', 'missing']),
-        TemplateType.SignIn
-      )
-    ).toEqual({ en: { greeting__SignIn: 'Hello!' } });
-  });
-
-  it('emits the empty object when no keys are referenced', () => {
-    expect(
-      flattenTranslationsForType(
-        { en: { greeting: { Generic: 'Hi' } } },
-        new Set(),
-        TemplateType.SignIn
-      )
-    ).toEqual({});
   });
 });
 
@@ -182,45 +115,37 @@ describe('compileUnified — Mailgun', () => {
     expect(output.rows.deliveries[TemplateType.SignIn]).toBeUndefined();
   });
 
-  it('rewrites {{t.K}} per field and unions the keys across subject/content', () => {
+  it('copies translations verbatim and inlines variables but leaves inline {{t.keyName}} intact', () => {
     const output = compileUnified(
       mailgunInput({
         template: {
-          subject: '{{t.subjectTitle}} {{code}}',
-          content: '<b>{{t.bodyTitle}}</b> {{code}}',
+          subject: '{{subjectTitle}} {{code}}',
+          content: '<b>{{bodyTitle}}</b> {{code}}',
+        },
+        variables: {
+          subjectTitle: { Generic: '{{t.subjectTitleKey}}' },
+          bodyTitle: { SignIn: '{{t.signInBodyTitle}}', Generic: '{{t.genericBodyTitle}}' },
         },
         translations: {
           en: {
-            subjectTitle: { Generic: 'Your code' },
-            bodyTitle: { SignIn: 'Sign in', Generic: 'Code' },
+            subjectTitleKey: 'Your code',
+            signInBodyTitle: 'Sign in',
+            genericBodyTitle: 'Code',
           },
         },
       })
     );
 
     const signIn = output.rows.deliveries[TemplateType.SignIn];
-    expect(signIn?.subject).toBe('{{t.subjectTitle__SignIn}} {{code}}');
-    expect(signIn?.html).toBe('<b>{{t.bodyTitle__SignIn}}</b> {{code}}');
+    expect(signIn?.subject).toBe('{{t.subjectTitleKey}} {{code}}');
+    expect(signIn?.html).toBe('<b>{{t.signInBodyTitle}}</b> {{code}}');
 
-    expect(output.translations.en).toEqual({
-      subjectTitle__SignIn: 'Your code',
-      subjectTitle__Register: 'Your code',
-      subjectTitle__ForgotPassword: 'Your code',
-      subjectTitle__Generic: 'Your code',
-      subjectTitle__OrganizationInvitation: 'Your code',
-      subjectTitle__UserPermissionValidation: 'Your code',
-      subjectTitle__BindNewIdentifier: 'Your code',
-      subjectTitle__MfaVerification: 'Your code',
-      subjectTitle__BindMfa: 'Your code',
-      bodyTitle__SignIn: 'Sign in',
-      bodyTitle__Register: 'Code',
-      bodyTitle__ForgotPassword: 'Code',
-      bodyTitle__Generic: 'Code',
-      bodyTitle__OrganizationInvitation: 'Code',
-      bodyTitle__UserPermissionValidation: 'Code',
-      bodyTitle__BindNewIdentifier: 'Code',
-      bodyTitle__MfaVerification: 'Code',
-      bodyTitle__BindMfa: 'Code',
+    expect(output.translations).toEqual({
+      en: {
+        subjectTitleKey: 'Your code',
+        signInBodyTitle: 'Sign in',
+        genericBodyTitle: 'Code',
+      },
     });
   });
 
@@ -232,22 +157,14 @@ describe('compileUnified — Mailgun', () => {
         },
         translations: {
           en: {
-            unreferencedKey: { Generic: 'This should survive' },
+            unreferencedKey: 'This should survive',
           },
         },
       })
     );
 
     expect(output.translations.en).toEqual({
-      unreferencedKey__SignIn: 'This should survive',
-      unreferencedKey__Register: 'This should survive',
-      unreferencedKey__ForgotPassword: 'This should survive',
-      unreferencedKey__Generic: 'This should survive',
-      unreferencedKey__OrganizationInvitation: 'This should survive',
-      unreferencedKey__UserPermissionValidation: 'This should survive',
-      unreferencedKey__BindNewIdentifier: 'This should survive',
-      unreferencedKey__MfaVerification: 'This should survive',
-      unreferencedKey__BindMfa: 'This should survive',
+      unreferencedKey: 'This should survive',
     });
   });
 });

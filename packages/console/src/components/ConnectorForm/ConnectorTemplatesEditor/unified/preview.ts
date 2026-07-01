@@ -55,7 +55,7 @@ const localeFallbackCandidates = (locale: string): readonly string[] => {
 };
 
 /**
- * Resolves the per-language per-type dictionary (`Record<key, PerTypeString>`) for a preview locale
+ * Resolves the flat translations dictionary (`Record<key, string>`) for a preview locale
  * using the same fallback chain as the runtime `getLocalizedPayload`: exact `locale` → parent tag
  * → `'en'` → first available language. Returns `undefined` when no dictionary can be resolved (or
  * the locale is malformed), in which case `{{t.K}}` placeholders survive verbatim — matching
@@ -64,7 +64,7 @@ const localeFallbackCandidates = (locale: string): readonly string[] => {
 const resolvePreviewDict = (
   translations: UnifiedTranslations,
   locale?: string
-): Record<string, PerTypeString> | undefined => {
+): Record<string, string> | undefined => {
   if (!isPlausibleLanguageTag(locale)) {
     return;
   }
@@ -81,30 +81,17 @@ const resolvePreviewDict = (
 };
 
 /**
- * Builds the preview `payload.t` dict for a target type `T` from the resolved locale's per-type
- * dictionary: each key `K` maps to `dict[K][T] ?? dict[K]['Generic'] ?? ''`. Mirrors the compile-time
- * per-(L, T) fallback so the preview shows exactly what a sent message of type `T` in locale `L`
- * would render.
+ * Builds the preview `payload.t` dict for a target type `T` from the resolved locale's flat
+ * dictionary. Under Unified v4, the dictionary is already a flat `Record<string, string>` and
+ * copied verbatim, so we just return it.
  */
 const buildPreviewTDict = (
   translations: UnifiedTranslations,
-  locale: string | undefined,
-  targetType: TemplateType
+  locale: string | undefined
 ): Record<string, string> => {
   const dict = resolvePreviewDict(translations, locale);
 
-  if (!dict) {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(dict).map(([key, perType]): [string, string] => [
-      key,
-      perType[targetType] !== undefined && perType[targetType] !== ''
-        ? perType[targetType]
-        : (perType.Generic ?? ''),
-    ])
-  );
+  return dict ?? {};
 };
 
 /**
@@ -121,25 +108,6 @@ const hasValues = (dict: Record<string, string>): boolean =>
 /**
  * Renders the unified template for a selected {@link TemplateType} + optional preview locale with
  * the hardcoded dummy payload, returning each present localizable field fully rendered.
- *
- * Steps per field:
- * 1. `resolveIfBlocks(body, type)` — keep matching `<If>` blocks, drop others.
- * 2. `inlineVariables(body, variables, type)` — replace `{{var.X}}` with the per-type / Generic
- *    value (compile-time constants are baked in, exactly as the compiler would).
- * 3. Build `payload.t` from the resolved locale's per-type dict (with the runtime fallback chain),
- *    so `{{t.K}}` resolves to the per-type value (the unified body still carries the un-namespaced
- *    `{{t.K}}` — the preview resolves it directly, whereas the compiled runtime row carries the
- *    namespaced `{{t.K__T}}`). The `t` dict is only injected when it carries at least one non-empty
- *    value — matching runtime `getLocalizedPayload`, which leaves `payload` unchanged (no `t`) when
- *    no translation can be resolved. When `t` is omitted, `{{t.K}}` placeholders survive verbatim
- *    (the literal `{{t.K}}`/`{{t.K__T}}` survives the runtime send path the same way).
- * 4. `replaceSendMessageHandlebars(body, { ...dummyPayload, ...(hasValues(tDict) && { t: tDict }) })`
- *    — resolve `{{t.K}}` from `payload.t` and `{{code}}` / `{{email}}` / `{{phone}}` from the dummy
- *    payload. Unknown placeholders survive verbatim (matching runtime behavior).
- *
- * Returns a {@link RenderedPreview} carrying each present field rendered (so a Mailgun preview can
- * show `subject` + `html` + `text` independently). A single string return cannot represent a
- * multi-field Mailgun template, so the per-field object is the practical, faithful shape.
  */
 export const renderPreview = (
   input: PreviewInput,
@@ -149,7 +117,7 @@ export const renderPreview = (
 ): RenderedPreview => {
   const { kind, template, variables, translations, unifiedSubjects = {} } = input;
   const fields = fieldsForKind(kind);
-  const tDict = buildPreviewTDict(translations, locale, type);
+  const tDict = buildPreviewTDict(translations, locale);
   // Only inject `t` when it carries at least one non-empty value; otherwise omit it so missing
   // `{{t.K}}` placeholders survive verbatim — matching runtime `getLocalizedPayload`.
   const renderedPayload = { ...payload, ...(hasValues(tDict) && { t: tDict }) };
