@@ -101,17 +101,15 @@ export default function PreviewTestModal({
   const compiledHTML = preview.content ?? '';
   const compiledSubject = preview.subject ?? '';
 
-  // Clean the compiled HTML for the Raw Code view by stripping trailing whitespace per line,
-  // collapsing runs of blank lines, and removing duplicate empty lines that sneak in from
-  // the template compiler's indentation. Without this the code preview is peppered with 20+
-  // stray blank lines that make it hard to read.
+  // Clean the compiled HTML for the Raw Code view. The compiler preserves indentation lines
+  // that become whitespace-only after rendering; the CodeEditor renders each line verbatim,
+  // so we strip empty/whitespace-only lines to keep the raw preview compact.
   const cleanCompiledHtml = useMemo(() => {
     return compiledHTML
       .split('\n')
-      .map((line) => line.trimEnd())
-      .filter((line, index, array) => !(line === '' && array[index - 1] === ''))
-      .join('\n')
-      .replaceAll(/\n{3,}/g, '\n\n');
+      .map((line) => line.trim())
+      .filter((line) => line !== '')
+      .join('\n');
   }, [compiledHTML]);
 
   // API Call & Hook triggers
@@ -162,118 +160,120 @@ export default function PreviewTestModal({
     <ReactModal
       shouldCloseOnEsc
       isOpen={isOpen}
-      className={styles.modalContent}
+      className={modalStyles.content}
       overlayClassName={modalStyles.overlay}
       onRequestClose={onClose}
     >
-      <ModalLayout
-        size="large"
-        title={<DangerousRaw>Preview & Test Template</DangerousRaw>}
-        className={styles.layoutBody}
-        footer={
-          <div className={styles.testSendRow}>
-            <div className={styles.emailInput}>
-              <FormField title={<DangerousRaw>Recipient Email</DangerousRaw>}>
-                <TextInput
-                  value={testEmail}
-                  placeholder="Enter test email..."
-                  onChange={(event) => {
-                    setTestEmail(event.currentTarget.value);
-                  }}
-                />
-              </FormField>
-            </div>
-            <Button
-              className={styles.sendButton}
-              type="primary"
-              title={<DangerousRaw>{isSending ? 'Sending...' : 'Send Test'}</DangerousRaw>}
-              disabled={isSending}
-              onClick={handleSendTest}
-            />
-            <Button
-              className={styles.sendButton}
-              type="default"
-              title={<DangerousRaw>Close</DangerousRaw>}
-              onClick={onClose}
-            />
-          </div>
-        }
-        onClose={onClose}
-      >
-        <div className={styles.controlsRow}>
-          <FormField title={<DangerousRaw>Delivery Type</DangerousRaw>}>
-            <Select
-              size="medium"
-              value={selectedTemplateType}
-              options={typeOptions}
-              onChange={(value) => {
-                if (value) {
-                  setSelectedTemplateType(value);
-                }
-              }}
-            />
-          </FormField>
-
-          <FormField title={<DangerousRaw>Language</DangerousRaw>}>
-            <Select
-              size="medium"
-              value={selectedLanguage}
-              options={languageOptions}
-              onChange={(value) => {
-                if (value) {
-                  setSelectedLanguage(value);
-                }
-              }}
-            />
-          </FormField>
-
-          <div className={styles.viewModeToggle}>
-            <TabNav>
-              <TabNavItem
-                isActive={viewMode === 'rendered'}
-                onClick={() => {
-                  setViewMode('rendered');
-                }}
-              >
-                Rendered HTML
-              </TabNavItem>
-              <TabNavItem
-                isActive={viewMode === 'raw'}
-                onClick={() => {
-                  setViewMode('raw');
-                }}
-              >
-                Raw Code
-              </TabNavItem>
-            </TabNav>
-          </div>
-        </div>
-
-        <div className={styles.subjectPreviewRow}>
-          <span className={styles.subjectLabel}>Subject</span>
-          <span className={styles.subjectText}>{compiledSubject || '(No Subject)'}</span>
-        </div>
-
-        <div className={styles.bodyArea}>
-          {viewMode === 'rendered' ? (
-            <div className={styles.iframeContainer}>
-              <iframe
-                className={styles.previewIframe}
-                srcDoc={compiledHTML}
-                sandbox="allow-same-origin"
-                title="Template Preview"
+      <div className={styles.modalWrapper}>
+        <ModalLayout
+          size="large"
+          title={<DangerousRaw>Preview & Test Template</DangerousRaw>}
+          className={styles.layoutBody}
+          footer={
+            <div className={styles.testSendRow}>
+              <div className={styles.emailInput}>
+                <FormField title={<DangerousRaw>Recipient Email</DangerousRaw>}>
+                  <TextInput
+                    value={testEmail}
+                    placeholder="Enter test email..."
+                    onChange={(event) => {
+                      setTestEmail(event.currentTarget.value);
+                    }}
+                  />
+                </FormField>
+              </div>
+              <Button
+                className={styles.sendButton}
+                type="primary"
+                title={<DangerousRaw>{isSending ? 'Sending...' : 'Send Test'}</DangerousRaw>}
+                disabled={isSending}
+                onClick={handleSendTest}
+              />
+              <Button
+                className={styles.sendButton}
+                type="default"
+                title={<DangerousRaw>Close</DangerousRaw>}
+                onClick={onClose}
               />
             </div>
-          ) : (
-            <CodeEditor
-              isReadonly
-              className={styles.codeEditor}
-              language="html"
-              value={cleanCompiledHtml}
-            />
-          )}
-        </div>
-      </ModalLayout>
+          }
+          onClose={onClose}
+        >
+          <div className={styles.controlsRow}>
+            <FormField title={<DangerousRaw>Delivery Type</DangerousRaw>}>
+              <Select
+                size="medium"
+                value={selectedTemplateType}
+                options={typeOptions}
+                onChange={(value) => {
+                  if (value) {
+                    setSelectedTemplateType(value);
+                  }
+                }}
+              />
+            </FormField>
+
+            <FormField title={<DangerousRaw>Language</DangerousRaw>}>
+              <Select
+                size="medium"
+                value={selectedLanguage}
+                options={languageOptions}
+                onChange={(value) => {
+                  if (value) {
+                    setSelectedLanguage(value);
+                  }
+                }}
+              />
+            </FormField>
+
+            <div className={styles.viewModeToggle}>
+              <TabNav>
+                <TabNavItem
+                  isActive={viewMode === 'rendered'}
+                  onClick={() => {
+                    setViewMode('rendered');
+                  }}
+                >
+                  Rendered HTML
+                </TabNavItem>
+                <TabNavItem
+                  isActive={viewMode === 'raw'}
+                  onClick={() => {
+                    setViewMode('raw');
+                  }}
+                >
+                  Raw Code
+                </TabNavItem>
+              </TabNav>
+            </div>
+          </div>
+
+          <div className={styles.subjectPreviewRow}>
+            <span className={styles.subjectLabel}>Subject</span>
+            <span className={styles.subjectText}>{compiledSubject || '(No Subject)'}</span>
+          </div>
+
+          <div className={styles.bodyArea}>
+            {viewMode === 'rendered' ? (
+              <div className={styles.iframeContainer}>
+                <iframe
+                  className={styles.previewIframe}
+                  srcDoc={compiledHTML}
+                  sandbox="allow-same-origin"
+                  title="Template Preview"
+                />
+              </div>
+            ) : (
+              <CodeEditor
+                isReadonly
+                className={styles.codeEditor}
+                language="html"
+                value={cleanCompiledHtml}
+              />
+            )}
+          </div>
+        </ModalLayout>
+      </div>
     </ReactModal>
   );
 }

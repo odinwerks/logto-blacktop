@@ -1,21 +1,28 @@
-.modalContent {
+.modalWrapper {
   width: 75vw;
   height: 80vh;
-  max-height: 80vh;
   max-width: 75vw;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
   overflow: hidden;
-  outline: none;
-  align-self: center;
-  margin: auto;
+
+  /* ModalLayout renders its Card as the immediate child <div>. Make it fill the
+     wrapper and drop the default max-width / margin constraints so the modal is
+     actually 75vw wide and 80vh tall. */
+  > div {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    margin: 0;
+  }
 }
 
 .layoutBody {
-  width: 100%;
-  height: 100%;
-  /* stylelint-disable-next-line declaration-no-important */
-  max-width: none !important; /* overwrite default design-system modal max-widths! */
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -31,7 +38,7 @@
   min-width: 0;
   width: 100%;
 
-  > div {
+  > div:not(.viewModeToggle) {
     flex: 1;
     min-width: 0;
   }
@@ -42,13 +49,7 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 4px;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
 
-  /* Constrain the inner TabNav so it does not stretch the modal contents to fit
-     its natural text width. Without this, the TabNav forces a min-width on its
-     flex parent and pushes the modal to render small in the top-left. */
   > nav {
     min-width: 0;
     max-width: 100%;
@@ -101,7 +102,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  align-items: center; /* perfect horizontal centering! */
+  align-items: center;
   width: 100%;
 }
 

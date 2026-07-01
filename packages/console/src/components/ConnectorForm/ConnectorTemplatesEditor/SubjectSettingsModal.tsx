@@ -1,12 +1,12 @@
 /* eslint-disable unicorn/no-abusive-eslint-disable */
 /* eslint-disable */
-import { Fragment, useState } from 'react';
+import classNames from 'classnames';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactModal from 'react-modal';
 
 import Button from '@/ds-components/Button';
 import DangerousRaw from '@/ds-components/DangerousRaw';
-import FormField from '@/ds-components/FormField';
 import ModalLayout from '@/ds-components/ModalLayout';
 import TextInput from '@/ds-components/TextInput';
 import modalStyles from '@/scss/modal.module.scss';
@@ -54,42 +54,38 @@ export default function SubjectSettingsModal({ isOpen, subjects, onApply, onRequ
             Define localized template subjects by usage type. The "Generic" subject acts as the fallback default for all other types.
           </p>
           <div className={styles.grid}>
-            <div className={styles.genericWrapper}>
-              <FormField title={<DangerousRaw>Generic fallback subject</DangerousRaw>}>
-                <TextInput
-                  value={draft.Generic ?? ''}
-                  onChange={(event) => {
-                    const value = event.currentTarget.value;
-                    setDraft((prev) => ({ ...prev, Generic: value }));
-                  }}
-                  placeholder="Enter fallback email subject..."
-                />
-              </FormField>
-            </div>
-            <hr className={styles.divider} />
-            <div className={styles.perTypeGrid}>
-              {typeColumns
-                .filter((col) => col !== 'Generic')
-                .map((col) => {
-                  const val = draft[col] ?? '';
-                  return (
-                    <Fragment key={col}>
-                      <label className={styles.subjectLabel}>
-                        <DangerousRaw>{`${col} subject`}</DangerousRaw>
-                      </label>
-                      <TextInput
-                        value={val}
-                        onChange={(event) => {
-                          const value = event.currentTarget.value;
-                          setDraft((prev) => ({ ...prev, [col]: value }));
-                        }}
-                        placeholder={genericValue || `Enter ${col} subject...`}
-                        className={!val && genericValue ? styles.fallbackInput : undefined}
-                      />
-                    </Fragment>
-                  );
-                })}
-            </div>
+            {typeColumns.map((col) => {
+              const val = draft[col] ?? '';
+              const isGeneric = col === 'Generic';
+              return (
+                <div
+                  key={col}
+                  className={classNames(styles.row, isGeneric && styles.genericRow)}
+                >
+                  <label className={styles.subjectLabel}>
+                    <DangerousRaw>
+                      {isGeneric ? 'Generic fallback subject' : `${col} subject`}
+                    </DangerousRaw>
+                  </label>
+                  <TextInput
+                    value={val}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      setDraft((prev) => ({ ...prev, [col]: value }));
+                    }}
+                    placeholder={
+                      isGeneric
+                        ? 'Enter fallback email subject...'
+                        : genericValue || `Enter ${col} subject...`
+                    }
+                    className={classNames(
+                      styles.subjectInput,
+                      !isGeneric && !val && genericValue && styles.fallbackInput
+                    )}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       </ModalLayout>
