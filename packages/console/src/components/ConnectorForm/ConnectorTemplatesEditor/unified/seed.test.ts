@@ -124,8 +124,8 @@ describe('seedUnifiedFromClassic — translations (verbatim flat copy)', () => {
   });
 });
 
-describe('seedUnifiedFromClassic — Mathematical Common-Suffix Key-Alignment v4', () => {
-  it('mathematically aligns keys with a common suffix >= 3 chars, e.g. signInTitle and registerTitle to Title', () => {
+describe('seedUnifiedFromClassic — Verbatim Localizations & No Suffix Alignment', () => {
+  it('preserves differing translation placeholders verbatim inside If blocks without aligning them', () => {
     const classicTranslations = {
       en: {
         signInTitle: 'Sign In Title',
@@ -141,56 +141,30 @@ describe('seedUnifiedFromClassic — Mathematical Common-Suffix Key-Alignment v4
       classicTranslations
     );
 
-    expect(seed.template.content).toBe('<div>{{Title}}</div>');
-    expect(seed.variables).toEqual({
-      Title: {
-        SignIn: '{{t.signInTitle}}',
-        Register: '{{t.registerTitle}}',
-      },
-    });
+    expect(seed.template.content).toBe(
+      '<If type="Register"><div>{{t.registerTitle}}</div></If>\n<If type="SignIn"><div>{{t.signInTitle}}</div></If>'
+    );
+    expect(seed.variables).toEqual({});
+    expect(seed.translations).toEqual(classicTranslations);
   });
 
-  it('falls back to sequential names variable1, variable2 when there is no common suffix >= 3 chars', () => {
+  it('keeps flat translations completely verbatim and leaves templates untouched when they are identical', () => {
     const classicTranslations = {
       en: {
-        abc: 'ABC Val',
-        xyz: 'XYZ Val',
+        hello: 'Hello',
       },
     };
 
     const seed = seedUnifiedFromClassic(
       mailgunRows({
-        SignIn: { html: '<span>{{t.abc}}</span>' },
-        Register: { html: '<span>{{t.xyz}}</span>' },
+        SignIn: { html: '<div>{{t.hello}}</div>' },
+        Register: { html: '<div>{{t.hello}}</div>' },
       }),
       classicTranslations
     );
 
-    expect(seed.template.content).toBe('<span>{{variable1}}</span>');
-    expect(seed.variables).toEqual({
-      variable1: {
-        SignIn: '{{t.abc}}',
-        Register: '{{t.xyz}}',
-      },
-    });
-  });
-
-  it('merges identical lines containing aligned placeholders without producing If blocks', () => {
-    const classicTranslations = {
-      en: {
-        signInHeader: 'Header for Sign In',
-        registerHeader: 'Header for Register',
-      },
-    };
-
-    const seed = seedUnifiedFromClassic(
-      mailgunRows({
-        SignIn: { html: '<p>Welcome</p>\n<div>{{t.signInHeader}}</div>\n<p>Footer</p>' },
-        Register: { html: '<p>Welcome</p>\n<div>{{t.registerHeader}}</div>\n<p>Footer</p>' },
-      }),
-      classicTranslations
-    );
-
-    expect(seed.template.content).toBe('<p>Welcome</p>\n<div>{{Header}}</div>\n<p>Footer</p>');
+    expect(seed.template.content).toBe('<div>{{t.hello}}</div>');
+    expect(seed.variables).toEqual({});
+    expect(seed.translations).toEqual(classicTranslations);
   });
 });

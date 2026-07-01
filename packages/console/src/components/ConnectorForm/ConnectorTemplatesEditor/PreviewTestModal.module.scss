@@ -1,8 +1,4 @@
 .modalContent {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   width: 75vw;
   height: 80vh;
   max-height: 80vh;
@@ -80,8 +76,8 @@
 .iframeContainer {
   flex: 1 1 auto;
   overflow-y: auto;
-  background-color: var(--color-layer-1);
-  padding: 32px 16px;
+  background-color: transparent;
+  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center; /* perfect horizontal centering! */
@@ -90,14 +86,9 @@
 
 .previewIframe {
   width: 100%;
-  max-width: 640px;
-  height: 550px;
-  min-height: 550px;
+  height: 100%;
   border: none;
-  border-radius: 8px;
   background-color: #fff;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 45%);
-  flex-shrink: 0;
 }
 
 .codeEditor {
