@@ -267,9 +267,12 @@ function UnifiedTemplateEditor({ connectorType, connectorFactoryId, formItems }:
     setValue('formConfig.variables', safeJsonStringify(next), { shouldDirty: true });
   };
 
-  const onTranslationsChange = (next: UnifiedTranslations) => {
-    setValue('formConfig.unifiedTranslations', safeJsonStringify(next), { shouldDirty: true });
-  };
+  const onTranslationsChange = useCallback(
+    (next: UnifiedTranslations) => {
+      setValue('formConfig.unifiedTranslations', safeJsonStringify(next), { shouldDirty: true });
+    },
+    [setValue]
+  );
 
   const onUnifiedSubjectsChange = (next: Record<string, string>) => {
     setValue('formConfig.unifiedSubjects', safeJsonStringify(next), { shouldDirty: true });

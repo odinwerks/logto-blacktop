@@ -1,30 +1,17 @@
 import { type ConnectorConfigFormItem, type ConnectorType } from '@logto/connector-kit';
-import classNames from 'classnames';
-import { type ReactNode, useCallback, useState } from 'react';
-import { useFormContext, useWatch } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
-import ReactModal from 'react-modal';
+import { type ReactNode, useEffect, useRef } from 'react';
+import { useFormContext } from 'react-hook-form';
 
-import Button from '@/ds-components/Button';
-import confirmModalStyles from '@/ds-components/ConfirmModal/index.module.scss';
-import DangerousRaw from '@/ds-components/DangerousRaw';
-import ModalLayout from '@/ds-components/ModalLayout';
-import modalStyles from '@/scss/modal.module.scss';
 import type { ConnectorFormType } from '@/types/connector';
 
 import UnifiedTemplateEditor from './UnifiedTemplateEditor';
-import styles from './index.module.scss';
 import {
-  compileUnified,
   seedUnifiedFromClassic,
   unifiedConnectorFactoryIds,
   kindForConnectorType,
   type EmailCompiledRow,
-  type TemplateEditorMode,
   type UnifiedTemplate,
   type UnifiedTranslations,
-  type VariablesTable,
-  type PerTypeString,
 } from './unified';
 import { safeJsonParse, safeJsonStringify } from './utils';
 
@@ -33,11 +20,11 @@ type Props = {
   readonly formItem: ConnectorConfigFormItem;
   /** The owning connector's type; retained for the {@link UnifiedTemplateEditor} prop contract. */
   readonly connectorType: ConnectorType;
-  /** The connector factory id (e.g. `mailgun-email`); gates the Unified toggle. */
+  /** The connector factory id (e.g. `mailgun-email`); gates the Unified editor. */
   readonly connectorFactoryId?: string;
   /** The list of all form items in the configuration. */
   readonly formItems?: ConnectorConfigFormItem[];
-  /** The classic editor content (rendered when not in Unified mode). */
+  /** The classic editor content (rendered only when the connector is not allowlisted). */
   readonly children: ReactNode;
 };
 
@@ -45,15 +32,45 @@ type Props = {
 // `TranslationMap` alias.
 type TranslationMap = Record<string, Record<string, string>>;
 
+const hasClassicData = (formItem: ConnectorConfigFormItem, raw: unknown): boolean => {
+  if (formItem.key === 'deliveries') {
+    const parsed = safeJsonParse<Record<string, unknown>>(raw);
+
+    return Boolean(parsed && Object.keys(parsed).length > 0);
+  }
+
+  const parsed = safeJsonParse<unknown[]>(raw);
+
+  return Array.isArray(parsed) && parsed.length > 0;
+};
+
+const hasUnifiedData = (
+  templateRaw: unknown,
+  subjectsRaw: unknown,
+  translationsRaw: unknown
+): boolean => {
+  const template = safeJsonParse<UnifiedTemplate>(templateRaw);
+  const subjects = safeJsonParse<Record<string, string>>(subjectsRaw);
+
+  if (
+    Object.values(template ?? {}).some((value) => typeof value === 'string' && value.length > 0) ||
+    Object.values(subjects ?? {}).some((value) => typeof value === 'string' && value.length > 0)
+  ) {
+    return true;
+  }
+
+  const translations = safeJsonParse<UnifiedTranslations>(translationsRaw);
+
+  return Object.values(translations ?? {}).some((dictionary) => Object.keys(dictionary).length > 0);
+};
+
 /**
- * The Classic/Unified editor-mode toggle + render switch (Mailgun only).
- * Encapsulates reading + persisting `formConfig.templateEditorMode`, the
- * connector-factory-id allowlist gate, the best-effort reverse-compile seed on Classic → Unified,
- * and rendering either the {@link UnifiedTemplateEditor} or the host's classic children.
+ * The Unified editor gate for Mailgun. For allowlisted connectors (Mailgun only) it always renders
+ * the {@link UnifiedTemplateEditor} and never the classic per-type children. On first mount, if the
+ * connector still carries classic `templates`/`deliveries` data and has no unified data yet, it
+ * best-effort seeds the unified fields from the classic rows.
  *
- * Only `mailgun-email` is allowlisted; SMS connectors keep the classic per-type editor and never
- * show this toggle. Extracted from `ConnectorTemplatesEditor` to keep that host under the shared
- * `max-lines` limit.
+ * Non-allowlisted connectors pass through to the classic `children` unchanged.
  */
 function UnifiedEditorModeToggle({
   formItem,
@@ -62,69 +79,56 @@ function UnifiedEditorModeToggle({
   formItems,
   children,
 }: Props) {
-  const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { getValues, setValue } = useFormContext<ConnectorFormType>();
+  const seedAttemptedRef = useRef(false);
 
-  const [pendingMode, setPendingMode] = useState<TemplateEditorMode | undefined>(undefined);
-
-  const isDeliveries = formItem.key === 'deliveries';
-
-  const isUnifiedToggleVisible =
+  const isUnifiedConnector =
     connectorFactoryId !== undefined && unifiedConnectorFactoryIds.has(connectorFactoryId);
 
-  const templateEditorModeRaw: unknown = useWatch({ name: 'formConfig.templateEditorMode' });
-  const parsedEditorMode =
-    typeof templateEditorModeRaw === 'string'
-      ? safeJsonParse<TemplateEditorMode>(templateEditorModeRaw)
-      : undefined;
-  const templateEditorMode: TemplateEditorMode =
-    parsedEditorMode === 'unified' ? 'unified' : 'classic';
-  const isUnifiedMode = isUnifiedToggleVisible && templateEditorMode === 'unified';
-
-  const handleCancel = useCallback(() => {
-    setPendingMode(undefined);
-  }, []);
-
-  const handleStartFresh = useCallback(() => {
-    if (pendingMode === 'unified') {
-      setValue('formConfig.unifiedTemplate', safeJsonStringify({}), { shouldDirty: true });
-      setValue('formConfig.variables', safeJsonStringify({}), { shouldDirty: true });
-      setValue('formConfig.unifiedTranslations', safeJsonStringify({}), { shouldDirty: true });
-      setValue('formConfig.unifiedSubjects', safeJsonStringify({}), { shouldDirty: true });
-      setValue('formConfig.templateEditorMode', safeJsonStringify('unified'), {
-        shouldDirty: true,
-      });
-    } else if (pendingMode === 'classic') {
-      const rowsField = isDeliveries ? 'formConfig.deliveries' : 'formConfig.templates';
-      const emptyRows = isDeliveries ? {} : [];
-      setValue(rowsField, safeJsonStringify(emptyRows), { shouldDirty: true });
-      setValue('formConfig.translations', safeJsonStringify({}), { shouldDirty: true });
-      setValue('formConfig.templateEditorMode', safeJsonStringify('classic'), {
-        shouldDirty: true,
-      });
+  useEffect(() => {
+    if (!isUnifiedConnector || seedAttemptedRef.current) {
+      return;
     }
-    setPendingMode(undefined);
-  }, [pendingMode, setValue, isDeliveries]);
 
-  const handleAttemptConversion = useCallback(() => {
-    if (pendingMode === 'unified') {
-      const classicRowsRaw = getValues(
-        isDeliveries ? 'formConfig.deliveries' : 'formConfig.templates'
-      );
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    seedAttemptedRef.current = true;
+
+    const runSeeding = () => {
+      const templateRaw = getValues('formConfig.unifiedTemplate');
+      const subjectsRaw = getValues('formConfig.unifiedSubjects');
+      const translationsRaw = getValues('formConfig.unifiedTranslations');
+      const classicRowsRaw = getValues(`formConfig.${formItem.key}` as const);
+
+      if (
+        hasUnifiedData(templateRaw, subjectsRaw, translationsRaw) ||
+        !hasClassicData(formItem, classicRowsRaw)
+      ) {
+        // Existing unified configs (or already-empty classic configs) need no seeding. Still persist
+        // the mode marker so legacy saved configs that read `templateEditorMode` stay consistent.
+        setValue('formConfig.templateEditorMode', safeJsonStringify('unified'), {
+          shouldDirty: false,
+        });
+
+        return;
+      }
+
       const classicTranslations =
         safeJsonParse<TranslationMap>(getValues('formConfig.translations')) ?? {};
 
       const getNormalizedDeliveries = (): Record<string, EmailCompiledRow> => {
-        if (isDeliveries) {
+        if (formItem.key === 'deliveries') {
           return safeJsonParse<Record<string, EmailCompiledRow>>(classicRowsRaw) ?? {};
         }
 
         const templatesArray = safeJsonParse<Array<Record<string, unknown>>>(classicRowsRaw) ?? [];
+
         return templatesArray.reduce<Record<string, EmailCompiledRow>>((accumulator, item) => {
           const usageType = String(item.usageType || '');
+
           if (!usageType) {
             return accumulator;
           }
+
           return {
             ...accumulator,
             [usageType]: {
@@ -164,160 +168,27 @@ function UnifiedEditorModeToggle({
       setValue('formConfig.templateEditorMode', safeJsonStringify('unified'), {
         shouldDirty: true,
       });
-    } else if (pendingMode === 'classic') {
-      const kind = kindForConnectorType(connectorType);
-      const template =
-        safeJsonParse<UnifiedTemplate>(getValues('formConfig.unifiedTemplate')) ?? {};
-      const variables = safeJsonParse<VariablesTable>(getValues('formConfig.variables')) ?? {};
-      const translations =
-        safeJsonParse<UnifiedTranslations>(getValues('formConfig.unifiedTranslations')) ?? {};
-      const unifiedSubjects =
-        safeJsonParse<PerTypeString>(getValues('formConfig.unifiedSubjects')) ?? {};
+    };
 
-      const compiled = compileUnified({ kind, template, variables, translations, unifiedSubjects });
+    // Defer seeding so sibling `useWatch` probes (and the unified editor itself) have subscribed
+    // before the form values are mutated. This avoids race conditions during the initial mount.
+    const timeoutId = setTimeout(runSeeding, 0);
 
-      const rowData = compiled.rows.deliveries;
-      const rowsJson = safeJsonStringify(rowData);
-      const translationsJson = safeJsonStringify(compiled.translations);
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [isUnifiedConnector, formItem, connectorType, getValues, setValue]);
 
-      const rowsField = isDeliveries ? 'formConfig.deliveries' : 'formConfig.templates';
-      setValue(rowsField, rowsJson, { shouldDirty: true });
-      setValue('formConfig.translations', translationsJson, { shouldDirty: true });
-      setValue('formConfig.templateEditorMode', safeJsonStringify('classic'), {
-        shouldDirty: true,
-      });
-    }
-    setPendingMode(undefined);
-  }, [pendingMode, getValues, setValue, isDeliveries, connectorType]);
+  if (!isUnifiedConnector) {
+    return children;
+  }
 
   return (
-    <>
-      {isUnifiedToggleVisible && (
-        <div className={styles.modeToggleRow} role="tablist" aria-label="Template editor mode">
-          <Button
-            size="medium"
-            type={templateEditorMode === 'classic' ? 'primary' : 'outline'}
-            title="connector_details.unified_editor.mode_classic"
-            data-testid="editor-mode-classic"
-            onClick={() => {
-              if (templateEditorMode !== 'classic') {
-                setPendingMode('classic');
-              }
-            }}
-          />
-          <Button
-            size="medium"
-            type={templateEditorMode === 'unified' ? 'primary' : 'outline'}
-            title="connector_details.unified_editor.mode_unified"
-            data-testid="editor-mode-unified"
-            onClick={() => {
-              if (templateEditorMode !== 'unified') {
-                setPendingMode('unified');
-              }
-            }}
-          />
-        </div>
-      )}
-      {isUnifiedToggleVisible && isUnifiedMode ? (
-        <UnifiedTemplateEditor
-          connectorType={connectorType}
-          connectorFactoryId={connectorFactoryId}
-          formItems={formItems}
-        />
-      ) : (
-        children
-      )}
-      <ReactModal
-        shouldCloseOnEsc
-        isOpen={pendingMode !== undefined}
-        className={classNames(modalStyles.content)}
-        overlayClassName={classNames(modalStyles.overlay, confirmModalStyles.overlay)}
-        onRequestClose={handleCancel}
-      >
-        <ModalLayout
-          title={
-            pendingMode === 'unified' ? (
-              <DangerousRaw>Switch to Unified Mode?</DangerousRaw>
-            ) : (
-              <DangerousRaw>Switch to Classic Mode?</DangerousRaw>
-            )
-          }
-          className={classNames(confirmModalStyles.content)}
-          footer={
-            <>
-              <Button type="default" title="general.cancel" onClick={handleCancel} />
-              <Button
-                type="outline"
-                title={<DangerousRaw>Start Fresh</DangerousRaw>}
-                data-testid="toggle-start-fresh"
-                onClick={handleStartFresh}
-              />
-              <Button
-                type="primary"
-                title={<DangerousRaw>Attempt Conversion</DangerousRaw>}
-                data-testid="toggle-attempt-conversion"
-                onClick={handleAttemptConversion}
-              />
-            </>
-          }
-          onClose={handleCancel}
-        >
-          {pendingMode === 'unified' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <DangerousRaw>
-                This will transition your template editor to Unified Mode. How would you like to
-                proceed?
-              </DangerousRaw>
-              <div
-                style={{
-                  fontSize: '13px',
-                  color: 'var(--color-text-secondary)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }}
-              >
-                <p>
-                  <strong>Attempt Conversion:</strong> Best-effort reverse-compile your current
-                  classic templates and translations into a single unified template with &lt;If&gt;
-                  blocks. Any existing custom overrides may be altered or lost.
-                </p>
-                <p>
-                  <strong>Start Fresh:</strong> Initialize an empty unified template. Your classic
-                  templates are preserved in the form config until you save or edit in Unified Mode.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <DangerousRaw>
-                This will transition your template editor back to Classic Mode. How would you like
-                to proceed?
-              </DangerousRaw>
-              <div
-                style={{
-                  fontSize: '13px',
-                  color: 'var(--color-text-secondary)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }}
-              >
-                <p>
-                  <strong>Attempt Conversion:</strong> Run the compiler on your current unified
-                  source to generate classic templates and translations, overwriting any previous
-                  classic edits.
-                </p>
-                <p>
-                  <strong>Start Fresh:</strong> Reset your classic templates and translations to
-                  empty structures.
-                </p>
-              </div>
-            </div>
-          )}
-        </ModalLayout>
-      </ReactModal>
-    </>
+    <UnifiedTemplateEditor
+      connectorType={connectorType}
+      connectorFactoryId={connectorFactoryId}
+      formItems={formItems}
+    />
   );
 }
 

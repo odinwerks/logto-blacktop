@@ -1,18 +1,19 @@
 import { ConnectorType } from '@logto/connector-kit';
 
 /**
- * Editor mode for a connector's `templates`/`deliveries` form item. Derived from the connector
- * type + the form-item key + the row shape, so callers only pass `connectorType` + `formItem`.
+ * Editor mode for a connector's `templates` form item. Derived from the connector type + the row
+ * shape, so callers only pass `connectorType` + `formItem`.
  *
  * - `sms` — uniform `{ usageType, content }[]` (every SMS connector).
  * - `email-content` — common email shape `{ usageType, subject, content, contentType?|type? }[]`
  *   (SMTP, SendGrid, AWS-SES, Aliyun-DM, MailJunky).
  * - `email-alias` — provider-stored aliases `{ usageType, templateAlias }[]` (Postmark). There is
  *   no inline `{{t.key}}` content to localize here, so the translations grid stays empty.
- * - `email-deliveries` — Mailgun's `deliveries` record `Record<usageType, DeliveryConfig>` (a union
- *   of raw `html`/`text` and provider-template variants).
+ *
+ * Mailgun's `deliveries` record is no longer edited through the classic mode; it is handled by the
+ * unified editor (see {@link UnifiedEditorModeToggle}).
  */
-export type ConnectorTemplateMode = 'sms' | 'email-content' | 'email-alias' | 'email-deliveries';
+export type ConnectorTemplateMode = 'sms' | 'email-content' | 'email-alias';
 
 /**
  * Keys of the string fields whose `{{t.key}}` placeholders feed the per-language translations grid
@@ -26,9 +27,6 @@ export const extractableFieldsFor = (mode: ConnectorTemplateMode): readonly stri
     }
     case 'email-content': {
       return ['subject', 'content'];
-    }
-    case 'email-deliveries': {
-      return ['subject', 'html', 'text'];
     }
     case 'email-alias': {
       return [];
@@ -65,11 +63,10 @@ type TemplateRow = {
 } & Record<string, unknown>;
 
 /**
- * Derives the editor mode from the connector type, the form-item key, and the parsed template rows.
+ * Derives the editor mode from the connector type and the parsed template rows.
  *
  * Mode selection:
  * - `Sms` connector → `'sms'`.
- * - `Email` connector + form-item key `deliveries` → `'email-deliveries'` (Mailgun).
  * - `Email` connector + a row carrying a string `templateAlias` → `'email-alias'` (Postmark).
  * - otherwise `Email` → `'email-content'` (the common shape).
  *
@@ -81,6 +78,8 @@ export const deriveEditorMode = (
   formItemKey: string,
   templates: readonly TemplateRow[]
 ): ConnectorTemplateMode => {
+  void formItemKey;
+
   if (connectorType === ConnectorType.Sms) {
     return 'sms';
   }
@@ -89,10 +88,6 @@ export const deriveEditorMode = (
     // The editor only mounts for SMS/email connectors (see `ConfigFormFields`); route anything
     // else to the common email-content renderer as a safe default rather than throwing.
     return 'email-content';
-  }
-
-  if (formItemKey === 'deliveries') {
-    return 'email-deliveries';
   }
 
   if (typeof templates[0]?.templateAlias === 'string') {
@@ -128,8 +123,8 @@ export const contentTypeKeyFor = (
 /**
  * Builds a provider-appropriate empty template row for a usage type that the connector's config
  * does not yet define. The shape matches what {@link deriveEditorMode} resolved for the connector
- * (SMS, common email, email alias, or Mailgun `deliveries`) so the auto-detected rows render with
- * the same editable fields as existing ones.
+ * (SMS, common email, or email alias) so the auto-detected rows render with the same editable
+ * fields as existing ones.
  *
  * - `sms` — `{ usageType, content }`.
  * - `email-content` — `{ usageType, subject, content }`, plus the connector's content-type key
@@ -137,8 +132,6 @@ export const contentTypeKeyFor = (
  *   connector's existing rows (SMTP/SendGrid). AWS-SES/Aliyun-DM (`contentTypeKey === undefined`)
  *   get no content-type field.
  * - `email-alias` — `{ usageType, templateAlias }`.
- * - `email-deliveries` — `{ usageType, subject, html }` (no `text` until the user opts into a
- *   plain-text part, matching the row's `showText` gating).
  *
  * Synthetic rows are display-only until a field is edited (see the host write-back).
  */
@@ -158,9 +151,6 @@ export const buildEmptyTemplateRow = (
     }
     case 'email-alias': {
       return { usageType, templateAlias: '' };
-    }
-    case 'email-deliveries': {
-      return { usageType, subject: '', html: '' };
     }
   }
 };

@@ -70,6 +70,7 @@ i18next.addResourceBundle('en', 'translation', {
         form_mode: 'Form',
         json_mode: 'JSON',
         key: 'Key',
+        value: 'Value',
         add_localizations: 'Add localizations',
         add_key: 'Add key',
         delete_language: 'Delete language',
@@ -120,12 +121,16 @@ type RenderOptions = {
   readonly formItem?: ConnectorConfigFormItem;
   readonly connectorFactoryId?: string;
   readonly templateEditorMode?: string;
+  readonly unifiedTemplate?: unknown;
+  readonly unifiedTranslations?: unknown;
 };
 
 const buildDefaultValues = (overrides?: {
   deliveries?: unknown;
   templates?: unknown;
   templateEditorMode?: string;
+  unifiedTemplate?: unknown;
+  unifiedTranslations?: unknown;
 }): Record<string, unknown> => ({
   syncProfile: SyncProfileMode.OnlyAtRegister,
   jsonConfig: '{}',
@@ -153,6 +158,10 @@ const buildDefaultValues = (overrides?: {
     ),
     translations: '{}',
     templateEditorMode: overrides?.templateEditorMode,
+    unifiedTemplate: overrides?.unifiedTemplate ?? '{}',
+    unifiedTranslations: overrides?.unifiedTranslations ?? '{}',
+    unifiedSubjects: '{}',
+    variables: '{}',
   },
   rawConfig: {},
   enableTokenStorage: false,
@@ -164,8 +173,16 @@ const renderEditor = ({
   formItem = deliveriesItem,
   connectorFactoryId,
   templateEditorMode,
+  unifiedTemplate,
+  unifiedTranslations,
 }: RenderOptions = {}) => {
-  const defaultValues = buildDefaultValues({ deliveries, templates, templateEditorMode });
+  const defaultValues = buildDefaultValues({
+    deliveries,
+    templates,
+    templateEditorMode,
+    unifiedTemplate,
+    unifiedTranslations,
+  });
 
   function Harness() {
     const methods = useForm<ConnectorFormType>({ defaultValues });
@@ -226,6 +243,9 @@ const renderEditor = ({
     getTranslations: () => {
       return document.querySelector('[data-testid="committed-translations"]')?.textContent ?? '';
     },
+    getMode: () => {
+      return document.querySelector('[data-testid="committed-mode"]')?.textContent ?? '';
+    },
   };
 };
 
@@ -253,8 +273,6 @@ function CommittedTranslationsProbe() {
   return <div data-testid="committed-translations">{typeof value === 'string' ? value : ''}</div>;
 }
 
-// Mirrors the committed `formConfig.templateEditorMode` into the DOM so the toggle test can
-// observe the persisted mode.
 function CommittedUnifiedProbe() {
   const value: unknown = useWatch({ name: 'formConfig.templateEditorMode' });
 
@@ -267,53 +285,55 @@ function CommittedDeliveriesProbe() {
   return <div data-testid="committed-deliveries">{typeof value === 'string' ? value : ''}</div>;
 }
 
-describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
-  it('hides the Unified toggle when the connector factory id is not in the allowlist', () => {
-    const { getButtonByText } = renderEditor({ connectorFactoryId: 'aliyun-dm' });
+describe('<ConnectorTemplatesEditor /> — Unified editor gate', () => {
+  it('renders the classic editor when the connector factory id is not in the allowlist', () => {
+    const { getButtonByText, getTabByText } = renderEditor({ connectorFactoryId: 'aliyun-dm' });
+
+    // Classic editor: delivery-templates section header is present and unified sub-tabs are absent.
+    expect(getButtonByText('Classic per-type')).toBeUndefined();
+    expect(getButtonByText('Unified')).toBeUndefined();
+    expect(getTabByText('Variables')).toBeUndefined();
+  });
+
+  it('renders the classic editor for the ubill-sms connector factory id', () => {
+    const { getButtonByText, getTabByText } = renderEditor({ connectorFactoryId: 'ubill-sms' });
 
     expect(getButtonByText('Classic per-type')).toBeUndefined();
     expect(getButtonByText('Unified')).toBeUndefined();
+    expect(getTabByText('Variables')).toBeUndefined();
   });
 
-  it('does NOT show the Unified toggle for the ubill-sms connector factory id', () => {
-    // SMS connectors are no longer allowlisted for the Unified editor — the SMS classic per-type
-    // editor is the only surface for Ubill-SMS after the SMS unified support was removed.
-    const { getButtonByText } = renderEditor({ connectorFactoryId: 'ubill-sms' });
-
-    expect(getButtonByText('Classic per-type')).toBeUndefined();
-    expect(getButtonByText('Unified')).toBeUndefined();
-  });
-
-  it('shows the Classic/Unified toggle for the Mailgun email connector factory id', () => {
-    const { getButtonByText } = renderEditor({ connectorFactoryId: 'mailgun-email' });
-
-    expect(getButtonByText('Classic per-type')).not.toBeUndefined();
-    expect(getButtonByText('Unified')).not.toBeUndefined();
-  });
-
-  it('switches to the Unified three-tab editor on toggle and seeds from classic deliveries', async () => {
+  it('does NOT show a Classic/Unified toggle for the Mailgun email connector', () => {
     const { getButtonByText, getTabByText } = renderEditor({ connectorFactoryId: 'mailgun-email' });
 
-    // Classic mode initially: no Unified sub-tabs.
-    expect(getTabByText('Variables')).toBeUndefined();
+    expect(getButtonByText('Classic per-type')).toBeUndefined();
+    expect(getButtonByText('Unified')).toBeUndefined();
+    // Unified editor sub-tabs are visible immediately.
+    expect(getTabByText('Template')).not.toBeUndefined();
+    expect(getTabByText('Variables')).not.toBeUndefined();
+    expect(getTabByText('Localizations')).not.toBeUndefined();
+  });
 
-    // Switch to Unified.
-    fireEvent.click(getButtonByText('Unified')!);
+  it('auto-seeds the unified editor from classic deliveries on mount for Mailgun', async () => {
+    const { getTabByText, getUnifiedTemplate } = renderEditor({
+      connectorFactoryId: 'mailgun-email',
+    });
 
-    // Confirm the modal with Attempt Conversion
-    fireEvent.click(getButtonByText('Attempt Conversion')!);
-
-    // The reverse-compile seed writes a unifiedTemplate (with the Generic html body as `content`)
-    // + compiles the mirror; the UnifiedTemplateEditor mounts and renders its three sub-tabs.
+    // Unified sub-tabs mount immediately.
     await waitFor(() => {
       expect(getTabByText('Template')).not.toBeUndefined();
       expect(getTabByText('Variables')).not.toBeUndefined();
       expect(getTabByText('Localizations')).not.toBeUndefined();
     });
+
+    // The reverse-compile seed writes a unifiedTemplate (with the Generic html body as `content`).
+    await waitFor(() => {
+      expect(getUnifiedTemplate()).toContain('Your Logto generic verification code is {{code}}.');
+    });
   });
 
-  it('switches to the Unified three-tab editor on toggle and seeds from classic standard array templates', async () => {
-    const { getButtonByText, getTabByText } = renderEditor({
+  it('auto-seeds the unified editor from classic standard array templates on mount for Mailgun', async () => {
+    const { getTabByText, getUnifiedTemplate } = renderEditor({
       connectorFactoryId: 'mailgun-email',
       formItem: templatesItem,
       templates: [
@@ -325,150 +345,35 @@ describe('<ConnectorTemplatesEditor /> — Unified toggle', () => {
       ],
     });
 
-    // Classic mode initially: no Unified sub-tabs.
-    expect(getTabByText('Variables')).toBeUndefined();
-
-    // Switch to Unified.
-    fireEvent.click(getButtonByText('Unified')!);
-
-    // Confirm the modal with Attempt Conversion
-    fireEvent.click(getButtonByText('Attempt Conversion')!);
-
-    // The reverse-compile seed writes a unifiedTemplate (with the Generic html body as `content`)
-    // + compiles the mirror; the UnifiedTemplateEditor mounts and renders its three sub-tabs.
     await waitFor(() => {
       expect(getTabByText('Template')).not.toBeUndefined();
       expect(getTabByText('Variables')).not.toBeUndefined();
       expect(getTabByText('Localizations')).not.toBeUndefined();
     });
-  });
 
-  it('switches to the Unified three-tab editor on toggle, shows confirmation modal, cancels, then confirms', async () => {
-    const { getButtonByText, getTabByText } = renderEditor({ connectorFactoryId: 'mailgun-email' });
-
-    // Classic mode initially: no Unified sub-tabs.
-    expect(getTabByText('Variables')).toBeUndefined();
-
-    // Click Unified.
-    fireEvent.click(getButtonByText('Unified')!);
-
-    // Confirmation modal should be visible.
     await waitFor(() => {
-      expect(document.body.textContent).toContain('Switch to Unified Mode?');
-      expect(document.body.textContent).toContain(
-        'This will transition your template editor to Unified Mode.'
-      );
-    });
-
-    // Click Cancel.
-    fireEvent.click(getButtonByText('Cancel')!);
-
-    // Should not have switched.
-    expect(getTabByText('Variables')).toBeUndefined();
-
-    // Click Unified again.
-    fireEvent.click(getButtonByText('Unified')!);
-
-    // Click Attempt Conversion.
-    fireEvent.click(getButtonByText('Attempt Conversion')!);
-
-    // Now it should have switched.
-    await waitFor(() => {
-      expect(getTabByText('Template')).not.toBeUndefined();
-      expect(getTabByText('Variables')).not.toBeUndefined();
-      expect(getTabByText('Localizations')).not.toBeUndefined();
+      expect(getUnifiedTemplate()).toContain('Standard template HTML');
     });
   });
 
-  it('switches to the Classic editor on toggle, shows confirmation modal, cancels, then confirms', async () => {
-    // Render initially in unified mode
-    const { getButtonByText, getTabByText } = renderEditor({
+  it('does not overwrite existing unified data when auto-seeding', () => {
+    const { getUnifiedTemplate } = renderEditor({
       connectorFactoryId: 'mailgun-email',
-      templateEditorMode: JSON.stringify('unified'),
+      unifiedTemplate: JSON.stringify({ content: 'Existing unified body' }),
     });
 
-    // Unified mode initially: Unified sub-tabs are visible.
-    await waitFor(() => {
-      expect(getTabByText('Variables')).not.toBeUndefined();
-    });
-
-    // Click Classic.
-    fireEvent.click(getButtonByText('Classic per-type')!);
-
-    // Confirmation modal should be visible.
-    await waitFor(() => {
-      expect(document.body.textContent).toContain('Switch to Classic Mode?');
-      expect(document.body.textContent).toContain(
-        'This will transition your template editor back to Classic Mode.'
-      );
-    });
-
-    // Click Cancel.
-    fireEvent.click(getButtonByText('Cancel')!);
-
-    // Should still be in Unified mode.
-    expect(getTabByText('Variables')).not.toBeUndefined();
-
-    // Click Classic again.
-    fireEvent.click(getButtonByText('Classic per-type')!);
-
-    // Click Attempt Conversion.
-    fireEvent.click(getButtonByText('Attempt Conversion')!);
-
-    // Should have switched back to classic.
-    await waitFor(() => {
-      expect(getTabByText('Variables')).toBeUndefined();
-    });
+    expect(getUnifiedTemplate()).toBe('{"content":"Existing unified body"}');
   });
 
-  it('switches to the Unified three-tab editor on toggle and starts fresh with empty template', async () => {
-    const { getButtonByText, getTabByText, getUnifiedTemplate } = renderEditor({
+  it('persists templateEditorMode as unified for Mailgun for backward compatibility', async () => {
+    const { getMode } = renderEditor({
       connectorFactoryId: 'mailgun-email',
+      templateEditorMode: JSON.stringify('classic'),
     });
 
-    // Classic mode initially: no Unified sub-tabs.
-    expect(getTabByText('Variables')).toBeUndefined();
-
-    // Switch to Unified.
-    fireEvent.click(getButtonByText('Unified')!);
-
-    // Click Start Fresh.
-    fireEvent.click(getButtonByText('Start Fresh')!);
-
-    // Now it should have switched to unified mode.
     await waitFor(() => {
-      expect(getTabByText('Template')).not.toBeUndefined();
+      expect(getMode()).toBe('"unified"');
     });
-
-    // Confirms unifiedTemplate has been set to "{}"
-    expect(getUnifiedTemplate()).toBe('{}');
-  });
-
-  it('switches to the Classic editor on toggle and starts fresh with empty classic structures', async () => {
-    // Render initially in unified mode
-    const { getButtonByText, getTabByText, getDeliveries } = renderEditor({
-      connectorFactoryId: 'mailgun-email',
-      templateEditorMode: JSON.stringify('unified'),
-    });
-
-    // Unified mode initially: Unified sub-tabs are visible.
-    await waitFor(() => {
-      expect(getTabByText('Variables')).not.toBeUndefined();
-    });
-
-    // Click Classic.
-    fireEvent.click(getButtonByText('Classic per-type')!);
-
-    // Click Start Fresh.
-    fireEvent.click(getButtonByText('Start Fresh')!);
-
-    // Should have switched back to classic.
-    await waitFor(() => {
-      expect(getTabByText('Variables')).toBeUndefined();
-    });
-
-    // Confirms deliveries has been reset to "{}"
-    expect(getDeliveries()).toBe('{}');
   });
 
   it('debounces the compiled write-back by 250ms and flushes immediately on submit', async () => {

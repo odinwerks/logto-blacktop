@@ -228,7 +228,11 @@ describe('<UnifiedTemplateEditor />', () => {
       jest.advanceTimersByTime(300);
     });
 
-    expect(JSON.parse(getDeliveries())).toEqual({ Generic: { html: '' } });
+    // Auto-seeding preserves the classic subject in `unifiedSubjects`, so clearing the content
+    // leaves an empty `html` while the seeded subject remains.
+    expect(JSON.parse(getDeliveries())).toEqual({
+      Generic: { html: '', subject: 'Logto generic template {{code}}' },
+    });
 
     jest.useRealTimers();
   });

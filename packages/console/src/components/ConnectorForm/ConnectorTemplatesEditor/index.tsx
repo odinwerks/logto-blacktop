@@ -26,6 +26,7 @@ import {
   deriveEditorMode,
   extractableFieldsFor,
 } from './mode';
+import { unifiedConnectorFactoryIds } from './unified';
 import {
   deriveLanguages,
   ensureAllTemplateTypes,
@@ -71,7 +72,8 @@ const TRANSLATIONS_FIELD: FieldPath<ConnectorFormType> = 'formConfig.translation
  *   consumed by `getLocalizedPayload`.
  *
  * The row shape is derived from the connector type + form-item key + row contents (see
- * {@link deriveEditorMode}): SMS, common email, Mailgun `deliveries`, or Postmark aliases.
+ * {@link deriveEditorMode}): SMS, common email, or Postmark aliases. Mailgun's `deliveries` record
+ * is edited through the unified editor and never reaches the classic row renderer.
  * Auto-detects every supported {@link TemplateType} (see {@link ensureAllTemplateTypes}) so the
  * editor always shows the full delivery-template set, without polluting the saved config (synthetic
  * rows persist only once edited).
@@ -99,6 +101,9 @@ function ConnectorTemplatesEditor({
   connectorFactoryId,
   formItems,
 }: Props) {
+  const isUnifiedConnector =
+    connectorFactoryId !== undefined && unifiedConnectorFactoryIds.has(connectorFactoryId);
+
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { watch, getValues, setValue } = useFormContext<ConnectorFormType>();
   const { context, Provider } = useLocalizationEditorContext();
@@ -383,68 +388,77 @@ function ConnectorTemplatesEditor({
           connectorFactoryId={connectorFactoryId}
           formItems={formItems}
         >
-          <section className={styles.section}>
-            <h4 className={styles.sectionTitle}>
-              {t('connector_details.template_editor.template_translations_available')}
-            </h4>
-            <div className={styles.languagesRow}>
-              {languages.map((languageTag) => (
-                <LanguageItem
-                  key={languageTag}
-                  languageTag={languageTag}
-                  isSelected={selectedLanguage === languageTag}
-                  variant="inline"
-                  onClick={() => {
-                    onSelectLanguage(languageTag);
-                  }}
-                  onDelete={() => {
-                    onDeleteLanguage(languageTag);
-                  }}
+          {!isUnifiedConnector && (
+            <>
+              <section className={styles.section}>
+                <h4 className={styles.sectionTitle}>
+                  {t('connector_details.template_editor.template_translations_available')}
+                </h4>
+                <div className={styles.languagesRow}>
+                  {languages.map((languageTag) => (
+                    <LanguageItem
+                      key={languageTag}
+                      languageTag={languageTag}
+                      isSelected={selectedLanguage === languageTag}
+                      variant="inline"
+                      onClick={() => {
+                        onSelectLanguage(languageTag);
+                      }}
+                      onDelete={() => {
+                        onDeleteLanguage(languageTag);
+                      }}
+                    />
+                  ))}
+                  <AddLocalizationsButton
+                    options={availableLanguageOptions}
+                    onApply={onAddLanguage}
+                  />
+                </div>
+              </section>
+              <section className={styles.section}>
+                <h4 className={styles.sectionTitle}>
+                  {t('connector_details.template_editor.delivery_templates')}
+                </h4>
+                <div className={styles.templates}>
+                  <TemplateRows
+                    mode={mode}
+                    sortedTemplates={sortedTemplates}
+                    contentTypeKey={contentTypeKey}
+                    fieldHandlers={fieldHandlers}
+                    onContentTypeChange={onContentTypeChange}
+                  />
+                </div>
+              </section>
+              {isModalOpen && (
+                <TranslationEditorModal
+                  languageTag={selectedLanguage}
+                  keys={allKeys}
+                  values={translations[selectedLanguage] ?? {}}
+                  onApply={onModalApply}
+                  onRequestClose={onModalRequestClose}
                 />
-              ))}
-              <AddLocalizationsButton options={availableLanguageOptions} onApply={onAddLanguage} />
-            </div>
-          </section>
-          <section className={styles.section}>
-            <h4 className={styles.sectionTitle}>
-              {t('connector_details.template_editor.delivery_templates')}
-            </h4>
-            <div className={styles.templates}>
-              <TemplateRows
-                mode={mode}
-                sortedTemplates={sortedTemplates}
-                contentTypeKey={contentTypeKey}
-                fieldHandlers={fieldHandlers}
-                onContentTypeChange={onContentTypeChange}
-              />
-            </div>
-          </section>
-          {isModalOpen && (
-            <TranslationEditorModal
-              languageTag={selectedLanguage}
-              keys={allKeys}
-              values={translations[selectedLanguage] ?? {}}
-              onApply={onModalApply}
-              onRequestClose={onModalRequestClose}
-            />
+              )}
+            </>
           )}
         </UnifiedEditorModeToggle>
       </div>
-      <ConfirmModal
-        isOpen={confirmationState === 'try-close'}
-        confirmButtonText="general.leave_page"
-        cancelButtonText="general.stay_on_page"
-        onCancel={() => {
-          setConfirmationState('none');
-        }}
-        onConfirm={() => {
-          setIsModalOpen(false);
-          setIsDirty(false);
-          setConfirmationState('none');
-        }}
-      >
-        {t('general.unsaved_changes_warning')}
-      </ConfirmModal>
+      {!isUnifiedConnector && (
+        <ConfirmModal
+          isOpen={confirmationState === 'try-close'}
+          confirmButtonText="general.leave_page"
+          cancelButtonText="general.stay_on_page"
+          onCancel={() => {
+            setConfirmationState('none');
+          }}
+          onConfirm={() => {
+            setIsModalOpen(false);
+            setIsDirty(false);
+            setConfirmationState('none');
+          }}
+        >
+          {t('general.unsaved_changes_warning')}
+        </ConfirmModal>
+      )}
     </Provider>
   );
 }

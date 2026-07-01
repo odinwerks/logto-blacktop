@@ -128,6 +128,7 @@ function UnifiedLocalizationsTab({ translations, onChange }: Props) {
       </div>
       {selectedLanguage ? (
         <UnifiedLanguageDictEditor
+          key={selectedLanguage}
           languageTag={selectedLanguage}
           dict={selectedDict}
           onChange={onDictChange}

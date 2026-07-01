@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import Textarea from '@/ds-components/Textarea';
 
 import AliasTemplateRow from './AliasTemplateRow';
-import DeliveryTemplateRow from './DeliveryTemplateRow';
 import EmailTemplateRow, { type EmailContentType } from './EmailTemplateRow';
 import styles from './index.module.scss';
 import { type ConnectorTemplateMode } from './mode';
@@ -66,24 +65,6 @@ function TemplateRows({
         usageType={usageType}
         templateAlias={typeof templateAlias === 'string' ? templateAlias : ''}
         onAliasChange={fieldHandlers.alias}
-      />
-    ));
-  }
-
-  if (mode === 'email-deliveries') {
-    return sortedTemplates.map((row) => (
-      <DeliveryTemplateRow
-        key={row.usageType}
-        usageType={row.usageType}
-        subject={typeof row.subject === 'string' ? row.subject : ''}
-        html={typeof row.html === 'string' ? row.html : ''}
-        text={typeof row.text === 'string' ? row.text : ''}
-        isTemplateVariant={'template' in row}
-        showSubject={typeof row.subject === 'string'}
-        showText={typeof row.text === 'string'}
-        onSubjectChange={fieldHandlers.subject}
-        onHtmlChange={fieldHandlers.html}
-        onTextChange={fieldHandlers.text}
       />
     ));
   }

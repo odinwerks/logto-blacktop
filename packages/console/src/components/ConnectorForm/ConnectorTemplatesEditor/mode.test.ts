@@ -48,11 +48,6 @@ describe('deriveEditorMode', () => {
     ).toBe('email-alias');
   });
 
-  it('returns `email-deliveries` for Mailgun (`deliveries` record key)', () => {
-    // Mode is decided by the form-item key, so the parsed rows can be empty.
-    expect(deriveEditorMode(ConnectorType.Email, 'deliveries', [])).toBe('email-deliveries');
-  });
-
   it('falls back to `email-content` when email templates have no rows', () => {
     expect(deriveEditorMode(ConnectorType.Email, 'templates', [])).toBe('email-content');
   });
@@ -70,7 +65,6 @@ describe('extractableFieldsFor', () => {
   it.each<[ConnectorTemplateMode, readonly string[]]>([
     ['sms', ['content']],
     ['email-content', ['subject', 'content']],
-    ['email-deliveries', ['subject', 'html', 'text']],
     ['email-alias', []],
   ])('returns %j for mode %s', (mode, expected) => {
     expect(extractableFieldsFor(mode)).toEqual(expected);
@@ -144,21 +138,8 @@ describe('buildEmptyTemplateRow', () => {
     });
   });
 
-  it('builds a Mailgun deliveries row with subject and html (no text until added)', () => {
-    expect(buildEmptyTemplateRow('ForgotPassword', 'email-deliveries')).toEqual({
-      usageType: 'ForgotPassword',
-      subject: '',
-      html: '',
-    });
-  });
-
   it('covers every supported mode without throwing', () => {
-    const modes: readonly ConnectorTemplateMode[] = [
-      'sms',
-      'email-content',
-      'email-alias',
-      'email-deliveries',
-    ];
+    const modes: readonly ConnectorTemplateMode[] = ['sms', 'email-content', 'email-alias'];
 
     for (const mode of modes) {
       expect(() => buildEmptyTemplateRow('SignIn', mode)).not.toThrow();
@@ -201,21 +182,6 @@ describe('isTemplateFilled', () => {
         { usageType: 'SignIn', subject: '', content: '', contentType: 'text/html' },
         'email-content'
       )
-    ).toBe(false);
-  });
-
-  it('treats a Mailgun deliveries row as filled when html is set', () => {
-    expect(
-      isTemplateFilled(
-        { usageType: 'SignIn', subject: '', html: '<p>hi</p>', text: '' },
-        'email-deliveries'
-      )
-    ).toBe(true);
-  });
-
-  it('treats an empty Mailgun deliveries row as not filled', () => {
-    expect(
-      isTemplateFilled({ usageType: 'SignIn', subject: '', html: '' }, 'email-deliveries')
     ).toBe(false);
   });
 
