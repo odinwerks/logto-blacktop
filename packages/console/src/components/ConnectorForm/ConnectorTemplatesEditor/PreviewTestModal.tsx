@@ -149,12 +149,13 @@ export default function PreviewTestModal({
     <ReactModal
       shouldCloseOnEsc
       isOpen={isOpen}
-      className={modalStyles.content}
+      className={styles.modalContent}
       overlayClassName={modalStyles.overlay}
       onRequestClose={onClose}
     >
       <ModalLayout
         title={<DangerousRaw>Preview & Test Template</DangerousRaw>}
+        className={styles.layoutBody}
         footer={
           <div className={styles.testSendRow}>
             <div className={styles.emailInput}>
@@ -183,81 +184,80 @@ export default function PreviewTestModal({
             />
           </div>
         }
+        onClose={onClose}
       >
-        <div className={styles.modalContent}>
-          <div className={styles.controlsRow}>
-            <FormField title={<DangerousRaw>Delivery Type</DangerousRaw>}>
-              <Select
-                size="medium"
-                value={selectedTemplateType}
-                options={typeOptions}
-                onChange={(value) => {
-                  if (value) {
-                    setSelectedTemplateType(value);
-                  }
-                }}
-              />
-            </FormField>
+        <div className={styles.controlsRow}>
+          <FormField title={<DangerousRaw>Delivery Type</DangerousRaw>}>
+            <Select
+              size="medium"
+              value={selectedTemplateType}
+              options={typeOptions}
+              onChange={(value) => {
+                if (value) {
+                  setSelectedTemplateType(value);
+                }
+              }}
+            />
+          </FormField>
 
-            <FormField title={<DangerousRaw>Language</DangerousRaw>}>
-              <Select
-                size="medium"
-                value={selectedLanguage}
-                options={languageOptions}
-                onChange={(value) => {
-                  if (value) {
-                    setSelectedLanguage(value);
-                  }
-                }}
-              />
-            </FormField>
+          <FormField title={<DangerousRaw>Language</DangerousRaw>}>
+            <Select
+              size="medium"
+              value={selectedLanguage}
+              options={languageOptions}
+              onChange={(value) => {
+                if (value) {
+                  setSelectedLanguage(value);
+                }
+              }}
+            />
+          </FormField>
 
-            <div className={styles.viewModeToggle}>
-              <TabNav>
-                <TabNavItem
-                  isActive={viewMode === 'rendered'}
-                  onClick={() => {
-                    setViewMode('rendered');
-                  }}
-                >
-                  Rendered HTML
-                </TabNavItem>
-                <TabNavItem
-                  isActive={viewMode === 'raw'}
-                  onClick={() => {
-                    setViewMode('raw');
-                  }}
-                >
-                  Raw Code
-                </TabNavItem>
-              </TabNav>
+          <div className={styles.viewModeToggle}>
+            <TabNav>
+              <TabNavItem
+                isActive={viewMode === 'rendered'}
+                onClick={() => {
+                  setViewMode('rendered');
+                }}
+              >
+                Rendered HTML
+              </TabNavItem>
+              <TabNavItem
+                isActive={viewMode === 'raw'}
+                onClick={() => {
+                  setViewMode('raw');
+                }}
+              >
+                Raw Code
+              </TabNavItem>
+            </TabNav>
+          </div>
+        </div>
+
+        <div className={styles.subjectPreviewRow}>
+          <span className={styles.subjectLabel}>Subject</span>
+          <span className={styles.subjectText}>{compiledSubject || '(No Subject)'}</span>
+        </div>
+
+        <div className={styles.bodyArea}>
+          {viewMode === 'rendered' ? (
+            <div className={styles.iframeContainer}>
+              <iframe
+                className={styles.previewIframe}
+                srcDoc={compiledHTML}
+                sandbox="allow-same-origin"
+                title="Template Preview"
+              />
             </div>
-          </div>
-
-          <div className={styles.subjectPreviewRow}>
-            <span className={styles.subjectLabel}>Subject</span>
-            <span className={styles.subjectText}>{compiledSubject || '(No Subject)'}</span>
-          </div>
-
-          <div className={styles.bodyArea}>
-            {viewMode === 'rendered' ? (
-              <div className={styles.iframeContainer}>
-                <iframe
-                  className={styles.previewIframe}
-                  srcDoc={compiledHTML}
-                  sandbox="allow-same-origin"
-                  title="Template Preview"
-                />
-              </div>
-            ) : (
-              <CodeEditor
-                isReadonly
-                className={styles.codeEditor}
-                language="html"
-                value={compiledHTML}
-              />
-            )}
-          </div>
+          ) : (
+            <CodeEditor
+              isReadonly
+              className={styles.codeEditor}
+              language="html"
+              value={compiledHTML}
+            />
+          )}
         </div>
       </ModalLayout>
     </ReactModal>
