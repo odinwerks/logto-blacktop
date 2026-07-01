@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-abusive-eslint-disable */
 /* eslint-disable */
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactModal from 'react-modal';
 
@@ -73,7 +73,10 @@ export default function SubjectSettingsModal({ isOpen, subjects, onApply, onRequ
                 .map((col) => {
                   const val = draft[col] ?? '';
                   return (
-                    <FormField key={col} title={<DangerousRaw>{`${col} subject`}</DangerousRaw>}>
+                    <Fragment key={col}>
+                      <label className={styles.subjectLabel}>
+                        <DangerousRaw>{`${col} subject`}</DangerousRaw>
+                      </label>
                       <TextInput
                         value={val}
                         onChange={(event) => {
@@ -83,7 +86,7 @@ export default function SubjectSettingsModal({ isOpen, subjects, onApply, onRequ
                         placeholder={genericValue || `Enter ${col} subject...`}
                         className={!val && genericValue ? styles.fallbackInput : undefined}
                       />
-                    </FormField>
+                    </Fragment>
                   );
                 })}
             </div>

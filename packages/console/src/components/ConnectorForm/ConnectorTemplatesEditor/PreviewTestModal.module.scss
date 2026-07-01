@@ -2,10 +2,13 @@
   width: 75vw;
   height: 80vh;
   max-height: 80vh;
+  max-width: 75vw;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   outline: none;
+  align-self: center;
+  margin: auto;
 }
 
 .layoutBody {
@@ -16,6 +19,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .controlsRow {
@@ -24,6 +28,8 @@
   align-items: flex-end;
   border-bottom: 1px solid var(--color-divider);
   padding-bottom: 16px;
+  min-width: 0;
+  width: 100%;
 
   > div {
     flex: 1;
@@ -36,6 +42,19 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 4px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+
+  /* Constrain the inner TabNav so it does not stretch the modal contents to fit
+     its natural text width. Without this, the TabNav forces a min-width on its
+     flex parent and pushes the modal to render small in the top-left. */
+  > nav {
+    min-width: 0;
+    max-width: 100%;
+    flex-shrink: 1;
+    overflow: hidden;
+  }
 }
 
 .subjectPreviewRow {
@@ -65,12 +84,14 @@
 .bodyArea {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   border: 1px solid var(--color-divider);
   border-radius: 8px;
   background-color: var(--color-layer-2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  width: 100%;
 }
 
 .iframeContainer {

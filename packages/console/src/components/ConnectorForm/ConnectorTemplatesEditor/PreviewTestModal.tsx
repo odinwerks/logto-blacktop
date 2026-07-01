@@ -101,6 +101,19 @@ export default function PreviewTestModal({
   const compiledHTML = preview.content ?? '';
   const compiledSubject = preview.subject ?? '';
 
+  // Clean the compiled HTML for the Raw Code view by stripping trailing whitespace per line,
+  // collapsing runs of blank lines, and removing duplicate empty lines that sneak in from
+  // the template compiler's indentation. Without this the code preview is peppered with 20+
+  // stray blank lines that make it hard to read.
+  const cleanCompiledHtml = useMemo(() => {
+    return compiledHTML
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .filter((line, index, array) => !(line === '' && array[index - 1] === ''))
+      .join('\n')
+      .replaceAll(/\n{3,}/g, '\n\n');
+  }, [compiledHTML]);
+
   // API Call & Hook triggers
   const api = useApi();
   const configParser = useConnectorFormConfigParser();
@@ -256,7 +269,7 @@ export default function PreviewTestModal({
               isReadonly
               className={styles.codeEditor}
               language="html"
-              value={compiledHTML}
+              value={cleanCompiledHtml}
             />
           )}
         </div>
