@@ -154,6 +154,7 @@ export default function PreviewTestModal({
       onRequestClose={onClose}
     >
       <ModalLayout
+        size="large"
         title={<DangerousRaw>Preview & Test Template</DangerousRaw>}
         className={styles.layoutBody}
         footer={
