@@ -10,6 +10,20 @@ I called it Blacktop because Toyota's 4A-GE Blacktop is a cool motor. And I need
 
 ---
 
+## Unified template editor (Mailgun only)
+
+This fork includes a unified template editor for the Mailgun email connector. Instead of maintaining nine separate HTML templates for every Logto template type, you write one HTML body and mark the lines that differ per type with `<If type="SignIn">...</If>` blocks. The console compiles that single body into per type `deliveries` rows at save time.
+
+The editor has three tabs: Template, Variables, and Localizations. Template holds the shared HTML body. Variables holds per type placeholders that get inlined as `{{varName}}`. Localizations holds a flat dictionary of `{{t.key}}` translations that get resolved through Logto's locale fallback chain.
+
+This approach keeps localization keys verbatim. Earlier attempts used a variable builder that derived names from common suffixes of translation keys, but it silently renamed keys and broke round trip fidelity, so this fork uses explicit `<If>` blocks instead.
+
+Currently the editor is gated to the Mailgun connector only because Mailgun uses a `deliveries` record shape and this editor was built specifically for that runtime model. SMS connectors and other email connectors keep the classic per type editor.
+
+It was built this way because I maintain many per type Mailgun templates and I wanted one place to edit shared structure without copy pasting HTML across nine rows.
+
+---
+
 ## Database Migrations
 
 Because this fork cherry-picks features from different branches, some alterations reference columns that do not exist yet in your database. The Logto CLI tracks deployments by timestamp and will skip any alteration older than the current state, even if the column is missing.
