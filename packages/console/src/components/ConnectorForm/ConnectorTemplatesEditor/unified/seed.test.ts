@@ -105,6 +105,33 @@ describe('seedUnifiedFromClassic — Mailgun deliveries', () => {
 
     expect(seed.template).toEqual({ content: 'G' });
   });
+
+  it('seeds text part from per-type deliveries alongside html', () => {
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({
+        Generic: { html: '<b>G {{code}}</b>', text: 'G text {{code}}' },
+        SignIn: { html: '<b>S</b>', text: 'S text' },
+      }),
+      {}
+    );
+
+    expect(seed.template).toEqual({
+      content: '<If type="Generic"><b>G {{code}}</b></If>\n<If type="SignIn"><b>S</b></If>',
+      text: '<If type="Generic">G text {{code}}</If>\n<If type="SignIn">S text</If>',
+    });
+  });
+
+  it('omits text from the seeded template when no row has a text part', () => {
+    const seed = seedUnifiedFromClassic(
+      mailgunRows({
+        Generic: { html: 'G' },
+      }),
+      {}
+    );
+
+    expect(seed.template).toEqual({ content: 'G' });
+    expect('text' in seed.template).toBe(false);
+  });
 });
 
 describe('seedUnifiedFromClassic — translations (verbatim flat copy)', () => {

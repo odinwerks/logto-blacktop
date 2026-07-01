@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-abusive-eslint-disable */
 /* eslint-disable */
 import classNames from 'classnames';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactModal from 'react-modal';
 
@@ -25,6 +25,10 @@ export default function SubjectSettingsModal({ isOpen, subjects, onApply, onRequ
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const [draft, setDraft] = useState<Record<string, string>>(() => subjects);
 
+  useEffect(() => {
+    setDraft(subjects);
+  }, [subjects]);
+
   const handleApply = () => {
     onApply(draft);
     onRequestClose();
@@ -41,7 +45,7 @@ export default function SubjectSettingsModal({ isOpen, subjects, onApply, onRequ
       onRequestClose={onRequestClose}
     >
       <ModalLayout
-        title={<DangerousRaw>{(t as any)('connector_details.email_templates.subject_settings') || 'Subject Settings'}</DangerousRaw>}
+        title={<DangerousRaw>{t('connector_details.unified_editor.subject_settings')}</DangerousRaw>}
         footer={
           <>
             <Button type="default" title={<DangerousRaw>Cancel</DangerousRaw>} onClick={onRequestClose} />

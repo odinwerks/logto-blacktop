@@ -1,8 +1,6 @@
 import type { ConnectorMetadata } from '@logto/connector-kit';
 import { ConnectorConfigFormItemType } from '@logto/connector-kit';
 
-export const endpoint = 'https://api.sendgrid.com/v3/mail/send';
-
 export const defaultMetadata: ConnectorMetadata = {
   id: 'mailgun-email',
   target: 'mailgun-email',

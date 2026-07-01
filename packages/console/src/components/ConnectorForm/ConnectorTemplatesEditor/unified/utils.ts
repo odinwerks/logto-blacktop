@@ -9,15 +9,18 @@ import type { ConnectorKind, PerTypeString, UnifiedTemplate } from './types';
 /**
  * The localizable string fields a {@link ConnectorKind} compiles (and previews). The unified
  * template carries the Mailgun HTML body in the `content` field (the compiler maps it to the
- * delivery row's `html` key on emit). Mailgun additionally carries `subject` and an optional
- * `text` plain-text part.
+ * delivery row's `html` key on emit) and an optional plain-text part in the `text` field.
  *
  * Single source of truth for the compiler (`compileUnified`) and the preview (`renderPreview`),
  * which previously each carried their own identical copy.
  */
-export const fieldsForKind = (kind: ConnectorKind): ReadonlyArray<keyof UnifiedTemplate> => [
-  'content',
-];
+export const fieldsForKind = (kind: ConnectorKind): ReadonlyArray<keyof UnifiedTemplate> => {
+  switch (kind) {
+    case 'email-mailgun': {
+      return ['content', 'text'];
+    }
+  }
+};
 
 /**
  * Maps a connector's {@link ConnectorType} to the unified compiler {@link ConnectorKind} it

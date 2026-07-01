@@ -7,11 +7,14 @@ import type {
   CompileInput,
   CompileOutput,
   CompiledTranslations,
+  EmailCompiledRow,
   PerTypeString,
   SeedUnifiedFromClassicInput,
   SeedUnifiedFromClassicOutput,
+  UnifiedTemplate,
   VariablesTable,
 } from './types';
+import { fieldsForKind } from './utils';
 
 /**
  * Every supported {@link TemplateType}, cached once for the per-type compile loop. Because
@@ -79,18 +82,30 @@ const compileField = (
   return inlineVariables(resolved, variables, targetType);
 };
 
+const unifiedFieldToDeliveryKey: Record<keyof UnifiedTemplate, keyof EmailCompiledRow> = {
+  content: 'html',
+  text: 'text',
+};
+
 /**
  * Compiles the unified model into classic deliveries rows. The flat translations dictionary is
  * copied verbatim under Unified v4.
  */
 export const compileUnified = (input: CompileInput): CompileOutput => {
-  const { template, variables, translations, unifiedSubjects = {} } = input;
-  const deliveries: Record<string, { subject?: string; html: string }> = {};
+  const { kind, template, variables, translations, unifiedSubjects = {} } = input;
+  const fields = fieldsForKind(kind);
+  const deliveries: Record<string, EmailCompiledRow> = {};
 
   for (const targetType of allTemplateTypes) {
-    const html = compileField(template.content, variables, targetType);
+    const compiledFields = fields.reduce<Partial<EmailCompiledRow>>((result, field) => {
+      const raw = template[field];
+      const compiled = compileField(raw, variables, targetType);
+      return { ...result, [unifiedFieldToDeliveryKey[field]]: compiled };
+    }, {});
+
     const rawSubject = resolvePerTypeValue(unifiedSubjects, targetType);
     const subject = compileField(rawSubject, variables, targetType);
+    const html = compiledFields.html ?? '';
 
     // Skip empty non-Generic rows
     if (html.length === 0 && targetType !== TemplateType.Generic) {
@@ -100,6 +115,7 @@ export const compileUnified = (input: CompileInput): CompileOutput => {
     deliveries[targetType] = {
       html,
       ...(subject ? { subject } : {}),
+      ...(compiledFields.text ? { text: compiledFields.text } : {}),
     };
   }
 
@@ -209,21 +225,29 @@ export const seedUnifiedFromClassic = (
     }
   }
 
-  // Pre-normalize all template HTML fields and extract translation values
+  // Pre-normalize all template HTML and optional text fields
   const htmlTemplates: Record<string, string> = {};
+  const textTemplates: Record<string, string> = {};
   for (const [type, row] of Object.entries(filteredDeliveries)) {
     if (row.html) {
       htmlTemplates[type] = row.html;
     }
+    if (row.text) {
+      textTemplates[type] = row.text;
+    }
   }
 
-  // Perform diff to compute unified template content and align translation keys
+  // Perform diff to compute unified template content and optional text
   const content = performGroupedLineDiff(htmlTemplates);
+  const text = performGroupedLineDiff(textTemplates);
+
+  const template: UnifiedTemplate = {
+    content: content || '',
+    ...(text ? { text } : {}),
+  };
 
   return {
-    template: {
-      content: content || '',
-    },
+    template,
     variables: {},
     translations: classicTranslations, // Flat copy verbatim
     unifiedSubjects,

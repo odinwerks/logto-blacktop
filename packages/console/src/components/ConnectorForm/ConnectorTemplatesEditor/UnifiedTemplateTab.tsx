@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/no-abusive-eslint-disable */
 /* eslint-disable */
 import { type ConnectorConfigFormItem } from '@logto/connector-kit';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import EditIcon from '@/assets/icons/edit.svg?react';
@@ -21,7 +21,7 @@ import type {
   UnifiedTranslations,
   VariablesTable,
 } from './unified';
-import { parseIfBlocks } from './unified';
+import { fieldsForKind, parseIfBlocks } from './unified';
 
 type Props = {
   readonly kind: ConnectorKind;
@@ -32,8 +32,11 @@ type Props = {
   readonly dummyPayload: DummyPayload;
   readonly unifiedSubjects: Record<string, string>;
   readonly onUnifiedSubjectsChange: (next: Record<string, string>) => void;
+  readonly onParseError: (errorKey: string | undefined) => void;
   readonly connectorFactoryId?: string;
   readonly formItems?: ConnectorConfigFormItem[];
+  readonly compiledDeliveries?: Record<string, { subject?: string; html: string; text?: string }>;
+  readonly compiledTranslations?: UnifiedTranslations;
 };
 
 /**
@@ -52,16 +55,18 @@ function UnifiedTemplateTab({
   dummyPayload,
   unifiedSubjects,
   onUnifiedSubjectsChange,
+  onParseError,
   connectorFactoryId,
   formItems,
+  compiledDeliveries,
+  compiledTranslations,
 }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   const parseError = useMemo(() => {
-    // Content only
-    const fields: ReadonlyArray<keyof UnifiedTemplate> = ['content'];
+    const fields = fieldsForKind(kind);
 
     for (const field of fields) {
       const value = template[field] ?? '';
@@ -71,7 +76,11 @@ function UnifiedTemplateTab({
         return result.errorKey;
       }
     }
-  }, [template]);
+  }, [kind, template]);
+
+  useEffect(() => {
+    onParseError(parseError);
+  }, [parseError, onParseError]);
 
   const updateField = (field: keyof UnifiedTemplate) => (value: string) => {
     onTemplateChange({ ...template, [field]: value });
@@ -114,6 +123,17 @@ function UnifiedTemplateTab({
               }}
             />
           </FormField>
+          <FormField title="connector_details.email_templates.text_version">
+            <CodeEditor
+              className={styles.contentEditor}
+              language="text"
+              value={template.text ?? ''}
+              shouldWrap={false}
+              onChange={(value) => {
+                updateField('text')(value);
+              }}
+            />
+          </FormField>
         </div>
       </div>
 
@@ -135,6 +155,8 @@ function UnifiedTemplateTab({
         dummyPayload={dummyPayload}
         connectorFactoryId={connectorFactoryId}
         formItems={formItems}
+        compiledDeliveries={compiledDeliveries}
+        compiledTranslations={compiledTranslations}
       />
     </>
   );

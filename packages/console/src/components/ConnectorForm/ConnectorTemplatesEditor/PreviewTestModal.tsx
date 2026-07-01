@@ -23,6 +23,7 @@ import styles from './PreviewTestModal.module.scss';
 import type {
   ConnectorKind,
   DummyPayload,
+  EmailCompiledRow,
   UnifiedTemplate,
   UnifiedTranslations,
   VariablesTable,
@@ -41,6 +42,8 @@ type PreviewTestModalProps = {
   readonly connectorId?: string;
   readonly connectorFactoryId?: string;
   readonly formItems?: ConnectorConfigFormItem[];
+  readonly compiledDeliveries?: Record<string, EmailCompiledRow>;
+  readonly compiledTranslations?: UnifiedTranslations;
 };
 
 export default function PreviewTestModal({
@@ -55,6 +58,8 @@ export default function PreviewTestModal({
   connectorId,
   connectorFactoryId,
   formItems,
+  compiledDeliveries,
+  compiledTranslations,
 }: PreviewTestModalProps) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const [selectedTemplateType, setSelectedTemplateType] = useState<TemplateType>(
@@ -130,11 +135,18 @@ export default function PreviewTestModal({
 
     setIsSending(true);
     try {
-      // Parse full form config using current form values and items
+      // Parse full form config using current form values and items, then override deliveries and
+      // translations with the already-compiled preview values. This avoids the stale-mirror problem
+      // when the user clicks Send Test while the editor's debounced write-back has not flushed yet.
       const parsedConfig = configParser(watch(), formItems ?? []);
+      const configWithFreshMirror = {
+        ...parsedConfig,
+        ...(compiledDeliveries && { deliveries: compiledDeliveries }),
+        ...(compiledTranslations && { translations: compiledTranslations }),
+      };
 
       const payload = {
-        config: parsedConfig,
+        config: configWithFreshMirror,
         templateType: selectedTemplateType,
         locale: selectedLanguage,
         email: testEmail,

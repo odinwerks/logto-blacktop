@@ -10,8 +10,8 @@ import {
 } from './utils';
 
 describe('fieldsForKind', () => {
-  it('returns content for the Mailgun kind', () => {
-    expect(fieldsForKind('email-mailgun')).toEqual(['content']);
+  it('returns content and text for the Mailgun kind', () => {
+    expect(fieldsForKind('email-mailgun')).toEqual(['content', 'text']);
   });
 });
 

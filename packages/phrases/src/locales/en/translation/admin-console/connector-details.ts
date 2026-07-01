@@ -125,7 +125,7 @@ const connector_details = {
     preview_as_type: 'Preview as type',
     preview_language: 'Preview language',
     parse_error:
-      'The template has invalid <If> blocks (nested, unclosed, or with attributes other than type).',
+      'The template has invalid <If> blocks (nested, unclosed, self-closing, or with attributes other than type).',
     add_variable: 'Add variable',
     variable_key_prompt: 'Enter variable key',
     delete_variable: 'Delete variable',
@@ -135,6 +135,7 @@ const connector_details = {
     invalid_json_format: 'The JSON is not valid. Fix the syntax and try again.',
     json_must_be_object: 'The value must be a JSON object (for example, {}).',
     json_values_must_be_strings: 'All values must be strings.',
+    subject_settings: 'Subject settings',
   },
   google_one_tap: {
     title: 'Google One Tap',

@@ -124,6 +124,20 @@ describe('parseIfBlocks', () => {
       errorKey: 'if_unclosed',
     });
   });
+
+  it('rejects a self-closing <If> with if_self_closing', () => {
+    expect(parseIfBlocks('Hi <If type="SignIn" /> bye.')).toEqual({
+      success: false,
+      errorKey: 'if_self_closing',
+    });
+  });
+
+  it('rejects a self-closing <If> with single quotes', () => {
+    expect(parseIfBlocks("<If type='SignIn' />")).toEqual({
+      success: false,
+      errorKey: 'if_self_closing',
+    });
+  });
 });
 
 describe('resolveIfBlocks', () => {
@@ -167,5 +181,9 @@ describe('resolveIfBlocks', () => {
     const body = '<If type="SignIn">no close';
 
     expect(resolveIfBlocks(body, TemplateType.SignIn)).toBe(body);
+  });
+
+  it('strips self-closing <If> tags from output', () => {
+    expect(resolveIfBlocks('Hi <If type="SignIn" /> bye.', TemplateType.SignIn)).toBe('Hi  bye.');
   });
 });

@@ -148,7 +148,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
         validateConfig(config, connectorFactory.configGuard);
       }
 
-      const cleanedConfig = cleanDeep(config, { emptyObjects: false });
+      const cleanedConfig = cleanDeep(config, { emptyObjects: false, emptyStrings: false });
 
       if (enableTokenStorage) {
         assertThat(
@@ -340,7 +340,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
         validateConfig(config);
       }
 
-      const cleanedConfig = cleanDeep(config, { emptyObjects: false });
+      const cleanedConfig = cleanDeep(config, { emptyObjects: false, emptyStrings: false });
 
       if (
         type === ConnectorType.Social &&

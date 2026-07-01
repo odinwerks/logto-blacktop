@@ -36,11 +36,10 @@ const deriveUnifiedLanguages = (translations: UnifiedTranslations): LanguageTag[
 /**
  * The Localizations tab of the unified editor: a language-pills row (reusing the shared
  * `LanguageItem` + `AddLocalizationsButton`) plus an inline per-type grid editor for the selected
- * language's `Record<key, PerTypeString>` dictionary ({@link UnifiedLanguageDictEditor}).
+ * language's flat `Record<key, string>` dictionary ({@link UnifiedLanguageDictEditor}).
  *
- * At compile time the compiler flattens each language's per-type values into the namespaced
- * `{{t.K__T}}` runtime keys (see `flattenTranslationsForType`), so per-type localized overrides
- * here are honored at send time with zero send-path changes.
+ * Under Unified v4 translations are copied verbatim to the runtime `translations` field, so the
+ * flat dictionary edited here is honored at send time with zero send-path changes.
  */
 function UnifiedLocalizationsTab({ translations, onChange }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });

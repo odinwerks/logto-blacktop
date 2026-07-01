@@ -93,12 +93,52 @@ function UnifiedTemplateEditor({ connectorType, connectorFactoryId, formItems }:
     [template, unifiedSubjects]
   );
 
+  const [parseError, setParseError] = useState<string | undefined>(undefined);
+
+  // Distinguish "unified mode has never been authored" (e.g. Start Fresh toggle) from
+  // "user intentionally cleared the unified source". The flag starts true when the persisted
+  // unified template already carries authored content, and flips to true on the first non-empty
+  // edit. When false and the unified source is empty, we keep any classic rows intact.
+  const [hasEverEditedUnified, setHasEverEditedUnified] = useState(() => {
+    const parsed = safeJsonParse<UnifiedTemplate>(templateRaw);
+    const subjects = safeJsonParse<Record<string, string>>(subjectsRaw) ?? {};
+    return (
+      Object.values(parsed ?? {}).some((value) => typeof value === 'string' && value.length > 0) ||
+      Object.values(subjects).some((value) => typeof value === 'string' && value.length > 0)
+    );
+  });
+
+  useEffect(() => {
+    if (!hasEverEditedUnified && hasUnifiedContent) {
+      setHasEverEditedUnified(true);
+    }
+  }, [hasEverEditedUnified, hasUnifiedContent]);
+
   const debounceTimerRef = useRef<NodeJS.Timeout>();
   const flushRef = useRef<() => void>();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const writeBack = useCallback(() => {
+    // Never mirror a structurally invalid unified source into deliveries — malformed <If> tags
+    // would leak into sent messages. The existing mirror is kept until the error is fixed.
+    if (parseError) {
+      return;
+    }
+
+    // When the user has cleared the unified source, explicitly mirror an empty deliveries record
+    // so stale compiled rows do not survive the save. Skip this on the initial toggle into unified
+    // mode (Start Fresh) so classic rows are not clobbered before the user authors anything.
     if (!hasUnifiedContent) {
+      if (hasEverEditedUnified) {
+        const emptyRows = { Generic: { html: '' } };
+        const emptyRowsJson = safeJsonStringify(emptyRows);
+        const currentRows = getValues(rowsField);
+
+        if (emptyRowsJson !== (typeof currentRows === 'string' ? currentRows : '')) {
+          setValue(rowsField, emptyRowsJson, { shouldDirty: true });
+        }
+      }
+
       return;
     }
 
@@ -120,7 +160,15 @@ function UnifiedTemplateEditor({ connectorType, connectorFactoryId, formItems }:
     if (translationsJson !== (typeof currentTranslations === 'string' ? currentTranslations : '')) {
       setValue('formConfig.translations', translationsJson, { shouldDirty: true });
     }
-  }, [compiled, hasUnifiedContent, rowsField, setValue, getValues]);
+  }, [
+    compiled,
+    hasUnifiedContent,
+    hasEverEditedUnified,
+    parseError,
+    rowsField,
+    setValue,
+    getValues,
+  ]);
 
   useEffect(() => {
     // eslint-disable-next-line @silverhand/fp/no-mutation
@@ -128,7 +176,13 @@ function UnifiedTemplateEditor({ connectorType, connectorFactoryId, formItems }:
   }, [writeBack]);
 
   useEffect(() => {
-    if (!hasUnifiedContent) {
+    // Avoid queueing a debounce when the source is structurally invalid or when the mirror already
+    // matches. The empty-source path is handled inside writeBack so it shares the same flush logic.
+    if (parseError) {
+      return;
+    }
+
+    if (!hasUnifiedContent && !hasEverEditedUnified) {
       return;
     }
 
@@ -161,7 +215,15 @@ function UnifiedTemplateEditor({ connectorType, connectorFactoryId, formItems }:
         debounceTimerRef.current = undefined;
       }
     };
-  }, [compiled, hasUnifiedContent, writeBack, getValues, rowsField]);
+  }, [
+    compiled,
+    hasUnifiedContent,
+    hasEverEditedUnified,
+    parseError,
+    writeBack,
+    getValues,
+    rowsField,
+  ]);
 
   // Flush on form submit event
   useEffect(() => {
@@ -251,8 +313,11 @@ function UnifiedTemplateEditor({ connectorType, connectorFactoryId, formItems }:
           unifiedSubjects={unifiedSubjects}
           connectorFactoryId={connectorFactoryId}
           formItems={formItems}
+          compiledDeliveries={compiled.rows.deliveries}
+          compiledTranslations={compiled.translations}
           onTemplateChange={onTemplateChange}
           onUnifiedSubjectsChange={onUnifiedSubjectsChange}
+          onParseError={setParseError}
         />
       )}
       {activeTab === 'variables' && (

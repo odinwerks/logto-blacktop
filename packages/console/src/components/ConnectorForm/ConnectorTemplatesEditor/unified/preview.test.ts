@@ -19,10 +19,12 @@ const parseIfString = (str: string): Record<string, string> => {
 const mailgunPreviewInput = (overrides: any = {}): PreviewInput => {
   const { template, unifiedSubjects, ...rest } = overrides;
   const content = template?.content ?? (template ? undefined : '<b>{{code}}</b>');
+  const text = template?.text;
   const subjectStr = template?.subject ?? (template ? undefined : 'Code {{code}}');
 
-  const resolvedTemplate = {
+  const resolvedTemplate: PreviewInput['template'] = {
     ...(content !== undefined ? { content } : {}),
+    ...(text !== undefined ? { text } : {}),
   };
 
   const resolvedSubjects = unifiedSubjects ?? (subjectStr !== undefined ? parseIfString(subjectStr) : {});
@@ -161,6 +163,17 @@ describe('renderPreview — Mailgun', () => {
     const input = mailgunPreviewInput({ template: {} });
 
     expect(renderPreview(input, TemplateType.Generic, 'en', dummyPayload)).toEqual({});
+  });
+
+  it('renders the text part when provided', () => {
+    const input = mailgunPreviewInput({
+      template: { content: '<b>{{code}}</b>', text: 'Code: {{code}}' },
+    });
+
+    expect(renderPreview(input, TemplateType.SignIn, 'en', dummyPayload)).toEqual({
+      content: '<b>000000</b>',
+      text: 'Code: 000000',
+    });
   });
 });
 /* eslint-enable */

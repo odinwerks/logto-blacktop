@@ -21,10 +21,12 @@ const parseIfString = (str: string): Record<string, string> => {
 const mailgunInput = (overrides: any = {}): CompileInput => {
   const { template, unifiedSubjects, ...rest } = overrides;
   const content = template?.content ?? (template ? undefined : 'Your code is {{code}}.');
+  const text = template?.text ?? (template ? undefined : 'Your code is {{code}}.');
   const subjectStr = template?.subject ?? (template ? undefined : 'Code {{code}}');
 
-  const resolvedTemplate = {
+  const resolvedTemplate: CompileInput['template'] = {
     ...(content !== undefined ? { content } : {}),
+    ...(text !== undefined ? { text } : {}),
   };
 
   const resolvedSubjects = unifiedSubjects ?? (subjectStr !== undefined ? parseIfString(subjectStr) : {});
@@ -113,6 +115,47 @@ describe('compileUnified — Mailgun', () => {
     expect(output.rows.deliveries[TemplateType.Generic]).toEqual({ html: '' });
     // Non-Generic empty types are skipped.
     expect(output.rows.deliveries[TemplateType.SignIn]).toBeUndefined();
+  });
+
+  it('emits both html and text parts when text is provided', () => {
+    const output = compileUnified(
+      mailgunInput({
+        template: {
+          content: '<b>{{code}}</b>',
+          text: 'Code: {{code}}',
+        },
+      })
+    );
+
+    const signIn = output.rows.deliveries[TemplateType.SignIn];
+    expect(signIn).toEqual({
+      html: '<b>{{code}}</b>',
+      text: 'Code: {{code}}',
+    });
+  });
+
+  it('resolves <If> blocks in both html and text parts', () => {
+    const output = compileUnified(
+      mailgunInput({
+        template: {
+          content: '<If type="SignIn">Sign in HTML</If>',
+          text: '<If type="SignIn">Sign in text</If>',
+        },
+      })
+    );
+
+    expect(output.rows.deliveries[TemplateType.SignIn]).toEqual({
+      html: 'Sign in HTML',
+      text: 'Sign in text',
+    });
+    expect(output.rows.deliveries[TemplateType.Register]).toBeUndefined();
+  });
+
+  it('omits text when the unified template does not define it', () => {
+    const output = compileUnified(mailgunInput({ template: { content: '<b>{{code}}</b>' } }));
+
+    expect(output.rows.deliveries[TemplateType.SignIn]).toEqual({ html: '<b>{{code}}</b>' });
+    expect(output.rows.deliveries[TemplateType.SignIn]?.text).toBeUndefined();
   });
 
   it('copies translations verbatim and inlines variables but leaves inline {{t.keyName}} intact', () => {

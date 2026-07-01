@@ -38,6 +38,12 @@ const looseIfOpenerPattern = /<If\b/gu;
 const nestedIfProbePattern = /<If\b/u;
 
 /**
+ * Matches self-closing `<If type="…" />` tags. These are not supported (they are neither a paired
+ * block nor valid standalone content) and must be surfaced as {@link IfErrorKey.if_self_closing}.
+ */
+const selfClosingIfPattern = /<If\s+type\s*=\s*["'][^"']*["']\s*\/>/gu;
+
+/**
  * Extracts every attribute name from a loose opening-tag attribute run (the text between `If` and
  * `>`), e.g. ` type="SignIn" foo="bar"` → `['type', 'foo']`. Used to reject attributes other than
  * `type`.
@@ -101,6 +107,10 @@ const reduceMatchError = (match: RegExpExecArray): IfErrorKey | undefined => {
 export const parseIfBlocks = (body: string): ParseIfResult => {
   if (body.length === 0) {
     return { success: true, segments: [] };
+  }
+
+  if ([...body.matchAll(selfClosingIfPattern)].length > 0) {
+    return { success: false, errorKey: 'if_self_closing' };
   }
 
   const matches = [...body.matchAll(looseIfBlockPattern)];
@@ -178,16 +188,23 @@ export const resolveIfBlocks = (body: string, targetType: TemplateType): string 
     return '';
   }
 
-  return body.replaceAll(strictIfBlockPattern, (fullMatch, typeLiteral: string, inner: string) => {
-    const matched = matchTemplateType(typeLiteral);
+  // Always strip self-closing `<If>` tags so they can never leak into rendered output, even when
+  // the parser's structural error is ignored by a caller.
+  const normalized = body.replaceAll(selfClosingIfPattern, '');
 
-    // Unknown type literal → drop the whole block (do not leak `<If>` literal text into a sent
-    // message). A known type that does not match `targetType` → also drop. A matching type → keep
-    // the inner verbatim.
-    if (!matched || matched !== targetType) {
-      return '';
+  return normalized.replaceAll(
+    strictIfBlockPattern,
+    (fullMatch, typeLiteral: string, inner: string) => {
+      const matched = matchTemplateType(typeLiteral);
+
+      // Unknown type literal → drop the whole block (do not leak `<If>` literal text into a sent
+      // message). A known type that does not match `targetType` → also drop. A matching type → keep
+      // the inner verbatim.
+      if (!matched || matched !== targetType) {
+        return '';
+      }
+
+      return inner;
     }
-
-    return inner;
-  });
+  );
 };

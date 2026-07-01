@@ -47,15 +47,17 @@ export type ConnectorKind = 'email-mailgun';
 /**
  * The single canonical unified template body for a connector. Carries optional `<If type="…">`
  * blocks that the compiler expands into per-usageType rows. `{{var.X}}` placeholders are inlined
- * at compile time; `{{t.K}}` placeholders are rewritten to namespaced `{{t.K__T}}` keys so the
- * existing runtime resolver resolves per-type localizations with zero send-path changes.
+ * at compile time; `{{t.K}}` placeholders are passed through verbatim and resolved at runtime by
+ * the existing send path.
  *
- * Email (Mailgun): `subject`, `html` (carried in the `content` field), and an optional `text`
- * plain-text part are used.
+ * Email (Mailgun): the `content` field carries the email HTML body, and an optional `text` field
+ * carries the plain-text part. Subjects are stored separately in {@link unifiedSubjects}.
  */
 export type UnifiedTemplate = {
   /** The email HTML body (Mailgun). Emitted as the deliveries row's `html` field. */
   content?: string;
+  /** The optional plain-text body (Mailgun). Emitted as the deliveries row's `text` field. */
+  text?: string;
 };
 
 /**
@@ -163,7 +165,12 @@ export type IfSegment =
  * NOT an error — the resolver drops the block (see {@link resolveIfBlocks}); only structural
  * malformations (nesting, extra attributes, unclosed/empty type) are surfaced.
  */
-export type IfErrorKey = 'if_unclosed' | 'if_nested' | 'if_invalid_attr' | 'if_empty_type';
+export type IfErrorKey =
+  | 'if_unclosed'
+  | 'if_nested'
+  | 'if_invalid_attr'
+  | 'if_empty_type'
+  | 'if_self_closing';
 
 /** Result of parsing a unified body into segments. */
 export type ParseIfResult =
