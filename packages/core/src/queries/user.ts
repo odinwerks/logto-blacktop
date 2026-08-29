@@ -171,6 +171,13 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
       where ${fields.id}=${id}
     `);
 
+  const findUserStatusById = async (id: string) =>
+    pool.maybeOne<Pick<User, 'id' | 'isSuspended'>>(sql`
+      select ${fields.id}, ${fields.isSuspended}
+      from ${table}
+      where ${fields.id}=${id}
+    `);
+
   const findUserByIdentity = async (target: string, userId: string) =>
     pool.maybeOne<User>(
       sql`
@@ -542,6 +549,7 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
     findUserByPhone,
     findUserByNormalizedPhone,
     findUserById,
+    findUserStatusById,
     findUserByWebAuthnCredential,
     findUserByIdentity,
     hasUser,

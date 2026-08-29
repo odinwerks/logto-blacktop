@@ -9,7 +9,7 @@ import { koaManagementApiHooks } from '#src/middleware/koa-management-api-hooks.
 import koaTenantGuard from '#src/middleware/koa-tenant-guard.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 
-import koaAuth from '../middleware/koa-auth/index.js';
+import koaAuth, { koaManagementApiAuth } from '../middleware/koa-auth/index.js';
 import koaOidcAuth from '../middleware/koa-auth/koa-oidc-auth.js';
 import koaCors from '../middleware/koa-cors.js';
 import koaEmailI18n from '../middleware/koa-email-i18n.js';
@@ -20,7 +20,6 @@ import accountCentersRoutes from './account-center/index.js';
 import adminUserRoutes from './admin-user/index.js';
 import applicationRoutes from './applications/application.js';
 import authnRoutes from './authn.js';
-import appAssetsServeRoutes from './app-assets-serve.js';
 import captchaProviderRoutes from './captcha-provider/index.js';
 import cimdRoutes from './cimd.js';
 import connectorRoutes from './connector/index.js';
@@ -39,6 +38,7 @@ import organizationRoutes from './organization/index.js';
 import publicWellKnownRoutes from './public-wellknown.js';
 import resourceRoutes from './resource.js';
 import resourceScopeRoutes from './resource.scope.js';
+import respondentVerificationRoutes from './respondent-verification.js';
 import roleRoutes from './role.js';
 import roleScopeRoutes from './role.scope.js';
 import samlApplicationAnonymousRoutes from './saml-application/anonymous.js';
@@ -103,6 +103,15 @@ const createRouters = (tenant: TenantContext) => {
   secretsRoutes(managementRouter, tenant);
   cimdRoutes(managementRouter, tenant);
 
+  const respondentVerificationRouter: ManagementApiRouter = new Router();
+  respondentVerificationRouter.use(
+    koaAuditLog(tenant.queries),
+    koaManagementApiAuth(tenant.envSet, getManagementApiResourceIndicator(tenant.id)),
+    koaTenantGuard(tenant.id, tenant.queries),
+    koaManagementApiHooks(tenant.libraries.hooks)
+  );
+  respondentVerificationRoutes(respondentVerificationRouter, tenant);
+
   // General anonymous router for publicly accessible APIs
   const anonymousRouter: AnonymousRouter = new Router();
 
@@ -123,14 +132,27 @@ const createRouters = (tenant: TenantContext) => {
 
   wellKnownOpenApiRoutes(anonymousRouter, {
     experienceRouters: [experienceRouter],
-    managementRouters: [managementRouter, anonymousRouter],
+    managementRouters: [respondentVerificationRouter, managementRouter, anonymousRouter],
     userRouters: [userRouter],
   });
 
   // The swagger.json should contain all API routers.
-  swaggerRoutes(anonymousRouter, [managementRouter, anonymousRouter, experienceRouter, userRouter]);
+  swaggerRoutes(anonymousRouter, [
+    respondentVerificationRouter,
+    managementRouter,
+    anonymousRouter,
+    experienceRouter,
+    userRouter,
+  ]);
 
-  return [experienceRouter, interactionRouter, managementRouter, anonymousRouter, userRouter];
+  return [
+    experienceRouter,
+    interactionRouter,
+    respondentVerificationRouter,
+    managementRouter,
+    anonymousRouter,
+    userRouter,
+  ];
 };
 
 export default function initApis(tenant: TenantContext): Koa {
