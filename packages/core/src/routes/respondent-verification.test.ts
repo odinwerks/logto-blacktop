@@ -76,7 +76,7 @@ describe('respondent verification routes', () => {
     expect(findUserStatusById).not.toHaveBeenCalled();
   });
 
-  it('accepts an exact session at the inactivity boundary', async () => {
+  it('accepts a live session at the inactivity boundary', async () => {
     const response = await requester.post('/users/user_id/session-verifications').send({
       clientId: 'client_id',
       sid: 'sid',
@@ -96,7 +96,7 @@ describe('respondent verification routes', () => {
     expect(findExactSessionActivity).toHaveBeenCalledWith('user_id', 'client_id', 'sid');
   });
 
-  it('coarsens stale, duplicate, missing, and suspended sessions to not_active', async () => {
+  it('coarsens stale, missing, and suspended sessions to not_active', async () => {
     findExactSessionActivity.mockResolvedValueOnce({
       state: 'ambiguous',
       evaluatedAt: Date.parse('2026-08-29T12:00:00.000Z'),
@@ -115,6 +115,95 @@ describe('respondent verification routes', () => {
       evaluatedAt: '2026-08-29T12:00:00.000Z',
       maxInactivitySeconds: 90,
     });
+  });
+
+  it('forwards the presented (userId, clientId, sid) tuple to the account+client binding', async () => {
+    const response = await requester.post('/users/user_id/session-verifications').send({
+      clientId: 'client_2aksm',
+      sid: 'forms_authorization_sid',
+      maxInactivitySeconds: 90,
+    });
+
+    // The route passes the presented sid straight through; the account+client resolution
+    // (sid -> session -> accept activity on any live session of the same account+client)
+    // is exercised at the query layer.
+    expect(findExactSessionActivity).toHaveBeenCalledWith(
+      'user_id',
+      'client_2aksm',
+      'forms_authorization_sid'
+    );
+    expect(response.status).toBe(200);
+    expect(response.body.valid).toBe(true);
+  });
+
+  it('returns not_active when no live session of the account+client has activity', async () => {
+    findExactSessionActivity.mockResolvedValueOnce({
+      state: 'not_found',
+      evaluatedAt: Date.parse('2026-08-29T12:00:00.000Z'),
+    });
+
+    const response = await requester.post('/users/user_id/session-verifications').send({
+      clientId: 'client_id',
+      sid: 'unresolvable_or_inactive_sid',
+      maxInactivitySeconds: 90,
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toStrictEqual({
+      contractVersion: 1,
+      valid: false,
+      reason: 'not_active',
+      evaluatedAt: '2026-08-29T12:00:00.000Z',
+      maxInactivitySeconds: 90,
+    });
+  });
+
+  it('returns not_active when the resolved session activity is stale', async () => {
+    // Last_active_at is 10 minutes old -> inactivity exceeds the 90 s gate.
+    findExactSessionActivity.mockResolvedValueOnce({
+      state: 'found',
+      evaluatedAt: Date.parse('2026-08-29T12:00:00.000Z'),
+      session: {
+        sessionExpiresAt: Date.parse('2026-08-29T13:00:00.000Z'),
+        lastActiveAt: Date.parse('2026-08-29T11:50:00.000Z'),
+      },
+    });
+
+    const response = await requester.post('/users/user_id/session-verifications').send({
+      clientId: 'client_id',
+      sid: 'sid',
+      maxInactivitySeconds: 90,
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      contractVersion: 1,
+      valid: false,
+      reason: 'not_active',
+      maxInactivitySeconds: 90,
+    });
+  });
+
+  it('returns not_active when the resolved session row is already expired', async () => {
+    // SessionExpiresAt is at/before evaluatedAt -> expired, coarsened to not_active.
+    findExactSessionActivity.mockResolvedValueOnce({
+      state: 'found',
+      evaluatedAt: Date.parse('2026-08-29T12:00:00.000Z'),
+      session: {
+        sessionExpiresAt: Date.parse('2026-08-29T11:59:00.000Z'),
+        lastActiveAt: Date.parse('2026-08-29T11:58:30.000Z'),
+      },
+    });
+
+    const response = await requester.post('/users/user_id/session-verifications').send({
+      clientId: 'client_id',
+      sid: 'sid',
+      maxInactivitySeconds: 90,
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.valid).toBe(false);
+    expect(response.body.reason).toBe('not_active');
   });
 
   it.each([59, 121, 90.5])('rejects invalid maxInactivitySeconds %p', async (value) => {

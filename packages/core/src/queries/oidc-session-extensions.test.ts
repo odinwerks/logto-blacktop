@@ -16,7 +16,12 @@ describe('findExactSessionActivity', () => {
     jest.clearAllMocks();
   });
 
-  it('returns the exact raw timestamps for one tuple match', async () => {
+  // Bound-parameter order for the account+client query:
+  //   sid_session CTE:  'Session', accountId, clientId, sid
+  //   matches CTE:      accountId (ext join), 'Session', accountId (payload), clientId (?)
+  const boundParams = ['Session', 'user', 'client', 'sid', 'user', 'Session', 'user', 'client'];
+
+  it('returns the freshest session activity for one live session match', async () => {
     mockQuery.mockResolvedValueOnce(
       createMockQueryResult([{ evaluatedAt: 2000, sessionExpiresAt: 3000, lastActiveAt: 1000 }])
     );
@@ -26,10 +31,10 @@ describe('findExactSessionActivity', () => {
       evaluatedAt: 2000,
       session: { sessionExpiresAt: 3000, lastActiveAt: 1000 },
     });
-    expect(mockQuery.mock.calls[0]?.[1]).toEqual(['user', 'Session', 'user', 'client', 'sid']);
+    expect(mockQuery.mock.calls[0]?.[1]).toEqual(boundParams);
   });
 
-  it('detects zero tuple matches', async () => {
+  it('detects no live session with activity (unresolvable sid or no heartbeat)', async () => {
     mockQuery.mockResolvedValueOnce(
       createMockQueryResult([{ evaluatedAt: 2000, sessionExpiresAt: null, lastActiveAt: null }])
     );
@@ -38,9 +43,13 @@ describe('findExactSessionActivity', () => {
       state: 'not_found',
       evaluatedAt: 2000,
     });
+    expect(mockQuery.mock.calls[0]?.[1]).toEqual(boundParams);
   });
 
-  it('detects multiple tuple matches', async () => {
+  it('collapses multiple live sessions to the freshest (never ambiguous)', async () => {
+    // The query emits LIMIT 1 ORDER BY last_active_at DESC, so the DB only ever returns
+    // one row. A defensive two-row mock still resolves 'found' is impossible — the code
+    // treats >1 as ambiguous; assert it stays a safe non-found coarse state.
     mockQuery.mockResolvedValueOnce(
       createMockQueryResult([
         { evaluatedAt: 2000, sessionExpiresAt: 3000, lastActiveAt: 1000 },

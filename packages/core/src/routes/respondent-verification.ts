@@ -54,6 +54,7 @@ export default function respondentVerificationRoutes<T extends ManagementApiRout
     async (ctx) => {
       const { userId } = ctx.guard.params;
       const { clientId, sid, maxInactivitySeconds } = ctx.guard.body;
+
       const user = await queries.users.findUserStatusById(userId);
       const sessionResult = await queries.oidcSessionExtensions.findExactSessionActivity(
         userId,

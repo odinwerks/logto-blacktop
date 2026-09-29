@@ -7,7 +7,7 @@ import {
 import { createUserByAdmin } from '#src/helpers/index.js';
 
 describe('respondent verification management contract', () => {
-  it('returns minimal status and a coarse denial for an unknown exact session', async () => {
+  it('returns minimal status and a coarse denial for an unknown session', async () => {
     const user = await createUserByAdmin();
 
     try {

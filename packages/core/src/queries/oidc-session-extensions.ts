@@ -32,6 +32,9 @@ type ExactSessionActivity = {
   lastActiveAt: number;
 };
 
+// 'ambiguous' is retained for backward compatibility with the original exact-tuple
+// semantics; the account+client query returns at most one row (freshest activity), so it
+// is unreachable in the current implementation.
 type ExactSessionActivityResult =
   | { state: 'found'; evaluatedAt: number; session: ExactSessionActivity }
   | { state: 'not_found' | 'ambiguous'; evaluatedAt: number };
@@ -137,6 +140,28 @@ export class OidcSessionExtensionsQueries {
         and ${modelInstanceFields.expiresAt} > ${convertToTimestamp()}
     `);
   }
+  /**
+   * Verifies tab-liveness for a (account, client) binding.
+   *
+   * The presented `sid` is a per-client authorization sid (Session payload
+   * `authorizations[clientId].sid`). It resolves to (accountId, clientId) via the Session
+   * instance that carries it. The check then accepts a heartbeat written under ANY live
+   * (non-expired) Session of the SAME account that is authorized for the SAME client —
+   * the semantics are "a logged-in tab on this account+client is open and visible," NOT
+   * that the sid's own cookie-session is heartbeating (the iframe that presents `sid`
+   * cannot itself heartbeat).
+   *
+   * Fail-closed everywhere else: an unresolvable sid (no live Session of this
+   * account+client carries it), activity only on a different account, activity only on a
+   * different client, a stale `last_active_at` (> maxInactivitySeconds, enforced by the
+   * route), or only dead/expired sessions all yield `not_found`. The inner join restricts
+   * matches to live Session rows, so orphaned extension rows never count.
+   *
+   * When multiple live sessions qualify (e.g. two devices), the freshest `last_active_at`
+   * wins; its Session `expires_at` is returned as `sessionExpiresAt`. The result is
+   * therefore at most one row — 'ambiguous' is unreachable and retained only in the
+   * result type for backward compatibility.
+   */
   async findExactSessionActivity(
     accountId: string,
     clientId: string,
@@ -145,6 +170,15 @@ export class OidcSessionExtensionsQueries {
     const rows = await this.pool.any<ExactSessionActivityRow>(sql`
       with evaluation as (
         select now() as evaluated_at
+      ), sid_session as (
+        select 1
+        from ${modelInstanceTable}
+        cross join evaluation
+        where ${modelInstanceFields.modelName} = ${sessionModelName}
+          and ${modelInstanceFields.payload} ->> 'accountId' = ${accountId}
+          and ${modelInstanceFields.payload} -> 'authorizations' -> ${clientId} ->> 'sid' = ${sid}
+          and ${modelInstanceFields.expiresAt} > evaluation.evaluated_at
+        limit 1
       ), matches as (
         select
           ${modelInstanceFields.expiresAt} as session_expires_at,
@@ -156,10 +190,12 @@ export class OidcSessionExtensionsQueries {
         cross join evaluation
         where ${modelInstanceFields.modelName} = ${sessionModelName}
           and ${modelInstanceFields.payload} ->> 'accountId' = ${accountId}
-          and ${modelInstanceFields.payload} -> 'authorizations' -> ${clientId} ->> 'sid' = ${sid}
+          and ${modelInstanceFields.payload} -> 'authorizations' ? ${clientId}
           and ${modelInstanceFields.expiresAt} > evaluation.evaluated_at
           and ${fields.lastActiveAt} is not null
-        limit 2
+          and exists (select 1 from sid_session)
+        order by ${fields.lastActiveAt} desc
+        limit 1
       )
       select
         (extract(epoch from matches.session_expires_at) * 1000)::double precision
@@ -206,12 +242,35 @@ export class OidcSessionExtensionsQueries {
   }
 
   /**
-   * Blacktop: heartbeat — upserts last_active_at for the given session.
-   * The WHERE clause enforces a 25-second minimum interval — if last_active_at is
-   * less than 25 s old the DO UPDATE branch is skipped (rowCount === 0).
-   * Returns true if the timestamp was written, false if rate-limited.
+   * Upserts last_active_at for the given session.
+   *
+   * Resurrection guard: the write only proceeds if a LIVE Session instance still exists for
+   * (sessionUid, accountId). A heartbeat carrying a sessionUid whose Session row was
+   * destroyed (logout / `session.destroyed`) or expired is a no-op — it must not recreate
+   * an orphaned extension row for a dead session.
+   *
+   * The DO UPDATE WHERE clause enforces a 25-second minimum interval — if last_active_at is
+   * less than 25 s old the update branch is skipped (rowCount === 0).
+   * Returns true if the timestamp was written, false if rate-limited or the session is gone.
    */
   async updateLastActiveAt(sessionUid: string, accountId: string): Promise<boolean> {
+    // Resurrection guard: refuse to write unless a LIVE Session instance still exists for
+    // (sessionUid, accountId). A destroyed/expired session must not be revived by an
+    // in-flight heartbeat recreating an orphaned extension row.
+    const sessionExists = await this.pool.exists(sql`
+      select 1
+      from ${modelInstanceTable}
+      where ${modelInstanceFields.modelName} = ${sessionModelName}
+        and ${modelInstanceFields.payload} ->> 'uid' = ${sessionUid}
+        and ${modelInstanceFields.payload} ->> 'accountId' = ${accountId}
+        and ${modelInstanceFields.expiresAt} > ${convertToTimestamp()}
+      limit 1
+    `);
+
+    if (!sessionExists) {
+      return false;
+    }
+
     const result = await this.pool.query(sql`
       insert into ${table} (${fields.sessionUid}, ${fields.accountId}, ${fields.lastActiveAt})
       values (${sessionUid}, ${accountId}, ${convertToTimestamp()})

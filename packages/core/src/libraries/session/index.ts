@@ -20,11 +20,13 @@ export { assignInteractionResults } from './interaction.js';
 /**
  * Converts a raw DB lastActiveAt timestamp (ms epoch, or null) to the API string value.
  * - null  → null (no heartbeat ever received)
- * - < 60s ago → "now" (session is actively heartbeating)
+ * - < 60s ago → "now" (a logged-in tab on this session is open and visible)
  * - otherwise → ISO 8601 string
  *
- * The 60-second threshold is 2× the 30-second client heartbeat interval, giving
- * enough headroom for network latency and timer jitter.
+ * `lastActiveAt` reflects tab-liveness, not human activity: the heartbeat is a
+ * visibility-gated timer, so "now" means the tab is open in a visible window, not that a
+ * user is interacting. The 60-second threshold is 2× the 30-second client heartbeat
+ * interval, giving enough headroom for network latency and timer jitter.
  */
 const toLastActiveAtString = (lastActiveAt: Nullable<number>): Nullable<string> => {
   if (lastActiveAt === null) {
