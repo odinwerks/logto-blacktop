@@ -4,6 +4,7 @@ import {
   SignInIdentifier,
   type VerificationCodeIdentifier,
 } from '@logto/schemas';
+import i18next from 'i18next';
 
 import { type ContinueFlowInteractionEvent } from '@/types';
 
@@ -118,6 +119,9 @@ export const sendVerificationCode = async (
       json: {
         interactionEvent,
         identifier,
+        // Blacktop: pass the UI language so verification emails match the displayed
+        // language even when OIDC ui_locales says otherwise.
+        locale: i18next.language,
       },
     })
     .json<VerificationResponse>();

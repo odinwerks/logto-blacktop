@@ -5,6 +5,9 @@ export type DeviceDisplayMetadata = {
   readonly userAgent?: string;
   readonly country?: string;
   readonly city?: string;
+  // Blacktop: client-hints-derived device string captured at sign-in; preferred over
+  // anything parsed from the UA string.
+  readonly device?: string;
 };
 
 type SignInContext = DeviceDisplayMetadata & {
@@ -55,7 +58,7 @@ export type UserApplicationGrantGroup = {
   readonly grantIds: string[];
 };
 
-const signInContextKeys = ['ip', 'userAgent', 'country', 'city'] as const;
+const signInContextKeys = ['ip', 'userAgent', 'country', 'city', 'device'] as const;
 
 const hasOptionalStringProperty = (value: object, key: (typeof signInContextKeys)[number]) => {
   const property: unknown = Reflect.get(value, key);
@@ -117,11 +120,12 @@ export const getDeviceDisplayInfo = ({
   userAgent,
   country,
   city,
+  device,
 }: DeviceDisplayMetadata): DeviceDisplayInfo => {
   const parsed = getParsedUserAgentInfo(userAgent);
 
   return {
-    name: formatDeviceName(parsed),
+    name: device ?? formatDeviceName(parsed),
     location: formatDeviceLocation({ country, city }),
     city,
     country,
