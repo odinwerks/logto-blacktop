@@ -9,6 +9,7 @@ import useApi from '@ac/hooks/use-api';
 import { useSessionHeartbeat } from '@ac/hooks/use-session-heartbeat';
 import { changeLanguage, getPreferredLanguage } from '@ac/i18n/utils';
 import { getUiLocales } from '@ac/utils/account-center-route';
+import { isVisibleField } from '@ac/utils/security-page';
 import { getThemeBySystemPreference, subscribeToSystemTheme } from '@ac/utils/theme';
 
 import type { PageContextType } from './PageContext';
@@ -189,7 +190,9 @@ const PageContextProvider = ({ children }: Props) => {
     };
   }, [experienceSettings]);
 
-  useSessionHeartbeat(isAuthenticated);
+  // Heartbeat only when the sessions page is enabled — otherwise the endpoint 403s and every
+  // beat is swallowed noise (Blacktop `lastActiveAt`).
+  useSessionHeartbeat(isAuthenticated && isVisibleField(accountCenterSettings?.fields.session));
 
   const platform = getInitialPlatform();
 

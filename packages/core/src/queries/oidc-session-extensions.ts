@@ -134,8 +134,9 @@ export class OidcSessionExtensionsQueries {
       values (${sessionUid}, ${accountId}, ${convertToTimestamp()})
       on conflict (${fields.tenantId}, ${fields.sessionUid}) do update
         set ${fields.lastActiveAt} = ${convertToTimestamp()}
-        where ${table}.${fields.lastActiveAt} is null
-           or ${table}.${fields.lastActiveAt} < ${convertToTimestamp(new Date(Date.now() - 25_000))}
+        where ${table}.${fields.accountId} = ${accountId}
+          and (${table}.${fields.lastActiveAt} is null
+           or ${table}.${fields.lastActiveAt} < ${convertToTimestamp(new Date(Date.now() - 25_000))})
     `);
     return result.rowCount > 0;
   }
