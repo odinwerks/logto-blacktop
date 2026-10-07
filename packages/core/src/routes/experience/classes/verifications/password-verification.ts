@@ -9,7 +9,10 @@ import { generateStandardId } from '@logto/shared';
 import { conditional } from '@silverhand/essentials';
 
 import RequestError from '#src/errors/RequestError/index.js';
-import { verifyPasswordExpirationPolicy } from '#src/libraries/password-expiration.js';
+import {
+  type PasswordExpirationReminder,
+  verifyPasswordExpirationPolicy,
+} from '#src/libraries/password-expiration.js';
 import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
@@ -22,6 +25,19 @@ export {
   type PasswordVerificationRecordData,
   passwordVerificationRecordDataGuard,
 } from '@logto/schemas';
+
+type PasswordExpirationSuccess = {
+  kind: 'success';
+  user: User;
+};
+
+type PasswordExpirationReminderResult = {
+  kind: 'reminder';
+  user: User;
+  reminder: PasswordExpirationReminder;
+};
+
+type PasswordExpirationResult = PasswordExpirationSuccess | PasswordExpirationReminderResult;
 
 export class PasswordVerification
   implements IdentifierVerificationRecord<VerificationType.Password>
@@ -150,13 +166,28 @@ export class PasswordVerification
    * The route keeps this outside the sentinel guard so expired passwords do not count as failed
    * credential attempts.
    *
+   * @returns `{ kind: 'reminder', reminder }` when the password is inside the configured reminder
+   * window, `{ kind: 'success' }` otherwise.
    * @throws RequestError with 422 status if the password is already expired, or if an enabled
    * policy has an invalid valid period.
    */
-  async verifyPasswordExpiration(user: User): Promise<void> {
+  async verifyPasswordExpiration(user: User): Promise<PasswordExpirationResult> {
     const { passwordExpiration } =
       await this.queries.signInExperiences.findDefaultSignInExperience();
 
-    verifyPasswordExpirationPolicy(passwordExpiration, user);
+    const reminder = verifyPasswordExpirationPolicy(passwordExpiration, user);
+
+    if (reminder) {
+      return {
+        kind: 'reminder',
+        user,
+        reminder,
+      };
+    }
+
+    return {
+      kind: 'success',
+      user,
+    };
   }
 }

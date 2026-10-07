@@ -314,6 +314,18 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
             status: 422,
           })
         );
+
+        // A configured reminder window must be strictly shorter than the valid period; a reminder
+        // at or past the valid period would fire on every sign-in.
+        assertThat(
+          currentPasswordExpiration.reminderPeriodDays === undefined ||
+            currentPasswordExpiration.reminderPeriodDays <
+              currentPasswordExpiration.validPeriodDays,
+          new RequestError({
+            code: 'sign_in_experiences.password_expiration_invalid_period_days',
+            status: 422,
+          })
+        );
       }
 
       /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */

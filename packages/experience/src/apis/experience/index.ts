@@ -9,7 +9,11 @@ import { type ContinueFlowInteractionEvent } from '@/types';
 
 import api from '../api';
 
-import { experienceApiRoutes, type VerificationResponse } from './const';
+import {
+  experienceApiRoutes,
+  type PasswordVerificationResponse,
+  type VerificationResponse,
+} from './const';
 import {
   initInteraction,
   identifyUser,
@@ -73,14 +77,18 @@ export const signInWithPasswordIdentifier = async (
 ) => {
   await initInteraction(InteractionEvent.SignIn, captchaToken);
 
-  const { verificationId } = await api
+  // The caller decides how to proceed: when the response carries password expiration
+  // reminder metadata, the user chooses between resetting the password and continuing
+  // sign-in with `continueSignInWithPasswordIdentifier`.
+  return api
     .post(`${experienceApiRoutes.verification}/password`, {
       json: payload,
     })
-    .json<VerificationResponse>();
-
-  return identifyAndSubmitInteraction({ verificationId });
+    .json<PasswordVerificationResponse>();
 };
+
+export const continueSignInWithPasswordIdentifier = async (verificationId: string) =>
+  identifyAndSubmitInteraction({ verificationId });
 
 export const registerWithUsername = async (username: string, captchaToken?: string) => {
   await initInteraction(InteractionEvent.Register, captchaToken);

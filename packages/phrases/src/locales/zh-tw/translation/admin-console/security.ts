@@ -105,6 +105,10 @@ const security = {
     expiration_period: '密碼有效期限（天）',
     expiration_period_description: '密碼在過期前保持有效的天數。密碼有效期限必須至少為 1 天。',
     expiration_period_error: '密碼有效期限必須在 {{min}} 至 {{max}} 天之間。',
+    expiration_reminder: '過期提醒（過期前天數）',
+    expiration_reminder_description:
+      '在過期前多少天提醒用戶並提示重置密碼。用戶可以跳過提醒並繼續登錄。過期提醒期限必須在 0 和有效期限（{{max}} 天）之間。',
+    expiration_reminder_error: '過期提醒期限必須在 0 和有效期限（{{max}} 天）之間。',
     password_expiration_recovery_reminder:
       '部分使用者可能沒有電子郵件地址或電話號碼來接收密碼復原驗證碼，因此無法重設已過期的密碼。請在註冊時要求提供電子郵件地址或電話號碼，以確保每位使用者都能復原其密碼。',
   },

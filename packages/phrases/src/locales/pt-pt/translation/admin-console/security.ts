@@ -114,6 +114,11 @@ const security = {
       'Número de dias que uma palavra-passe permanece válida antes de expirar.',
     expiration_period_error:
       'O período de validade da palavra-passe deve estar entre {{min}} e {{max}} dias.',
+    expiration_reminder: 'Lembrete de expiração (dias antes da expiração)',
+    expiration_reminder_description:
+      'Número de dias antes da expiração para avisar os utilizadores e solicitar uma redefinição de palavra-passe. Os utilizadores podem ignorar o lembrete e prosseguir com o início de sessão.',
+    expiration_reminder_error:
+      'O período do lembrete de expiração deve estar entre 0 e o período de validade ({{max}} dias).',
     password_expiration_recovery_reminder:
       'Alguns utilizadores podem não ter um endereço de e-mail ou número de telefone para receber um código de recuperação da palavra-passe, pelo que não poderão repor uma palavra-passe expirada. Exija um endereço de e-mail ou número de telefone no registo para garantir que todos os utilizadores possam recuperar a sua palavra-passe.',
   },

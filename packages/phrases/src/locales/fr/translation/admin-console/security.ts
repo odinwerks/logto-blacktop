@@ -115,6 +115,11 @@ const security = {
       "Nombre de jours pendant lesquels un mot de passe reste valide avant d'expirer.",
     expiration_period_error:
       'La période de validité du mot de passe doit être comprise entre {{min}} et {{max}} jours.',
+    expiration_reminder: "Rappel d'expiration (jours avant l'expiration)",
+    expiration_reminder_description:
+      "Nombre de jours avant l'expiration pour avertir les utilisateurs et les inviter à réinitialiser leur mot de passe. Les utilisateurs peuvent ignorer le rappel et poursuivre la connexion.",
+    expiration_reminder_error:
+      "La période de rappel d'expiration doit être comprise entre 0 et la période de validité ({{max}} jours).",
     password_expiration_recovery_reminder:
       "Certains utilisateurs n'ont peut-être pas d'adresse e-mail ou de numéro de téléphone pour recevoir un code de récupération de mot de passe, et ne pourront donc pas réinitialiser un mot de passe expiré. Exigez une adresse e-mail ou un numéro de téléphone lors de l'inscription pour vous assurer que chaque utilisateur peut récupérer son mot de passe.",
   },

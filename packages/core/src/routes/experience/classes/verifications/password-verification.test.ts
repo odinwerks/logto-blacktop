@@ -113,7 +113,66 @@ describe('PasswordVerification', () => {
     const verification = createVerification();
 
     await expect(verification.verify(password)).resolves.toEqual(user);
-    await expect(verification.verifyPasswordExpiration(user)).resolves.toBeUndefined();
+    await expect(verification.verifyPasswordExpiration(user)).resolves.toEqual({
+      kind: 'success',
+      user,
+    });
+    expect(verification.isVerified).toBe(true);
+  });
+
+  it('should return reminder metadata when password is in the reminder window', async () => {
+    const user = {
+      ...mockUser,
+      passwordUpdatedAt: now.getTime() - 28 * dayInMs,
+    } satisfies User;
+
+    findUserByUsername.mockResolvedValueOnce(user);
+    verifyUserPassword.mockResolvedValueOnce(user);
+    findDefaultSignInExperience.mockResolvedValueOnce({
+      ...mockSignInExperience,
+      passwordExpiration: {
+        enabled: true,
+        validPeriodDays: 30,
+        reminderPeriodDays: 5,
+      },
+    } satisfies SignInExperience);
+
+    const verification = createVerification();
+
+    await expect(verification.verify(password)).resolves.toEqual(user);
+    await expect(verification.verifyPasswordExpiration(user)).resolves.toEqual({
+      kind: 'reminder',
+      user,
+      reminder: {
+        daysUntilExpiration: 2,
+      },
+    });
+    expect(verification.isVerified).toBe(true);
+  });
+
+  it('should not return reminder metadata when reminderPeriodDays is absent', async () => {
+    const user = {
+      ...mockUser,
+      passwordUpdatedAt: now.getTime() - 29 * dayInMs,
+    } satisfies User;
+
+    findUserByUsername.mockResolvedValueOnce(user);
+    verifyUserPassword.mockResolvedValueOnce(user);
+    findDefaultSignInExperience.mockResolvedValueOnce({
+      ...mockSignInExperience,
+      passwordExpiration: {
+        enabled: true,
+        validPeriodDays: 30,
+      },
+    } satisfies SignInExperience);
+
+    const verification = createVerification();
+
+    await expect(verification.verify(password)).resolves.toEqual(user);
+    await expect(verification.verifyPasswordExpiration(user)).resolves.toEqual({
+      kind: 'success',
+      user,
+    });
     expect(verification.isVerified).toBe(true);
   });
 

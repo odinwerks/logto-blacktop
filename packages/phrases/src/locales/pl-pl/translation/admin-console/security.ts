@@ -112,6 +112,11 @@ const security = {
     expiration_period_description:
       'Liczba dni, przez które hasło pozostaje ważne przed wygaśnięciem.',
     expiration_period_error: 'Okres ważności hasła musi wynosić od {{min}} do {{max}} dni.',
+    expiration_reminder: 'Przypomnienie o wygaśnięciu (dni przed wygaśnięciem)',
+    expiration_reminder_description:
+      'Liczba dni przed wygaśnięciem, aby ostrzec użytkowników i zachęcić do resetowania hasła. Użytkownicy mogą pominąć przypomnienie i kontynuować logowanie.',
+    expiration_reminder_error:
+      'Okres przypomnienia o wygaśnięciu musi mieścić się w przedziale od 0 do okresu ważności ({{max}} dni).',
     password_expiration_recovery_reminder:
       'Niektórzy użytkownicy mogą nie mieć adresu e-mail ani numeru telefonu, aby otrzymać kod odzyskiwania hasła, więc nie będą mogli zresetować wygasłego hasła. Wymagaj adresu e-mail lub numeru telefonu podczas rejestracji, aby każdy użytkownik mógł odzyskać swoje hasło.',
   },

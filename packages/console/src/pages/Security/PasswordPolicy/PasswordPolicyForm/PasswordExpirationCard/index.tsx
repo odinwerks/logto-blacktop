@@ -35,6 +35,7 @@ function PasswordExpirationCard({
   } = useFormContext<PasswordPolicyFormData>();
 
   const isEnabled = watch('isPasswordExpirationEnabled');
+  const expirationDays = watch('passwordExpirationDays');
 
   return (
     <FormCard
@@ -57,45 +58,89 @@ function PasswordExpirationCard({
         </InlineNotification>
       )}
       {isEnabled && (
-        <FormField
-          title="security.password_policy.expiration_period"
-          tip={t('expiration_period_description')}
-        >
-          <Controller
-            name="passwordExpirationDays"
-            control={control}
-            rules={{ min: minValidPeriodDays, max: maxValidPeriodDays }}
-            render={({ field: { onChange, value, name } }) => (
-              <NumericInput
-                className={styles.minLength}
-                name={name}
-                value={String(value)}
-                min={minValidPeriodDays}
-                max={maxValidPeriodDays}
-                error={
-                  errors.passwordExpirationDays &&
-                  t('expiration_period_error', { min: minValidPeriodDays, max: maxValidPeriodDays })
-                }
-                onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
-                  onChange(value === '' ? minValidPeriodDays : Number(value));
-                }}
-                onValueUp={() => {
-                  onChange(Math.min(maxValidPeriodDays, value + 1));
-                }}
-                onValueDown={() => {
-                  onChange(Math.max(minValidPeriodDays, value - 1));
-                }}
-                onBlur={() => {
-                  if (value < minValidPeriodDays) {
-                    onChange(minValidPeriodDays);
-                  } else if (value > maxValidPeriodDays) {
-                    onChange(maxValidPeriodDays);
+        <>
+          <FormField
+            title="security.password_policy.expiration_period"
+            tip={t('expiration_period_description')}
+          >
+            <Controller
+              name="passwordExpirationDays"
+              control={control}
+              rules={{ min: minValidPeriodDays, max: maxValidPeriodDays }}
+              render={({ field: { onChange, value, name } }) => (
+                <NumericInput
+                  className={styles.minLength}
+                  name={name}
+                  value={String(value)}
+                  min={minValidPeriodDays}
+                  max={maxValidPeriodDays}
+                  error={
+                    errors.passwordExpirationDays &&
+                    t('expiration_period_error', {
+                      min: minValidPeriodDays,
+                      max: maxValidPeriodDays,
+                    })
                   }
-                }}
-              />
-            )}
-          />
-        </FormField>
+                  onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
+                    onChange(value === '' ? minValidPeriodDays : Number(value));
+                  }}
+                  onValueUp={() => {
+                    onChange(Math.min(maxValidPeriodDays, value + 1));
+                  }}
+                  onValueDown={() => {
+                    onChange(Math.max(minValidPeriodDays, value - 1));
+                  }}
+                  onBlur={() => {
+                    if (value < minValidPeriodDays) {
+                      onChange(minValidPeriodDays);
+                    } else if (value > maxValidPeriodDays) {
+                      onChange(maxValidPeriodDays);
+                    }
+                  }}
+                />
+              )}
+            />
+          </FormField>
+          <FormField
+            title="security.password_policy.expiration_reminder"
+            tip={t('expiration_reminder_description')}
+          >
+            <Controller
+              name="passwordReminderDays"
+              control={control}
+              rules={{ min: 0, max: expirationDays - 1 }}
+              render={({ field: { onChange, value, name } }) => (
+                <NumericInput
+                  className={styles.minLength}
+                  name={name}
+                  value={String(value)}
+                  min={0}
+                  max={expirationDays - 1}
+                  error={
+                    errors.passwordReminderDays &&
+                    t('expiration_reminder_error', { max: expirationDays - 1 })
+                  }
+                  onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
+                    onChange(value === '' ? 0 : Number(value));
+                  }}
+                  onValueUp={() => {
+                    onChange(value + 1);
+                  }}
+                  onValueDown={() => {
+                    onChange(Math.max(0, value - 1));
+                  }}
+                  onBlur={() => {
+                    if (value < 0) {
+                      onChange(0);
+                    } else if (value >= expirationDays) {
+                      onChange(expirationDays - 1);
+                    }
+                  }}
+                />
+              )}
+            />
+          </FormField>
+        </>
       )}
     </FormCard>
   );

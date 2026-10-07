@@ -37,6 +37,10 @@ import { type ExperienceInteractionRouterContext } from '../types.js';
 
 type VerificationDependencies = Pick<TenantContext, 'libraries' | 'queries' | 'sentinel'>;
 
+const passwordExpirationReminderGuard = z.object({
+  daysUntilExpiration: z.number(),
+});
+
 type VerifiedPassword = {
   passwordVerification: PasswordVerification;
   verifiedUser: User;
@@ -279,6 +283,7 @@ export default function passwordVerificationRoutes<T extends ExperienceInteracti
         : [200, 400, 401, 409, 422],
       response: z.object({
         verificationId: z.string(),
+        reminder: passwordExpirationReminderGuard.optional(),
       }),
     }),
     koaExperienceVerificationsAuditLog({
@@ -305,12 +310,15 @@ export default function passwordVerificationRoutes<T extends ExperienceInteracti
         ? await verifyIdentifierPassword(ctx, dependencies, identifier, password)
         : await verifySubjectPassword(ctx, dependencies, password);
 
-      await passwordVerification.verifyPasswordExpiration(verifiedUser);
+      const result = await passwordVerification.verifyPasswordExpiration(verifiedUser);
 
       experienceInteraction.setVerificationRecord(passwordVerification);
       await experienceInteraction.save();
 
-      ctx.body = { verificationId: passwordVerification.id };
+      ctx.body =
+        result.kind === 'reminder'
+          ? { verificationId: passwordVerification.id, reminder: result.reminder }
+          : { verificationId: passwordVerification.id };
 
       ctx.status = 200;
 
