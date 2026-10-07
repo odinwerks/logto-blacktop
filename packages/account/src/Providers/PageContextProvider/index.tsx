@@ -1,7 +1,3 @@
-import { useLogto } from '@logto/react';
-import { Theme } from '@logto/schemas';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-
 import { getAccountCenterSettings } from '@ac/apis/account-center';
 import { getSignInExperienceSettings } from '@ac/apis/sign-in-experience';
 import { getUserInfo } from '@ac/apis/user';
@@ -11,6 +7,9 @@ import { changeLanguage, getPreferredLanguage } from '@ac/i18n/utils';
 import { getUiLocales } from '@ac/utils/account-center-route';
 import { isVisibleField } from '@ac/utils/security-page';
 import { getThemeBySystemPreference, subscribeToSystemTheme } from '@ac/utils/theme';
+import { useLogto } from '@logto/react';
+import { Theme } from '@logto/schemas';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { PageContextType } from './PageContext';
 import PageContext from './PageContext';
