@@ -21,9 +21,11 @@ import { assertUserHasRemainingIdentifier, assertUsernameAllowed } from '#src/ut
 import { PasswordValidator } from '../experience/classes/libraries/password-validator.js';
 import type { UserRouter, RouterInitArgs } from '../types.js';
 
+import avatarRoutes from './avatar.js';
 import { accountApiPrefix } from './constants.js';
 import emailAndPhoneRoutes from './email-and-phone.js';
 import accountGrantRoutes from './grants.js';
+import heartbeatRoutes from './heartbeat.js';
 import identitiesRoutes from './identities.js';
 import logtoConfigRoutes from './logto-config.js';
 import mfaVerificationsRoutes from './mfa-verifications.js';
@@ -48,6 +50,8 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
   } = libraries;
 
   router.use(koaAccountCenter(queries));
+
+  avatarRoutes(...args);
 
   router.get(
     `${accountApiPrefix}`,
@@ -308,6 +312,7 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
   identitiesRoutes(...args);
   mfaVerificationsRoutes(...args);
   accountSessionRoutes(...args);
+  heartbeatRoutes(...args);
   accountTrustedDeviceRoutes(...args);
   accountGrantRoutes(...args);
   accountUserAssetsRoutes(...args);

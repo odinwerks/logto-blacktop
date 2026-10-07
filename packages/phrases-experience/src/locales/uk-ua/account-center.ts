@@ -281,6 +281,8 @@ const account_center = {
     title: 'Сесії',
     current_session: 'Поточна сесія',
     signed_in_at: 'Вхід виконано {{date}}',
+    last_active: 'Остання активність {{date}}',
+    active_now: 'Активний зараз',
     revoke_session: 'Вийти',
     revoke_session_title: 'Завершити сесію',
     revoke_session_description:

@@ -279,6 +279,8 @@ const account_center = {
     title: 'Relace',
     current_session: 'Aktuální relace',
     signed_in_at: 'Přihlášeno {{date}}',
+    last_active: 'Naposledy aktivní {{date}}',
+    active_now: 'Aktivní nyní',
     revoke_session: 'Odhlásit',
     revoke_session_title: 'Odhlásit relaci',
     revoke_session_description:

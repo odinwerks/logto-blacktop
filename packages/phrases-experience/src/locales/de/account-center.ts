@@ -293,6 +293,8 @@ const account_center = {
     title: 'Sitzungen',
     current_session: 'Aktuelle Sitzung',
     signed_in_at: 'Angemeldet {{date}}',
+    last_active: 'Zuletzt aktiv {{date}}',
+    active_now: 'Jetzt aktiv',
     revoke_session: 'Abmelden',
     revoke_session_title: 'Sitzung abmelden',
     revoke_session_description:

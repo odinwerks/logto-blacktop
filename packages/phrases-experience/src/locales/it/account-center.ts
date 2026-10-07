@@ -286,6 +286,8 @@ const account_center = {
     title: 'Sessioni',
     current_session: 'Sessione corrente',
     signed_in_at: 'Accesso effettuato {{date}}',
+    last_active: 'Ultima attività {{date}}',
+    active_now: 'Attivo ora',
     revoke_session: 'Disconnetti',
     revoke_session_title: 'Disconnetti sessione',
     revoke_session_description:

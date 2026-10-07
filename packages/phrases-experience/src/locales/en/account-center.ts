@@ -283,6 +283,8 @@ const account_center = {
     title: 'Sessions',
     current_session: 'Current session',
     signed_in_at: 'Signed in {{date}}',
+    last_active: 'Last active {{date}}',
+    active_now: 'Active now',
     revoke_session: 'Sign out',
     revoke_session_title: 'Sign out session',
     revoke_session_description:

@@ -271,6 +271,8 @@ const account_center = {
     title: '세션',
     current_session: '현재 세션',
     signed_in_at: '{{date}}에 로그인',
+    last_active: '마지막 활동 {{date}}',
+    active_now: '현재 활동 중',
     revoke_session: '로그아웃',
     revoke_session_title: '세션 로그아웃',
     revoke_session_description:
