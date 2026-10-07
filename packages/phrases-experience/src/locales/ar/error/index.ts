@@ -33,10 +33,15 @@ const error = {
   invalid_link: 'رابط غير صالح',
   invalid_link_description: 'ربما يكون رمز الدخول المؤقت قد انتهى أو لم يعد صالحًا.',
   captcha_verification_failed: 'فشل التحقق من رمز التحقق.',
+  send_verification_code_failed: 'فشل إرسال رمز التحقق. يرجى المحاولة لاحقًا.',
+  send_verification_code_failed_use_password:
+    'فشل إرسال رمز التحقق. يرجى تسجيل الدخول باستخدام كلمة المرور بدلاً من ذلك.',
   terms_acceptance_required: 'مطلوب قبول الشروط',
   terms_acceptance_required_description:
     'يجب أن توافق على الشروط للمتابعة. يرجى المحاولة مرة أخرى.',
   something_went_wrong: 'حدث خطأ ما',
+  account_suspended: 'الحساب موقوف',
+  account_suspended_description: 'تم إيقاف هذا الحساب. يرجى الاتصال بالمسؤول للحصول على المساعدة.',
   access_denied: 'تم رفض الوصول',
   application_access_denied:
     'ليس لديك إذن للوصول إلى هذا التطبيق.\nيرجى الاتصال بالمسؤول للحصول على المساعدة.',

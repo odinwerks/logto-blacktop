@@ -24,6 +24,7 @@ import {
   jwtCustomizerGrantContextTypeDefinition,
   jwtCustomizerUserInteractionContextTypeDefinition,
   jwtCustomizerApplicationContextTypeDefinition,
+  jwtCustomizerOrganizationContextTypeDefinition,
 } from '@/pages/CustomizeJwtDetails/utils/type-definitions';
 
 import tabContentStyles from '../index.module.scss';
@@ -148,6 +149,24 @@ function InstructionTab({ isActive, section, action }: Props) {
               options={typeDefinitionCodeEditorOptions}
             />
           </GuideCard>
+          {tokenType === LogtoJwtTokenKeyType.AccessToken && (
+            <GuideCard
+              name={CardType.OrganizationData}
+              isExpanded={expendCard === CardType.OrganizationData}
+              setExpanded={(expand) => {
+                setExpendCard(expand ? CardType.OrganizationData : undefined);
+              }}
+            >
+              <Editor
+                language="typescript"
+                className={styles.sampleCode}
+                value={`declare ${jwtCustomizerOrganizationContextTypeDefinition}`}
+                height="200px"
+                theme="logto-dark"
+                options={typeDefinitionCodeEditorOptions}
+              />
+            </GuideCard>
+          )}
           <GuideCard
             name={CardType.FetchExternalData}
             isExpanded={expendCard === CardType.FetchExternalData}

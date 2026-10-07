@@ -36,6 +36,11 @@ const security = {
       description:
         'Cloudflare のスマート CAPTCHA 代替案。視覚的パズルを用いず、シームレスなユーザー体験を提供しながらボット保護を実現します。',
     },
+    cap: {
+      name: 'Cap',
+      description:
+        '視覚的パズルやサードパーティサービスを使わない、オープンソースでセルフホスト型のプルーフ・オブ・ワーク CAPTCHA。他の CAPTCHA サービスにアクセスできない地域に最適です。',
+    },
   },
   captcha_details: {
     back_to_security: 'セキュリティへ戻る',
@@ -51,6 +56,10 @@ const security = {
     domain_placeholder: 'www.google.com（デフォルト）または recaptcha.net',
     recaptcha_key_id: 'reCAPTCHA キー ID',
     recaptcha_api_key: 'プロジェクトの API キー',
+    cap_endpoint: 'Cap エンドポイント',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      'このエンドポイントは HTTP を使用しており、ローカル開発にのみ適しています。ブラウザーは HTTPS のサインインページからの HTTP リクエストをブロックし、シークレットキーは暗号化されずに送信されます。本番環境では HTTPS を使用してください。',
     deletion_description: 'この CAPTCHA プロバイダーを削除してもよろしいですか？',
     captcha_deleted: 'CAPTCHA プロバイダーが正常に削除されました',
     setup_captcha: 'CAPTCHA をセットアップ',
@@ -59,6 +68,10 @@ const security = {
     mode_checkbox: 'チェックボックス',
     mode_notice:
       '認証モードは Google Cloud Console の reCAPTCHA キー設定で定義されています。ここでモードを変更するには、一致するキータイプが必要です。',
+    score_threshold: 'スコアしきい値',
+    score_threshold_description:
+      'しきい値を下回るスコアは拒否されます。0.0 はすべてを許可し、1.0 は完全なスコアのみを許可します。デフォルトは 0.5 です。',
+    score_threshold_error: 'スコアしきい値は 0 から 1 の間である必要があります。',
   },
   password_policy: {
     password_requirements: 'パスワードの要件',
@@ -92,18 +105,36 @@ const security = {
       '設定した日数が経過した後にユーザーにパスワードのリセットを要求します。SSO またはパスキーでサインインするユーザーは影響を受けません。',
     enable_password_expiration: 'パスワードの有効期限を有効にする',
     enable_password_expiration_description:
-      'ユーザーに定期的なパスワードのリセットを要求します。パスワード変更日の記録がない既存のユーザーは、アカウント作成日を基準に評価されます。',
+      'ユーザーに定期的なパスワードのリセットを要求します。パスワード変更日の記録がない既存のユーザーは、このポリシーが有効化された日を基準に評価されます。',
     enable_password_expiration_tip:
       'パスワードの有効期限は、サインイン体験で有効なコネクタを持つ「パスワードを忘れた場合」方法を少なくとも 1 つ設定した後でのみ有効にできます。',
     expiration_period: 'パスワード有効期間 (日)',
     expiration_period_description: 'パスワードが期限切れになるまでの有効日数。',
-    expiration_period_error: 'パスワードの有効期間は 1 日以上である必要があります。',
-    expiration_reminder: '有効期限のリマインダー (期限切れの何日前か)',
-    expiration_reminder_description:
-      'ユーザーに警告し、パスワードのリセットを促す期限切れまでの日数。ユーザーはリマインダーをスキップしてサインインを続行できます。',
-    expiration_reminder_error:
-      '有効期限のリマインダー期間は、0 から有効期間 ({{max}} 日) の間である必要があります。',
+    expiration_period_error:
+      'パスワードの有効期間は {{min}} 日から {{max}} 日の間である必要があります。',
+    password_expiration_recovery_reminder:
+      '一部のユーザーは、パスワード回復コードを受け取るためのメールアドレスや電話番号を持っていない場合があり、期限切れのパスワードをリセットできないことがあります。すべてのユーザーがパスワードを回復できるよう、サインアップ時にメールアドレスまたは電話番号を必須にしてください。',
   },
+  verification_code_policy: {
+    card_title: '認証コード',
+    card_description:
+      'サインイン、サインアップ、パスワードリセットのフローで使用される認証コードの有効期限と最大再試行回数を設定します。',
+    enable: {
+      title: '認証コード設定をカスタマイズ',
+      description: '認証コードの有効期限と最大再試行回数のカスタマイズを許可します。',
+    },
+    expiration_duration: {
+      title: '有効期限（秒）',
+      description: '認証コードが送信後に有効である秒数です。',
+      error_message: '有効期限は 60 秒から 3600 秒の間である必要があります。',
+    },
+    max_retry_attempts: {
+      title: '最大再試行回数',
+      description: 'コードが無効になるまでに許可される認証失敗回数の上限です。',
+      error_message: '最大再試行回数は 1 から 100 の間である必要があります。',
+    },
+  },
+
   sentinel_policy: {
     card_title: '識別子によるロックアウト',
     card_description:
@@ -142,6 +173,26 @@ const security = {
     card_title: 'メールブロックリスト',
     card_description:
       'ハイリスクまたは不要なメールアドレスをブロックすることで、ユーザーベースを制御します。',
+    custom_email_allowlist: {
+      title: 'カスタムメールアドレスを許可',
+      description:
+        '新規登録および新しくリンクされるメールに対して、特定のメールドメイン、メールアドレス、またはワイルドカードパターンのみを許可するルールを追加します。例：bar@example.com、@example.com、foo*@example.com、*@example.com。gmail.com と googlemail.com のドメインは同等として扱われ、ローカル部分のドットは無視されるため、foo.bar@gmail.com は foobar@googlemail.com と一致します。',
+      placeholder: 'メールアドレス、ドメイン、またはワイルドカードパターンを入力',
+      duplicate_error:
+        'メールアドレス、ドメイン、またはワイルドカード付きメールアドレスパターンは既に追加されています',
+      invalid_format_error:
+        '有効なメールアドレス（bar@example.com）、ドメイン（@example.com）、またはワイルドカード付きメールアドレスパターン（foo*@example.com、*@example.com）である必要があります',
+      warnings: {
+        identical_entries:
+          '許可リストの一部の項目はブロックルールにも存在します。一致するメールは引き続きブロックされる可能性があります。',
+        blocked_exact_email:
+          '許可リストの一部の完全一致メールがブロックルールに一致しています。一致するメールは引き続きブロックされる可能性があります。',
+        blocked_subaddressing:
+          '許可リストの一部の項目にプラス記号（+）が含まれていますが、メールサブアドレッシングはブロックされています。',
+        effectively_unusable:
+          'これらのチェックに基づくと、現在の許可リストでは新しいメールを許可できない可能性があります。',
+      },
+    },
     disposable_email: {
       title: '使い捨てメールアドレスをブロック',
       description:
@@ -155,12 +206,12 @@ const security = {
     custom_email_address: {
       title: 'カスタムメールアドレスをブロック',
       description:
-        'UI を介して登録またはリンクできない特定のメールドメインまたはメールアドレスを追加します。',
-      placeholder:
-        'ブロックするメールアドレスまたはドメインを入力してください（例：bar@example.com、@example.com）',
-      duplicate_error: 'メールアドレスまたはドメインは既に追加されています',
+        '特定のメールドメイン、メールアドレス、またはワイルドカードパターンが UI を介して登録またはリンクできないようにするルールを追加します。例：bar@example.com、@example.com、foo*@example.com、*@example.com。gmail.com と googlemail.com のドメインは同等として扱われ、ローカル部分のドットは無視されるため、foo.bar@gmail.com は foobar@googlemail.com と一致します。',
+      placeholder: 'メールアドレス、ドメイン、またはワイルドカードパターンを入力',
+      duplicate_error:
+        'メールアドレス、ドメイン、またはワイルドカード付きメールアドレスパターンは既に追加されています',
       invalid_format_error:
-        '有効なメールアドレス（bar@example.com）またはドメイン（@example.com）である必要があります',
+        '有効なメールアドレス（bar@example.com）、ドメイン（@example.com）、またはワイルドカード付きメールアドレスパターン（foo*@example.com、*@example.com）である必要があります',
     },
   },
 };

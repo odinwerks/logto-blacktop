@@ -4,6 +4,7 @@ import { trySafe } from '@silverhand/essentials';
 import { type CloudConnectionLibrary } from '#src/libraries/cloud-connection.js';
 
 import {
+  actionQuotaKey,
   type SubscriptionQuota,
   type Subscription,
   type ReportSubscriptionUpdatesUsageKey,
@@ -19,6 +20,10 @@ export const getTenantSubscription = async (
   // All the dates will be converted to the ISO 8601 format after json serialization.
   // Convert the dates to ISO 8601 format to match the exact type of the response.
   const { currentPeriodStart, currentPeriodEnd, ...rest } = subscription;
+
+  if (typeof rest.quota[actionQuotaKey] !== 'boolean') {
+    throw new TypeError('Cloud subscription response is missing the Actions quota.');
+  }
 
   return {
     ...rest,

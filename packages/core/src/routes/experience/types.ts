@@ -1,11 +1,18 @@
 import { type SocialUserInfo, socialUserInfoGuard, type ToZodObject } from '@logto/connector-kit';
 import {
+  type AuthenticationProof,
+  authenticationProofGuard,
   type CreateUser,
   encryptedTokenSetGuard,
   InteractionEvent,
+  type InteractionAuthenticationContext,
+  interactionAuthenticationContextGuard,
+  type RequestedAuthenticationContext,
+  requestedAuthenticationContextGuard,
   secretEnterpriseSsoConnectorRelationPayloadGuard,
   secretSocialConnectorRelationPayloadGuard,
   type User,
+  TrustedDevices,
   Users,
   UserSsoIdentities,
   type UserSsoIdentity,
@@ -83,6 +90,21 @@ export type InteractionProfile = {
   | 'customData'
 >;
 
+export type InteractionUserProvisioningProfile = Pick<
+  InteractionProfile,
+  | 'avatar'
+  | 'name'
+  | 'username'
+  | 'primaryEmail'
+  | 'primaryPhone'
+  | 'passwordEncrypted'
+  | 'passwordEncryptionMethod'
+  | 'profile'
+  | 'customData'
+>;
+
+export type ActionProvisioningProfile = InteractionUserProvisioningProfile;
+
 const interactionProfileGuard = Users.createGuard
   .pick({
     avatar: true,
@@ -149,16 +171,25 @@ const sanitizedInteractionProfileGuard = interactionProfileGuard.omit({
 }) satisfies ToZodObject<SanitizedInteractionProfile>;
 
 /**
- * The interaction context provides the callback functions to get the user and verification record from the interaction
+ * The interaction context provides the callback functions to get the user and verification record from the interaction.
+ *
+ * There is deliberately no raw verification-record getter here. Every time `Profile` or `Mfa`
+ * reaches a record it consumes the record's credential, and the consumer must say so: the
+ * `consumeFor…` methods record the authentication proof for the role they name. Re-adding a raw
+ * getter would let a write path reach a record without recording what it did with it.
  */
 export type InteractionContext = {
   getInteractionEvent: () => InteractionEvent;
   getIdentifiedUser: () => Promise<User>;
-  getVerificationRecordById: (verificationId: string) => VerificationRecord;
-  getVerificationRecordByTypeAndId: <K extends keyof VerificationRecordMap>(
+  /** Fetch a record to bind the credential it carries to the account, recording the `bind` proof. */
+  consumeForBind: (verificationId: string) => VerificationRecord;
+  /** The typed variant of `consumeForBind`. */
+  consumeForBindByType: <K extends keyof VerificationRecordMap>(
     type: K,
     verificationId: string
   ) => VerificationRecordMap[K];
+  /** Record the proof for a password established through the profile, which has no record. */
+  recordEstablishedPassword: () => void;
   getCurrentProfile: () => InteractionProfile;
 };
 
@@ -182,6 +213,23 @@ export type WithHooksAndLogsContext<ContextT extends WithLogContext = WithLogCon
 export type InteractionStorage = {
   interactionEvent: InteractionEvent;
   userId?: string;
+  /**
+   * The authentication context the OIDC interaction policy wrote into the login prompt details
+   * when the authorization request carried supported `acr_values`. Copied verbatim at creation
+   * and never mutated; `mode: 'stepUp'` marks a pure step-up whose subject is pinned from the
+   * OIDC session. Optional so in-flight interactions created before it existed still parse.
+   */
+  authenticationContext?: RequestedAuthenticationContext;
+  /** The authentication proofs recorded so far; see `AuthenticationProofs`. */
+  authenticationProofs?: AuthenticationProof[];
+  trustedDeviceOptIn?:
+    | {
+        trusted: false;
+      }
+    | {
+        trusted: true;
+        deviceId: string;
+      };
   profile?: InteractionProfile;
   mfa?: MfaData;
   verificationRecords?: VerificationRecordData[];
@@ -195,6 +243,17 @@ export type InteractionStorage = {
 export const interactionStorageGuard = z.object({
   interactionEvent: z.nativeEnum(InteractionEvent),
   userId: z.string().optional(),
+  authenticationContext: requestedAuthenticationContextGuard.optional(),
+  authenticationProofs: authenticationProofGuard.array().optional(),
+  trustedDeviceOptIn: z
+    .discriminatedUnion('trusted', [
+      z.object({ trusted: z.literal(false) }),
+      z.object({
+        trusted: z.literal(true),
+        deviceId: TrustedDevices.guard.shape.id,
+      }),
+    ])
+    .optional(),
   profile: interactionProfileGuard.optional(),
   mfa: mfaDataGuard.optional(),
   verificationRecords: verificationRecordDataGuard.array().optional(),
@@ -210,6 +269,11 @@ export const interactionStorageGuard = z.object({
 export type SanitizedInteractionStorageData = {
   interactionEvent: InteractionEvent;
   userId?: string;
+  /**
+   * Present when the interaction carries a requested authentication context; the computed lists
+   * are evaluated on every read. See `InteractionAuthenticationContext`.
+   */
+  authenticationContext?: InteractionAuthenticationContext;
   profile?: SanitizedInteractionProfile;
   verificationRecords?: SanitizedVerificationRecordData[];
   mfa?: SanitizedMfaData;
@@ -227,6 +291,7 @@ export type SanitizedInteractionStorageData = {
 export const sanitizedInteractionStorageGuard = z.object({
   interactionEvent: z.nativeEnum(InteractionEvent),
   userId: z.string().optional(),
+  authenticationContext: interactionAuthenticationContextGuard.optional(),
   profile: sanitizedInteractionProfileGuard,
   verificationRecords: publicVerificationRecordDataGuard.array().optional(),
   mfa: sanitizedMfaDataGuard.optional(),

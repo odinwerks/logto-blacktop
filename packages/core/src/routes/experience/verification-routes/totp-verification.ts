@@ -92,20 +92,24 @@ export default function totpVerificationRoutes<T extends ExperienceInteractionRo
       verificationAuditLog.append({
         payload: {
           verificationId,
-          code,
         },
       });
 
       assertThat(
-        experienceInteraction.identifiedUserId,
+        experienceInteraction.subjectUserId,
         new RequestError({
           code: 'session.identifier_not_found',
           status: 404,
         })
       );
 
-      // Verify new generated secret
+      // Verify new generated secret; enrolling requires a verified identity, not just a subject
       if (verificationId) {
+        assertThat(
+          experienceInteraction.identifiedUserId,
+          new RequestError({ code: 'session.identifier_not_found', status: 404 })
+        );
+
         const totpVerificationRecord = experienceInteraction.getVerificationRecordByTypeAndId(
           VerificationType.TOTP,
           verificationId
@@ -134,17 +138,18 @@ export default function totpVerificationRoutes<T extends ExperienceInteractionRo
       const totpVerificationRecord = TotpVerification.create(
         libraries,
         queries,
-        experienceInteraction.identifiedUserId
+        experienceInteraction.subjectUserId
       );
 
       await withSentinel(
         {
           ctx,
           sentinel,
+          queries,
           action: SentinelActivityAction.MfaTotp,
           identifier: {
             type: AdditionalIdentifier.UserId,
-            value: experienceInteraction.identifiedUserId,
+            value: experienceInteraction.subjectUserId,
           },
           payload: {
             verificationId: totpVerificationRecord.id,
@@ -154,6 +159,7 @@ export default function totpVerificationRoutes<T extends ExperienceInteractionRo
       );
 
       ctx.experienceInteraction.setVerificationRecord(totpVerificationRecord);
+      ctx.experienceInteraction.consumeForMfa(VerificationType.TOTP, totpVerificationRecord.id);
 
       await ctx.experienceInteraction.save();
 

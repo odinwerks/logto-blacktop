@@ -35,10 +35,17 @@ const error = {
   invalid_link: 'Link inválido',
   invalid_link_description: 'O teu token de uso único pode ter expirado ou já não ser válido.',
   captcha_verification_failed: 'Falha na verificação do captcha.',
+  send_verification_code_failed:
+    'Falha ao enviar o código de verificação. Tente novamente mais tarde.',
+  send_verification_code_failed_use_password:
+    'Falha ao enviar o código de verificação. Em vez disso, inicie sessão com a sua palavra-passe.',
   terms_acceptance_required: 'Aceitação dos termos necessária',
   terms_acceptance_required_description:
     'Deves aceitar os termos para continuar. Por favor, tenta novamente.',
   something_went_wrong: 'Algo correu mal',
+  account_suspended: 'Conta suspensa',
+  account_suspended_description:
+    'Esta conta foi suspensa. Contacte o administrador para obter assistência.',
   access_denied: 'Acesso negado',
   application_access_denied:
     'Não tem permissão para aceder a esta aplicação.\nPor favor, contacte o seu administrador para obter ajuda.',

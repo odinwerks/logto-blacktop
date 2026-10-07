@@ -2,7 +2,6 @@ import {
   ApplicationType,
   ProductEvent,
   samlApplicationCreateGuard,
-  samlApplicationPatchGuard,
   samlApplicationResponseGuard,
   samlApplicationSecretResponseGuard,
   SamlApplicationSecrets,
@@ -17,6 +16,7 @@ import {
   calculateCertificateFingerprints,
   assembleSamlApplication,
   validateAcsUrl,
+  validateSamlAuthnRequestConfig,
 } from '#src/libraries/saml-application/utils.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import { koaQuotaGuard } from '#src/middleware/koa-quota-guard.js';
@@ -27,6 +27,9 @@ import { getSamlAppCallbackUrl } from '#src/saml-application/SamlApplication/uti
 import assertThat from '#src/utils/assert-that.js';
 
 import { captureEvent } from '../../utils/posthog.js';
+import { assertApplicationAccessControlHasRules } from '../applications/application-access-control/utils.js';
+
+import { samlApplicationPatchGuard } from './types.js';
 
 export default function samlApplicationRoutes<T extends ManagementApiRouter>(
   ...[router, { id: tenantId, queries, libraries }]: RouterInitArgs<T>
@@ -52,6 +55,7 @@ export default function samlApplicationRoutes<T extends ManagementApiRouter>(
 
   router.post(
     '/saml-applications',
+    // Outside Cloud, the cap follows the installed license: 3 without one, lifted by a Pro license.
     koaQuotaGuard({ key: 'samlApplicationsLimit', quota }),
     koaGuard({
       body: samlApplicationCreateGuard,
@@ -59,7 +63,11 @@ export default function samlApplicationRoutes<T extends ManagementApiRouter>(
       status: [201, 400, 422],
     }),
     async (ctx, next) => {
-      const { name, description, customData, ...config } = ctx.guard.body;
+      const { name, description, customData, ...config } = samlApplicationCreateGuard.parse(
+        ctx.guard.body
+      );
+
+      validateSamlAuthnRequestConfig(config.authnRequestConfig);
 
       if (config.acsUrl) {
         validateAcsUrl(config.acsUrl);
@@ -150,6 +158,12 @@ export default function samlApplicationRoutes<T extends ManagementApiRouter>(
     }),
     async (ctx, next) => {
       const { id } = ctx.guard.params;
+
+      if (ctx.guard.body.appLevelAccessControlEnabled === true) {
+        assertApplicationAccessControlHasRules(
+          await queries.applicationAccessControl.findApplicationAccessControl(id)
+        );
+      }
 
       const updatedSamlApplication = await updateSamlApplicationById(id, ctx.guard.body);
 

@@ -36,6 +36,8 @@ const description = {
   reset_password: 'Скинути пароль',
   reset_password_description:
     'Введіть {{types, list(type: disjunction;)}}, пов’язаний з вашим обліковим записом, і ми надішлемо вам код підтвердження для скидання пароля.',
+  reset_password_magic_link_description:
+    'Введіть адресу електронної пошти, пов’язану з вашим обліковим записом, щоб продовжити скидання пароля.',
   new_password: 'Новий пароль',
   set_password: 'Встановити пароль',
   password_changed: 'Пароль змінено',
@@ -104,6 +106,8 @@ const description = {
     'Ваше підприємство увімкнуло єдиний вхід (SSO) для електронної пошти {{email}}. Ви можете продовжити вхід за допомогою таких постачальників SSO.',
   single_sign_on_enabled: 'Єдиний вхід (SSO) увімкнено для цього облікового запису',
   authorize_title: 'Авторизувати {{name}}',
+  unregistered_client_notice:
+    'Цей застосунок самозаявлений доменом <hostname>{{host}}</hostname>, включно з назвою та логотипом. Перевірте імʼя хоста, перш ніж продовжити.',
   request_permission: '{{name}} запитує доступ до:',
   grant_organization_access: 'Надати доступ організації:',
   authorize_personal_data_usage: 'Дозволити використання ваших персональних даних:',
@@ -123,9 +127,6 @@ const description = {
     'Введіть {{types, list(type: disjunction;)}} для створення нового облікового запису.',
   all_account_creation_options: 'Усі варіанти створення облікового запису',
   password_expired: 'Термін дії вашого пароля закінчився, і його потрібно скинути перед входом.',
-  password_expiration_reminder:
-    'Ваш пароль закінчиться через {{days}} дн. Ми рекомендуємо скинути його зараз.',
-  password_expiration_reminder_skip: 'Пропустити поки',
   password_expiration_reset: 'Скинути пароль',
   back_to_sign_in: 'Повернутися до входу',
   support_email: 'Електронна пошта підтримки: <link></link>',

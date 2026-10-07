@@ -51,6 +51,10 @@ const jwt_claims = {
     title: '应用程序上下文',
     subtitle: '使用 `context.application` 输入参数提供与令牌关联的应用程序信息。',
   },
+  organization_data: {
+    title: '机构上下文',
+    subtitle: '使用 `context.organization` 输入参数提供目标机构信息，仅适用于机构令牌。',
+  },
   token_data: {
     title: '令牌数据',
     subtitle: '使用`token`输入参数查看当前访问令牌负载。',
@@ -87,6 +91,11 @@ const jwt_claims = {
     subtitle: '调整模拟令牌和用户数据进行测试。',
     run_button: '运行测试',
     result_title: '测试结果',
+  },
+  sandbox_warning: {
+    title: '脚本以服务器权限运行',
+    description:
+      '在自托管的 Logto 中，此脚本与 Logto 本身运行在相同环境中：它可以读取服务器环境变量并访问你的内网服务。它没有沙箱隔离。请仅向你信任可访问服务器的人开放此页面。',
   },
   form_error: {
     invalid_json: 'JSON格式无效',

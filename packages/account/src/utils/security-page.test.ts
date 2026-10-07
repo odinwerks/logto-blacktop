@@ -1,15 +1,49 @@
-import { AccountCenterControlValue, ConnectorPlatform, MfaPolicy } from '@logto/schemas';
+import {
+  AccountCenterControlValue,
+  ConnectorPlatform,
+  CustomProfileFieldType,
+  MfaFactor,
+  MfaPolicy,
+} from '@logto/schemas';
 
 import {
+  canManageSocialIdentitiesWithoutVerification,
   canSetInitialPasswordWithoutVerification,
   isEditableField,
+  isPasskeySignInEnabled,
   canOpenPasswordEditFlow,
   hasAvailableSecurityVerificationMethod,
+  hasVisibleMfaSection,
+  hasVisibleProfilePage,
   hasVisibleSecuritySection,
+  hasVisibleSessionsPage,
   hasVisibleSocialSection,
 } from './security-page';
 
 describe('security-page utils', () => {
+  it('places trusted-device-only access on Security without exposing Sessions', () => {
+    const settings = {
+      enabled: true,
+      deleteAccountUrl: null,
+      fields: {
+        session: AccountCenterControlValue.Off,
+        trustedDevice: AccountCenterControlValue.ReadOnly,
+      },
+    };
+
+    expect(hasVisibleSessionsPage(settings)).toBe(false);
+    expect(hasVisibleSecuritySection(settings)).toBe(true);
+    expect(
+      hasVisibleSessionsPage({
+        ...settings,
+        fields: {
+          session: AccountCenterControlValue.Edit,
+          trustedDevice: AccountCenterControlValue.Off,
+        },
+      })
+    ).toBe(true);
+  });
+
   it('hasVisibleSecuritySection returns false when account center is disabled', () => {
     expect(
       hasVisibleSecuritySection({
@@ -109,6 +143,35 @@ describe('security-page utils', () => {
     ).toBe(false);
   });
 
+  it('hasVisibleMfaSection returns true when MFA factors are enabled', () => {
+    expect(
+      hasVisibleMfaSection(AccountCenterControlValue.Edit, {
+        socialConnectors: [],
+        mfa: { factors: [MfaFactor.TOTP], policy: MfaPolicy.UserControlled },
+      })
+    ).toBe(true);
+  });
+
+  it('hasVisibleMfaSection returns false when only passkey sign-in is enabled without MFA factors', () => {
+    expect(
+      hasVisibleMfaSection(AccountCenterControlValue.Edit, {
+        socialConnectors: [],
+        mfa: { factors: [], policy: MfaPolicy.UserControlled },
+        passkeySignIn: { enabled: true },
+      })
+    ).toBe(false);
+  });
+
+  it('isPasskeySignInEnabled returns true when passkey sign-in is enabled', () => {
+    expect(
+      isPasskeySignInEnabled({
+        socialConnectors: [],
+        mfa: { factors: [], policy: MfaPolicy.UserControlled },
+        passkeySignIn: { enabled: true },
+      })
+    ).toBe(true);
+  });
+
   it('isEditableField returns true only for edit control', () => {
     expect(isEditableField(AccountCenterControlValue.Edit)).toBe(true);
     expect(isEditableField(AccountCenterControlValue.ReadOnly)).toBe(false);
@@ -121,6 +184,21 @@ describe('security-page utils', () => {
     expect(hasAvailableSecurityVerificationMethod({ primaryPhone: '+15555555555' })).toBe(true);
     expect(hasAvailableSecurityVerificationMethod({ hasPassword: false })).toBe(false);
     expect(hasAvailableSecurityVerificationMethod()).toBe(false);
+  });
+
+  it('canManageSocialIdentitiesWithoutVerification uses backend hasSecurityVerificationMethod', () => {
+    expect(
+      canManageSocialIdentitiesWithoutVerification({
+        hasSecurityVerificationMethod: false,
+      })
+    ).toBe(true);
+    expect(
+      canManageSocialIdentitiesWithoutVerification({
+        hasSecurityVerificationMethod: true,
+      })
+    ).toBe(false);
+    expect(canManageSocialIdentitiesWithoutVerification({})).toBe(false);
+    expect(canManageSocialIdentitiesWithoutVerification()).toBe(false);
   });
 
   it('canSetInitialPasswordWithoutVerification requires explicit no-password user info', () => {
@@ -195,5 +273,151 @@ describe('security-page utils', () => {
       })
     ).toBe(false);
     expect(canOpenPasswordEditFlow(AccountCenterControlValue.Edit)).toBe(false);
+  });
+
+  describe('hasVisibleProfilePage', () => {
+    it('returns false when account center is disabled', () => {
+      expect(
+        hasVisibleProfilePage({
+          enabled: false,
+          fields: { name: AccountCenterControlValue.Edit },
+          profileFields: [{ name: 'name' }],
+        })
+      ).toBe(false);
+    });
+
+    it('returns false when settings are undefined', () => {
+      expect(hasVisibleProfilePage()).toBe(false);
+    });
+
+    it('returns false when profileFields is empty', () => {
+      expect(
+        hasVisibleProfilePage({
+          enabled: true,
+          fields: { name: AccountCenterControlValue.Edit },
+          profileFields: [],
+        })
+      ).toBe(false);
+    });
+
+    it('returns false when all profile fields have their control set to Off', () => {
+      expect(
+        hasVisibleProfilePage({
+          enabled: true,
+          fields: {
+            name: AccountCenterControlValue.Off,
+            avatar: AccountCenterControlValue.Off,
+          },
+          profileFields: [{ name: 'name' }, { name: 'avatar' }],
+        })
+      ).toBe(false);
+    });
+
+    it('returns true when at least one built-in field (name) is visible', () => {
+      expect(
+        hasVisibleProfilePage({
+          enabled: true,
+          fields: {
+            name: AccountCenterControlValue.Edit,
+            avatar: AccountCenterControlValue.Off,
+          },
+          profileFields: [{ name: 'name' }, { name: 'avatar' }],
+        })
+      ).toBe(true);
+    });
+
+    it('returns true when a built-in profile field (nickname) uses the profile control', () => {
+      expect(
+        hasVisibleProfilePage({
+          enabled: true,
+          fields: { profile: AccountCenterControlValue.ReadOnly },
+          profileFields: [{ name: 'nickname' }],
+        })
+      ).toBe(true);
+    });
+
+    it('returns true when a custom field uses the customData control', () => {
+      expect(
+        hasVisibleProfilePage(
+          {
+            enabled: true,
+            fields: { customData: AccountCenterControlValue.Edit },
+            profileFields: [{ name: 'company' }],
+          },
+          {
+            customProfileFields: [
+              {
+                tenantId: 'default',
+                id: 'field-1',
+                name: 'company',
+                type: CustomProfileFieldType.Text,
+                label: 'Company',
+                description: null,
+                required: false,
+                config: {},
+                createdAt: 0,
+                sieOrder: 0,
+              },
+            ],
+          }
+        )
+      ).toBe(true);
+    });
+
+    it('returns false when custom field control (customData) is Off', () => {
+      expect(
+        hasVisibleProfilePage(
+          {
+            enabled: true,
+            fields: { customData: AccountCenterControlValue.Off },
+            profileFields: [{ name: 'company' }],
+          },
+          {
+            customProfileFields: [
+              {
+                tenantId: 'default',
+                id: 'field-1',
+                name: 'company',
+                type: CustomProfileFieldType.Text,
+                label: 'Company',
+                description: null,
+                required: false,
+                config: {},
+                createdAt: 0,
+                sieOrder: 0,
+              },
+            ],
+          }
+        )
+      ).toBe(false);
+    });
+
+    it('returns true for composite field type (Address) using profile control', () => {
+      expect(
+        hasVisibleProfilePage(
+          {
+            enabled: true,
+            fields: { profile: AccountCenterControlValue.Edit },
+            profileFields: [{ name: 'address' }],
+          },
+          {
+            customProfileFields: [
+              {
+                tenantId: 'default',
+                id: 'field-2',
+                name: 'address',
+                type: CustomProfileFieldType.Address,
+                label: 'Address',
+                description: null,
+                required: false,
+                config: {},
+                createdAt: 0,
+                sieOrder: 0,
+              },
+            ],
+          }
+        )
+      ).toBe(true);
+    });
   });
 });

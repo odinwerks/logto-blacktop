@@ -1,4 +1,9 @@
-import { getAcceptedUserClaims } from './scope.js';
+import { type UserClaim } from '@logto/core-kit';
+import { type User } from '@logto/schemas';
+
+import { mockUser } from '#src/__mocks__/user.js';
+
+import { getAcceptedUserClaims, getUserClaimsData } from './scope.js';
 
 const use = {
   idToken: 'id_token',
@@ -131,13 +136,47 @@ describe('OIDC getUserClaims()', () => {
     ).toEqual([...profileExpectation, 'custom_data', 'identities', 'sso_identities']);
   });
 
-  it('should ignore account API session scope in getUserClaims()', () => {
+  it('should ignore account API management scopes in getUserClaims()', () => {
     expect(
       getAcceptedUserClaims({
         use: use.idToken,
-        scope: 'openid profile urn:logto:scope:sessions',
+        scope: 'openid profile urn:logto:scope:sessions urn:logto:scope:trusted_devices',
         rejected: [],
       })
     ).toEqual(profileExpectation);
+
+    expect(
+      getAcceptedUserClaims({
+        use: use.userinfo,
+        scope: 'openid profile urn:logto:scope:sessions urn:logto:scope:trusted_devices',
+        rejected: [],
+      })
+    ).toEqual(profileExpectation);
+  });
+});
+
+describe('OIDC getUserClaimsData() preferred_username', () => {
+  // Unused for the `preferred_username` claim, but required by the function signature.
+  const userLibrary = {} as unknown as Parameters<typeof getUserClaimsData>[2];
+  const organizationQueries = {} as unknown as Parameters<typeof getUserClaimsData>[3];
+
+  const getPreferredUsername = async (user: User): Promise<unknown> => {
+    const claims: UserClaim[] = ['preferred_username'];
+    const data = await getUserClaimsData(user, claims, userLibrary, organizationQueries);
+    return data.find(([claim]) => claim === 'preferred_username')?.[1];
+  };
+
+  it('falls back to username when profile.preferredUsername is unset', async () => {
+    await expect(getPreferredUsername(mockUser)).resolves.toBe(mockUser.username);
+  });
+
+  it('uses profile.preferredUsername when set', async () => {
+    const user = { ...mockUser, profile: { preferredUsername: 'alice_the_great' } };
+    await expect(getPreferredUsername(user)).resolves.toBe('alice_the_great');
+  });
+
+  it('returns undefined when both username and profile.preferredUsername are unset', async () => {
+    const user = { ...mockUser, username: null };
+    await expect(getPreferredUsername(user)).resolves.toBeUndefined();
   });
 });

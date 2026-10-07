@@ -56,6 +56,11 @@ const jwt_claims = {
     subtitle:
       '`context.application` 입력 매개변수를 사용하여 토큰과 관련된 애플리케이션 정보를 제공합니다.',
   },
+  organization_data: {
+    title: '조직 컨텍스트',
+    subtitle:
+      '`context.organization` 입력 매개변수를 사용하여 대상 조직 정보를 제공합니다. 조직 토큰에서만 사용할 수 있습니다.',
+  },
   token_data: {
     title: '토큰 데이터',
     subtitle: '현재 액세스 토큰 페이로드에 대한 `token` 입력 매개변수 사용.',
@@ -94,6 +99,11 @@ const jwt_claims = {
     subtitle: '테스트를 위해 모의 토큰 및 사용자 데이터 조정.',
     run_button: '테스트 실행',
     result_title: '테스트 결과',
+  },
+  sandbox_warning: {
+    title: '스크립트는 서버 권한으로 실행됩니다',
+    description:
+      '셀프 호스팅 Logto에서는 이 스크립트가 Logto 자체와 동일한 환경에서 실행됩니다. 서버 환경 변수를 읽고 내부 네트워크의 서비스에 접근할 수 있습니다. 샌드박스되지 않습니다. 서버 접근을 허용해도 되는 사람에게만 이 페이지 접근 권한을 부여하세요.',
   },
   form_error: {
     invalid_json: '잘못된 JSON 형식',

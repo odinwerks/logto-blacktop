@@ -60,4 +60,29 @@ export const getModalTitle = (connectorType?: ConnectorType): AdminConsoleKey =>
   return 'connectors.setup_title.social';
 };
 
-export const shouldShowEmailConnectorUpsellBanner = (): boolean => false;
+type EmailConnectorUpsellCopyKeys = {
+  readonly title: 'connectors.create_form.email_connector_upsell.title';
+  readonly description: 'connectors.create_form.email_connector_upsell.description';
+  readonly action: 'upsell.try_with_product_name';
+  readonly secondaryAction: 'upsell.explore_self_hosted_plans';
+};
+
+export const getEmailConnectorUpsellCopyKeys = (): EmailConnectorUpsellCopyKeys => ({
+  title: 'connectors.create_form.email_connector_upsell.title',
+  description: 'connectors.create_form.email_connector_upsell.description',
+  action: 'upsell.try_with_product_name',
+  secondaryAction: 'upsell.explore_self_hosted_plans',
+});
+
+type ConnectorSelectionStateOptions = {
+  readonly type?: ConnectorType;
+  readonly isCloud: boolean;
+};
+
+export const shouldShowEmailConnectorUpsellBanner = (
+  options: ConnectorSelectionStateOptions
+): boolean => {
+  // Blacktop: never upsell on self-hosted; keep the export so the banner code still compiles.
+  return false;
+
+};

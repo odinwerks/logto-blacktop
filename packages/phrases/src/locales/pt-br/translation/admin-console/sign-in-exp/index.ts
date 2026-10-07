@@ -177,6 +177,7 @@ const sign_in_exp = {
       mfa: 'Autenticação multifator',
       mfa_description:
         'Permita que os usuários gerenciem seus métodos de MFA a partir do centro de conta.',
+      passkey: 'Passkey',
       username: 'Nome de usuário',
       name: 'Nome',
       avatar: 'Avatar',
@@ -186,6 +187,7 @@ const sign_in_exp = {
       custom_data_description:
         'Controle o acesso aos dados JSON personalizados armazenados no usuário.',
       sessions: 'Sessões',
+      trusted_devices: 'Dispositivos confiáveis',
     },
     profile_fields: {
       title: 'Campos de perfil para o centro de conta pré-construído',
@@ -196,13 +198,13 @@ const sign_in_exp = {
         go_to: 'outros campos de perfil agora.',
       },
       disabled_hint: {
-        name: 'Para adicionar este campo, defina primeiro a permissão "Nome" como "Editar/Somente leitura" em Dados do perfil acima.',
+        name: 'Para adicionar este campo, defina primeiro a permissão "Nome" como "Editar/Somente leitura" na seção Perfil do usuário abaixo.',
         avatar:
-          'Para adicionar este campo, defina primeiro a permissão "Avatar" como "Editar/Somente leitura" em Dados do perfil acima.',
+          'Para adicionar este campo, defina primeiro a permissão "Avatar" como "Editar/Somente leitura" na seção Perfil do usuário abaixo.',
         profile:
-          'Para adicionar este campo, defina primeiro a permissão "Perfil" como "Editar/Somente leitura" em Dados do perfil acima.',
+          'Para adicionar este campo, defina primeiro a permissão "Perfil" como "Editar/Somente leitura" na seção Perfil do usuário abaixo.',
         custom_data:
-          'Para adicionar este campo, defina primeiro a permissão "Dados personalizados" como "Editar/Somente leitura" em Dados do perfil acima.',
+          'Para adicionar este campo, defina primeiro a permissão "Dados personalizados" como "Editar/Somente leitura" na seção Perfil do usuário abaixo.',
       },
     },
     webauthn_related_origins: 'Origens relacionadas ao WebAuthn',
@@ -245,6 +247,7 @@ const sign_in_exp = {
           'Acesse o centro de contas para gerenciar configurações de segurança como e-mail, telefone, nome de usuário, senha, MFA e contas conectadas',
         profile:
           'O hub central para gerenciar suas informações pessoais (por exemplo, nome, avatar)',
+        sessions: 'Visualize e gerencie suas sessões ativas em todos os dispositivos',
       },
       customize_note: 'Não quer a experiência pronta para uso? Você pode totalmente',
       customize_link: 'personalizar seus fluxos com a Account API em vez disso.',

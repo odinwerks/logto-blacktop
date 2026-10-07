@@ -9,11 +9,53 @@ const tenants = {
     oidc_configs: 'إعدادات OIDC',
     subscription: 'الخطة والفوترة',
     billing_history: 'سجل الفوترة',
+    license: 'الترخيص',
+  },
+  license: {
+    purchase_title: 'خطط الاستضافة الذاتية',
+    purchase_description:
+      'تفتح خطتا Pro والمؤسسة للاستضافة الذاتية ميزات مدفوعة على مثيلك الخاص، مثل إخفاء علامة Logto التجارية، واستخدام واجهتك الخاصة، وتسجيل الدخول الأحادي الذي يبدأه موفر الهوية، والتعاون في وحدة التحكم، وتطبيقات SAML غير محدودة. اشترِ خطة للحصول على مفتاح الترخيص.',
+    purchase_button: 'عرض خطط الاستضافة الذاتية',
+    install_title: 'تثبيت الترخيص',
+    install_description: 'الصق مفتاح الترخيص الذي حصلت عليه بعد شراء خطة استضافة ذاتية.',
+    install_button: 'تثبيت الترخيص',
+    key_field: 'مفتاح الترخيص',
+    key_field_description:
+      'يتم التحقق من المفتاح على مثيلك ولا يغادره أبدًا. احصل على مفتاح جديد من حساب Logto الخاص بك إذا كان المفتاح الحالي منتهي الصلاحية.',
+    key_placeholder: 'الصق مفتاح الترخيص هنا',
+    installed_toast: 'تم تثبيت الترخيص بنجاح.',
+    details_title: 'الترخيص',
+    details_description: 'الترخيص المثبت على هذا المثيل وما يمنحه.',
+    plan_field: 'الخطة',
+    environment_field: 'البيئة',
+    environment_production: 'الإنتاج',
+    environment_non_production: 'غير الإنتاج',
+    expires_at_field: 'ينتهي في',
+    installed_at_field: 'تم التثبيت في',
+    last_refreshed_at_field: 'آخر تحديث في',
+    grace_ends_at_field: 'تنتهي فترة السماح في',
+    refresh_expired_description:
+      'انتهت صلاحية مفتاح الترخيص في {{expiresAt}}. ستبقى الميزات المرخصة متاحة حتى {{graceEndsAt}} بينما يحاول Logto تحديثه.',
+    refresh_refused_description:
+      'تم رفض تحديث الترخيص لأن حالة الترخيص هي {{reason}}. ستبقى الميزات المرخصة متاحة حتى {{graceEndsAt}}.',
+    refusal_reason_canceled: 'ملغى',
+    refusal_reason_unpaid: 'غير مدفوع',
+    refusal_reason_expired: 'منتهي الصلاحية',
+    refusal_reason_revoked: 'مسحوب',
+    refusal_reason_unknown: 'غير متاح',
+    grace_expired_description:
+      'انتهت فترة السماح للترخيص في {{graceEndsAt}}. عاد هذا النشر إلى إعدادات OSS الافتراضية. احصل على مفتاح ترخيص جديد من Logto Cloud وثبّته مرة أخرى.',
+    get_fresh_key_button: 'الحصول على مفتاح ترخيص جديد',
+    replace_button: 'استبدال الترخيص',
   },
   members: {
-    card_title: '',
+    card_title: 'أدر المستأجرين بأمان أكبر مع Logto Cloud',
     card_description: 'أضف مسؤولين أو متعاونين إلى المستأجر الخاص بك دون مشاركة حساب مسؤول واحد.',
-    card_action: '',
+    card_action: 'استكشف Logto Cloud',
+    self_hosted_card_title: 'أدر المستأجرين بأمان أكبر مع خطط الاستضافة الذاتية',
+    self_hosted_card_description:
+      'أضف مسؤولين أو متعاونين إلى المستأجر الخاص بك دون مشاركة حساب مسؤول واحد.',
+    self_hosted_card_action: 'استكشف خطط الاستضافة الذاتية',
   },
   settings: {
     title: 'الإعدادات',
@@ -21,7 +63,8 @@ const tenants = {
     tenant_id: 'معرف المستأجر',
     tenant_name: 'اسم المستأجر',
     tenant_instance: 'اختر مثيلك',
-    tenant_instance_description: '',
+    tenant_instance_description:
+      'اختر المكان الذي سيتم استضافة المستأجر الخاص بك فيه. اختر Logto Cloud للبنية التحتية العامة المشتركة ، أو مثيل خاص للحصول على موارد مخصصة.',
     tenant_region: 'منطقة البيانات',
     tenant_region_description:
       'الموقع الفعلي الذي يتم استضافة موارد المستأجر الخاصة بك (المستخدمين ، التطبيقات ، إلخ). لا يمكن تغييره بعد الإنشاء.',
@@ -36,8 +79,19 @@ const tenants = {
     tenant_info_saved: 'تم حفظ معلومات المستأجر بنجاح.',
     tenant_mfa: 'المصادقة متعددة العوامل',
     tenant_mfa_description: 'اطلب من أعضائك إعداد المصادقة متعددة العوامل للوصول إلى هذا المستأجر.',
+    oss_description: 'إدارة كيفية وصول الأعضاء إلى وحدة التحكم على هذه النسخة.',
+    tenant_mfa_confirm_title: 'طلب المصادقة متعددة العوامل لجميع الأعضاء؟',
+    tenant_mfa_confirm_description:
+      'لم يقم هؤلاء الأعضاء بإعداد المصادقة متعددة العوامل بعد. سيظلون مسجلين الدخول، وسيُطلب منهم إعدادها عند تسجيل الدخول التالي:',
+    tenant_mfa_confirm_self:
+      'لم تقم أنت أيضًا بإعداد المصادقة متعددة العوامل. قم بإعدادها في إعدادات حسابك قبل تسجيل الدخول التالي.',
+    tenant_mfa_confirm_button: 'طلب المصادقة متعددة العوامل',
+    tenant_mfa_setup_required:
+      'يتطلب هذا المستأجر المصادقة متعددة العوامل. قم بإعدادها الآن، وإلا سيُطلب منك ذلك عند تسجيل الدخول التالي.',
+    tenant_mfa_setup_action: 'إعداد المصادقة متعددة العوامل',
     enterprise_sso: 'Enterprise SSO',
-    enterprise_sso_description: '',
+    enterprise_sso_description:
+      'متاح في الخطط المدفوعة. اتصل بنا لتمكين Enterprise SSO حتى يتمكن جميع الأعضاء من تسجيل الدخول إلى Logto Cloud Console باستخدام موفر هوية مؤسستك.',
   },
   full_env_tag: {
     development: 'تطوير',

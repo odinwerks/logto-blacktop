@@ -38,6 +38,19 @@ const connector_details = {
     total_email_sent: '総送信数: {{value, number}}',
     total_email_sent_tip:
       'Logto はセキュアかつ安定した組み込みメールのために SendGrid を利用しています。完全に無料です。<a>詳細を見る</a>',
+    hosted_email_usage: {
+      daily: '日次 <value>{{usage, number}}</value> / {{limit, number}}',
+      daily_unlimited: '日次 <value>{{usage, number}}</value>',
+      monthly: '月次 <value>{{usage, number}}</value> / {{limit, number}}',
+      monthly_unlimited: '月次 <value>{{usage, number}}</value>',
+      tip: 'Free および Development プランには、組み込みメールサービスの日次および月次の上限が含まれます。',
+      banner: {
+        approaching:
+          'Logto の組み込みメールサービスの送信上限に近づいています。Logto の組み込みメールサービスを引き続き使用するには、<provider>独自のメールプロバイダーを接続</provider>するか、<upgrade>プランをアップグレード</upgrade>してください。',
+        reached:
+          'Logto の組み込みメールサービスの送信上限に達しました。サインインメールが中断される可能性があります。Logto の組み込みメールサービスを引き続き使用するには、<provider>独自のメールプロバイダーを接続</provider>するか、<upgrade>プランをアップグレード</upgrade>してください。',
+      },
+    },
     email_template_title: 'メールテンプレート',
     template_description:
       '組み込みのメールは、シームレスな認証メールの配信のためにデフォルトのテンプレートを使用します。設定は必要ありません。基本的なブランド情報をカスタマイズできます。',
@@ -73,6 +86,20 @@ const connector_details = {
   sign_in_experience: {
     in_use: 'サインインに有効',
     not_in_use: 'サインインに無効',
+  },
+  email_logs: {
+    title: 'メールログ',
+    time: '時間',
+    recipient: '宛先',
+    recipient_placeholder: '受信者の完全なアドレスで検索',
+    template_type: 'テンプレートタイプ',
+    status: 'ステータス',
+    status_sent: '送信済み',
+    status_failed: '失敗',
+    language_tag: '言語',
+    provider_message_id: 'プロバイダーメッセージ ID',
+    previous_page: '前へ',
+    next_page: '次へ',
   },
 };
 

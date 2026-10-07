@@ -30,6 +30,7 @@ import { isAccessDeniedError, parseCustomJwtResponseError } from '#src/utils/cus
 import { i18next } from '#src/utils/i18n.js';
 import { buildAppInsightsTelemetry } from '#src/utils/request.js';
 
+import { getClientIdentifierPayload, shouldTreatAsCimdClient } from './cimd/index.js';
 import { tokenExchangeActGuard } from './grants/token-exchange/types.js';
 
 const hasI18n = (ctx: KoaContextWithOIDC): ctx is KoaContextWithOIDC & { i18n: i18n } =>
@@ -243,8 +244,27 @@ export const getExtraTokenClaimsForJwtCustomization = async (
     );
 
     const clientId = token.clientId ?? ctx.oidc.client?.clientId;
+    /**
+     * CIMD clients are unregistered, so there is no application context to expose and the
+     * identifier URL must never be used to query the applications table.
+     */
     const applicationContext = conditional(
-      clientId && (await libraries.jwtCustomizers.getApplicationContext(envSet.tenantId, clientId))
+      clientId &&
+        !shouldTreatAsCimdClient(envSet, clientId) &&
+        (await libraries.jwtCustomizers.getApplicationContext(envSet.tenantId, clientId))
+    );
+
+    // For organization (API resource) tokens, expose the target organization so the customizer
+    // can attach per-org claims. The `organization_id` claim itself is added afterwards in
+    // `getExtraTokenClaimsForOrganizationApiResource`, so it is not visible on `token` here.
+    const organizationId =
+      typeof ctx.oidc.params?.organization_id === 'string'
+        ? ctx.oidc.params.organization_id
+        : undefined;
+    const organizationContext = conditional(
+      !isClientCredentialsToken &&
+        organizationId &&
+        (await libraries.jwtCustomizers.getOrganizationContext(organizationId))
     );
 
     const logEntry = ctx.createLog(
@@ -259,7 +279,7 @@ export const getExtraTokenClaimsForJwtCustomization = async (
 
     logEntry.append({
       sessionId: ctx.oidc.session?.uid,
-      applicationId: ctx.oidc.client?.clientId,
+      ...getClientIdentifierPayload(ctx.oidc.client?.clientId),
       ...conditional(logtoUserInfo && { userId: logtoUserInfo.id }),
       tenantId: envSet.tenantId,
     });
@@ -303,6 +323,11 @@ export const getExtraTokenClaimsForJwtCustomization = async (
                   application: applicationContext,
                 }
               ),
+              ...conditional(
+                organizationContext && {
+                  organization: organizationContext,
+                }
+              ),
             },
           }),
     };
@@ -315,7 +340,7 @@ export const getExtraTokenClaimsForJwtCustomization = async (
 
     const result = EnvSet.values.isCloud
       ? await libraries.jwtCustomizers.runScriptRemotely(payload)
-      : await JwtCustomizerLibrary.runScriptInLocalVm(payload);
+      : await JwtCustomizerLibrary.runScriptLocally(payload, envSet.tenantId);
 
     ctx.prependAllLogEntries({ customTokenClaims: result });
 

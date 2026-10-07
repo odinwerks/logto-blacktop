@@ -36,6 +36,11 @@ const security = {
       description:
         "L'alternative CAPTCHA intelligente de Cloudflare qui offre une protection contre les bots non intrusive tout en garantissant une expérience utilisateur fluide sans puzzles visuels.",
     },
+    cap: {
+      name: 'Cap',
+      description:
+        'CAPTCHA open source et auto-hébergé basé sur la preuve de travail, sans puzzles visuels ni services tiers, idéal pour les régions où les autres services CAPTCHA sont inaccessibles.',
+    },
   },
   captcha_details: {
     back_to_security: 'Retour à la sécurité',
@@ -51,6 +56,10 @@ const security = {
     domain_placeholder: 'www.google.com (défaut) ou recaptcha.net',
     recaptcha_key_id: 'ID de clé reCAPTCHA',
     recaptcha_api_key: 'Clé API du projet',
+    cap_endpoint: 'Point de terminaison Cap',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      "Ce point de terminaison utilise HTTP, ce qui ne convient qu'au développement local. Les navigateurs bloquent les requêtes HTTP provenant d'une page de connexion HTTPS, et la clé secrète serait envoyée sans chiffrement. Utilisez HTTPS en production.",
     deletion_description: 'Êtes-vous sûr de vouloir supprimer ce fournisseur CAPTCHA ?',
     captcha_deleted: 'Fournisseur CAPTCHA supprimé avec succès',
     setup_captcha: 'Configurer CAPTCHA',
@@ -59,6 +68,10 @@ const security = {
     mode_checkbox: 'Case à cocher',
     mode_notice:
       'Le mode de vérification est défini dans les paramètres de votre clé reCAPTCHA dans Google Cloud Console. Changer le mode ici nécessite un type de clé correspondant.',
+    score_threshold: 'Seuil de score',
+    score_threshold_description:
+      "Les scores inférieurs au seuil sont rejetés. 0.0 accepte tout, 1.0 n'accepte que les scores parfaits. La valeur par défaut est 0.5.",
+    score_threshold_error: 'Le seuil de score doit être compris entre 0 et 1.',
   },
   password_policy: {
     password_requirements: 'Exigences relatives au mot de passe',
@@ -94,19 +107,40 @@ const security = {
       "Exiger des utilisateurs qu'ils réinitialisent leur mot de passe après un nombre de jours défini. Les utilisateurs se connectant via SSO ou passkey ne sont pas affectés.",
     enable_password_expiration: "Activer l'expiration du mot de passe",
     enable_password_expiration_description:
-      "Exiger des utilisateurs qu'ils réinitialisent périodiquement leur mot de passe. Les utilisateurs existants sans date de changement de mot de passe enregistrée seront évalués par rapport à leur date de création de compte.",
+      "Exiger des utilisateurs qu'ils réinitialisent périodiquement leur mot de passe. Les utilisateurs existants sans date de changement de mot de passe enregistrée seront évalués à partir de la date d'activation de cette politique.",
     enable_password_expiration_tip:
       'Vous ne pouvez activer l’expiration du mot de passe qu’après avoir configuré au moins une méthode de mot de passe oublié avec un connecteur valide dans l’expérience de connexion.',
     expiration_period: 'Période de validité du mot de passe (jours)',
     expiration_period_description:
       "Nombre de jours pendant lesquels un mot de passe reste valide avant d'expirer.",
-    expiration_period_error: "La période de validité du mot de passe doit être d'au moins 1 jour.",
-    expiration_reminder: "Rappel d'expiration (jours avant l'expiration)",
-    expiration_reminder_description:
-      "Nombre de jours avant l'expiration pour avertir les utilisateurs et les inviter à réinitialiser leur mot de passe. Les utilisateurs peuvent ignorer le rappel et poursuivre la connexion.",
-    expiration_reminder_error:
-      "La période de rappel d'expiration doit être comprise entre 0 et la période de validité ({{max}} jours).",
+    expiration_period_error:
+      'La période de validité du mot de passe doit être comprise entre {{min}} et {{max}} jours.',
+    password_expiration_recovery_reminder:
+      "Certains utilisateurs n'ont peut-être pas d'adresse e-mail ou de numéro de téléphone pour recevoir un code de récupération de mot de passe, et ne pourront donc pas réinitialiser un mot de passe expiré. Exigez une adresse e-mail ou un numéro de téléphone lors de l'inscription pour vous assurer que chaque utilisateur peut récupérer son mot de passe.",
   },
+  verification_code_policy: {
+    card_title: 'Code de vérification',
+    card_description:
+      "Configurez la durée d'expiration et le nombre maximal de nouvelles tentatives pour les codes de vérification utilisés dans les flux de connexion, d'inscription et de réinitialisation du mot de passe.",
+    enable: {
+      title: 'Personnaliser les paramètres du code de vérification',
+      description:
+        "Permettre la personnalisation de la durée d'expiration du code de vérification et du nombre maximal de nouvelles tentatives.",
+    },
+    expiration_duration: {
+      title: "Durée d'expiration (secondes)",
+      description:
+        "La durée en secondes pendant laquelle un code de vérification reste valide après l'envoi.",
+      error_message: "La durée d'expiration doit être comprise entre 60 et 3600 secondes.",
+    },
+    max_retry_attempts: {
+      title: 'Nombre maximal de nouvelles tentatives',
+      description:
+        "Nombre maximal de tentatives de vérification échouées autorisées avant l'invalidation du code.",
+      error_message: 'Le nombre maximal de nouvelles tentatives doit être compris entre 1 et 100.',
+    },
+  },
+
   sentinel_policy: {
     card_title: 'Verrouillage des identifiants',
     card_description:
@@ -149,6 +183,25 @@ const security = {
     card_title: "Liste de blocage d'email",
     card_description:
       "Prenez le contrôle de votre base d'utilisateurs en bloquant les adresses e-mail à haut risque ou indésirables.",
+    custom_email_allowlist: {
+      title: 'Autoriser des adresses e-mail personnalisées',
+      description:
+        'Ajoutez des règles pour autoriser uniquement certains domaines, adresses e-mail ou modèles avec joker pour les nouvelles inscriptions et les e-mails récemment liés. Exemples : bar@example.com, @example.com, foo*@example.com, *@example.com. Les domaines gmail.com et googlemail.com sont traités comme équivalents et les points de la partie locale sont ignorés, donc foo.bar@gmail.com correspond à foobar@googlemail.com.',
+      placeholder: 'Saisissez une adresse e-mail, un domaine ou un modèle avec joker',
+      duplicate_error: 'L’adresse e-mail, le domaine ou le modèle avec joker a déjà été ajouté',
+      invalid_format_error:
+        'Doit être une adresse e-mail valide (bar@example.com), un domaine (@example.com) ou un modèle avec joker (foo*@example.com, *@example.com)',
+      warnings: {
+        identical_entries:
+          'Certaines entrées de la liste d’autorisation existent aussi dans les règles de blocage. Les e-mails correspondants peuvent toujours être bloqués.',
+        blocked_exact_email:
+          'Certains e-mails exacts de la liste d’autorisation correspondent à une règle de blocage. Les e-mails correspondants peuvent toujours être bloqués.',
+        blocked_subaddressing:
+          'Certaines entrées de la liste d’autorisation contiennent un signe plus (+), mais le sous-adressage e-mail est bloqué.',
+        effectively_unusable:
+          'D’après ces vérifications, la liste d’autorisation actuelle peut ne laisser passer aucun nouvel e-mail.',
+      },
+    },
     disposable_email: {
       title: 'Bloquer les adresses e-mail temporaires',
       description:
@@ -162,12 +215,12 @@ const security = {
     custom_email_address: {
       title: 'Bloquer les adresses e-mail personnalisées',
       description:
-        "Ajoutez des domaines ou des adresses e-mail spécifiques qui ne peuvent pas s'inscrire ou se lier via l'interface utilisateur.",
-      placeholder:
-        "Entrez l'adresse email ou le domaine bloqué (ex. : bar@example.com, @example.com)",
-      duplicate_error: 'Adresse e-mail ou domaine déjà ajouté',
+        "Ajoutez des règles pour empêcher certains domaines, adresses e-mail ou modèles avec joker de s'inscrire ou de se lier via l'interface utilisateur. Exemples : bar@example.com, @example.com, foo*@example.com, *@example.com. Les domaines gmail.com et googlemail.com sont traités comme équivalents et les points de la partie locale sont ignorés, donc foo.bar@gmail.com correspond à foobar@googlemail.com.",
+      placeholder: 'Saisissez une adresse e-mail, un domaine ou un modèle avec joker',
+      duplicate_error:
+        "L'adresse e-mail, le domaine ou le modèle d'adresse e-mail avec joker a déjà été ajouté",
       invalid_format_error:
-        'Doit être une adresse e-mail valide (bar@example.com) ou un domaine (@example.com)',
+        "Doit être une adresse e-mail valide (bar@example.com), un domaine (@example.com) ou un modèle d'adresse e-mail avec joker (foo*@example.com, *@example.com)",
     },
   },
 };

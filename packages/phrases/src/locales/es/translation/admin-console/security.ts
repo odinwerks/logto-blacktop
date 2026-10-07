@@ -36,6 +36,11 @@ const security = {
       description:
         'La alternativa inteligente de CAPTCHA de Cloudflare que proporciona protección contra bots no intrusiva mientras garantiza una experiencia de usuario fluida sin acertijos visuales.',
     },
+    cap: {
+      name: 'Cap',
+      description:
+        'CAPTCHA de código abierto y autoalojado basado en prueba de trabajo, sin acertijos visuales ni servicios de terceros, ideal para regiones donde otros servicios de CAPTCHA no son accesibles.',
+    },
   },
   captcha_details: {
     back_to_security: 'Volver a seguridad',
@@ -51,6 +56,10 @@ const security = {
     domain_placeholder: 'www.google.com (predeterminado) o recaptcha.net',
     recaptcha_key_id: 'ID de la clave reCAPTCHA',
     recaptcha_api_key: 'Clave API del proyecto',
+    cap_endpoint: 'Endpoint de Cap',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      'Este endpoint usa HTTP, lo que solo es adecuado para el desarrollo local. Los navegadores bloquean las solicitudes HTTP desde una página de inicio de sesión HTTPS y la clave secreta se enviaría sin cifrar. Usa HTTPS en producción.',
     deletion_description: '¿Estás seguro de que quieres eliminar este proveedor de CAPTCHA?',
     captcha_deleted: 'Proveedor de CAPTCHA eliminado con éxito',
     setup_captcha: 'Configurar CAPTCHA',
@@ -59,6 +68,10 @@ const security = {
     mode_checkbox: 'Casilla de verificación',
     mode_notice:
       'El modo de verificación se define en la configuración de tu clave reCAPTCHA en Google Cloud Console. Cambiar el modo aquí requiere un tipo de clave coincidente.',
+    score_threshold: 'Umbral de puntuación',
+    score_threshold_description:
+      'Las puntuaciones por debajo del umbral se rechazan. 0.0 permite todas, 1.0 solo permite puntuaciones perfectas. El valor predeterminado es 0.5.',
+    score_threshold_error: 'El umbral de puntuación debe estar entre 0 y 1.',
   },
   password_policy: {
     password_requirements: 'Requisitos de contraseña',
@@ -93,19 +106,40 @@ const security = {
       'Requerir a los usuarios que restablezcan su contraseña después de un número determinado de días. Los usuarios que inician sesión a través de SSO o clave de acceso no se ven afectados.',
     enable_password_expiration: 'Habilitar expiración de contraseña',
     enable_password_expiration_description:
-      'Requerir a los usuarios que restablezcan periódicamente su contraseña. Los usuarios existentes sin una fecha de cambio de contraseña registrada serán evaluados con respecto a su fecha de creación de cuenta.',
+      'Requerir a los usuarios que restablezcan periódicamente su contraseña. Los usuarios existentes sin una fecha de cambio de contraseña registrada serán evaluados a partir de la fecha en que se habilitó esta política.',
     enable_password_expiration_tip:
       'Solo puedes habilitar la expiración de contraseña después de configurar al menos un método de recuperación de contraseña con un conector válido en la experiencia de inicio de sesión.',
     expiration_period: 'Periodo de validez de la contraseña (dias)',
     expiration_period_description:
       'Número de días que una contraseña permanece válida antes de expirar.',
-    expiration_period_error: 'El periodo de validez de la contraseña debe ser de al menos 1 día.',
-    expiration_reminder: 'Recordatorio de expiración (días antes del vencimiento)',
-    expiration_reminder_description:
-      'Número de días antes del vencimiento para advertir a los usuarios y solicitar un restablecimiento de contraseña. Los usuarios pueden omitir el recordatorio y continuar con el inicio de sesión.',
-    expiration_reminder_error:
-      'El periodo del recordatorio de expiración debe estar entre 0 y el periodo de validez ({{max}} días).',
+    expiration_period_error:
+      'El período de validez de la contraseña debe estar entre {{min}} y {{max}} días.',
+    password_expiration_recovery_reminder:
+      'Es posible que algunos usuarios no tengan una dirección de correo electrónico o un número de teléfono para recibir un código de recuperación de contraseña, por lo que no podrán restablecer una contraseña caducada. Exige una dirección de correo electrónico o un número de teléfono en el registro para asegurarte de que todos los usuarios puedan recuperar su contraseña.',
   },
+  verification_code_policy: {
+    card_title: 'Código de verificación',
+    card_description:
+      'Configura la duración de expiración y el número máximo de reintentos para los códigos de verificación usados en los flujos de inicio de sesión, registro y restablecimiento de contraseña.',
+    enable: {
+      title: 'Personalizar ajustes del código de verificación',
+      description:
+        'Permitir la personalización de la duración de expiración del código de verificación y el número máximo de reintentos.',
+    },
+    expiration_duration: {
+      title: 'Duración de expiración (segundos)',
+      description:
+        'La duración en segundos durante la cual un código de verificación permanece válido después de enviarse.',
+      error_message: 'La duración de expiración debe estar entre 60 y 3600 segundos.',
+    },
+    max_retry_attempts: {
+      title: 'Número máximo de reintentos',
+      description:
+        'Número máximo de intentos de verificación fallidos permitidos antes de invalidar el código.',
+      error_message: 'El número máximo de reintentos debe estar entre 1 y 100.',
+    },
+  },
+
   sentinel_policy: {
     card_title: 'Bloqueo de identificador',
     card_description:
@@ -148,6 +182,25 @@ const security = {
     card_title: 'Lista de bloqueo de correos electrónicos',
     card_description:
       'Toma el control de tu base de usuarios al bloquear direcciones de correo electrónico de alto riesgo o no deseadas.',
+    custom_email_allowlist: {
+      title: 'Permitir direcciones de correo personalizadas',
+      description:
+        'Agrega reglas para permitir solo dominios de correo, direcciones de correo o patrones comodín específicos para nuevos registros y correos vinculados recientemente. Ejemplos: bar@example.com, @example.com, foo*@example.com, *@example.com. Los dominios gmail.com y googlemail.com se tratan como equivalentes y los puntos de la parte local se ignoran, por lo que foo.bar@gmail.com coincide con foobar@googlemail.com.',
+      placeholder: 'Ingresa una dirección de correo, dominio o patrón comodín',
+      duplicate_error: 'La dirección de correo, dominio o patrón comodín ya se agregó',
+      invalid_format_error:
+        'Debe ser una dirección de correo válida (bar@example.com), un dominio (@example.com) o un patrón comodín (foo*@example.com, *@example.com)',
+      warnings: {
+        identical_entries:
+          'Algunas entradas de la lista de permitidos también existen en las reglas de bloqueo. Los correos coincidentes aún pueden bloquearse.',
+        blocked_exact_email:
+          'Algunos correos exactos de la lista de permitidos coinciden con una regla de bloqueo. Los correos coincidentes aún pueden bloquearse.',
+        blocked_subaddressing:
+          'Algunas entradas de la lista de permitidos contienen un signo más (+), pero el subdireccionamiento de correo está bloqueado.',
+        effectively_unusable:
+          'Según estas comprobaciones, es posible que la lista de permitidos actual no permita pasar ningún correo nuevo.',
+      },
+    },
     disposable_email: {
       title: 'Bloquear direcciones de correo electrónico desechables',
       description:
@@ -161,12 +214,12 @@ const security = {
     custom_email_address: {
       title: 'Bloquear direcciones de correo electrónico personalizadas',
       description:
-        'Agrega dominios de correo específicos o direcciones de correo electrónico que no pueden registrarse o vincularse a través de la interfaz de usuario.',
-      placeholder:
-        'Ingresa la dirección de correo electrónico o dominio bloqueado (por ejemplo, bar@example.com, @example.com)',
-      duplicate_error: 'La dirección de correo electrónico o el dominio ya fue agregado',
+        'Agrega reglas para impedir que dominios de correo, direcciones de correo o patrones comodín específicos se registren o vinculen mediante la interfaz de usuario. Ejemplos: bar@example.com, @example.com, foo*@example.com, *@example.com. Los dominios gmail.com y googlemail.com se tratan como equivalentes y los puntos de la parte local se ignoran, por lo que foo.bar@gmail.com coincide con foobar@googlemail.com.',
+      placeholder: 'Ingresa una dirección de correo, dominio o patrón comodín',
+      duplicate_error:
+        'La dirección de correo electrónico, el dominio o el patrón de dirección de correo con comodín ya fue agregado',
       invalid_format_error:
-        'Debe ser una dirección de correo electrónico válida (bar@example.com) o un dominio (@example.com)',
+        'Debe ser una dirección de correo electrónico válida (bar@example.com), un dominio (@example.com) o un patrón de dirección de correo con comodín (foo*@example.com, *@example.com)',
     },
   },
 };

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Page not found',
@@ -13,6 +14,8 @@ const account_center = {
     sidebar_security: 'Security',
     sidebar_sessions: 'Sessions',
     support: 'Support',
+    user_menu: 'User menu',
+    sign_out: 'Sign out',
   },
   verification: {
     title: 'Security verification',
@@ -120,6 +123,21 @@ const account_center = {
     email_removed: 'Email address removed successfully.',
     phone_removed: 'Phone number removed successfully.',
     username_removed: 'Username removed successfully.',
+    trusted_devices: {
+      title: 'MFA trusted devices',
+      current_device: 'Current device',
+      expires_on: 'Expire on {{date}}',
+      unknown_location: 'Unknown location',
+      remove: 'Remove',
+      removed: 'Trusted device removed successfully.',
+      loading: 'Loading...',
+      empty: 'No trusted devices.',
+      load_failed: 'Failed to load trusted devices. Please try again.',
+      retry: 'Try again',
+      remove_confirmation_title: 'Remove trusted device?',
+      remove_confirmation_description:
+        "You'll need to complete MFA again on this device the next time you sign in. Your current session will stay active.",
+    },
   },
   social: {
     linked: '{{connector}} linked successfully.',
@@ -275,12 +293,15 @@ const account_center = {
     no_third_party_apps: 'No authorized third-party applications.',
     third_party_apps_load_failed: 'Failed to load third-party apps. Please try again.',
     granted_at: 'Authorized {{date}}',
+    dynamic_app: 'Dynamic app',
+    client_id: 'Client ID: {{clientId}}',
     revoke_grant: 'Remove',
     revoke_grant_title: 'Remove third-party app access',
     revoke_grant_description:
-      'This will revoke all access granted to this application. Are you sure you want to continue?',
+      'This will revoke the access granted to this application. Previously issued access tokens may remain valid until they expire. Are you sure you want to continue?',
     revoke_grant_failed: 'Failed to revoke some grants. Please try again.',
   },
 };
 
 export default Object.freeze(account_center);
+/* eslint-enable max-lines */

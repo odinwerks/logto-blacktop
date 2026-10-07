@@ -2,24 +2,34 @@ import { TemplateType } from '@logto/connector-kit';
 import {
   AlternativeSignUpIdentifier,
   InteractionEvent,
+  subjectVerificationCodeIdentifierGuard,
   SignInIdentifier,
   verificationCodeIdentifierGuard,
+  verificationCodeIdentifierPayloadGuard,
 } from '@logto/schemas';
 import type Router from 'koa-router';
 import { z } from 'zod';
 
+import { EnvSet } from '#src/env-set/index.js';
+import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
+import assertThat from '#src/utils/assert-that.js';
 
 import { codeVerificationIdentifierRecordTypeMap } from '../classes/utils.js';
 import {
   createNewCodeVerificationRecord,
   createNewMfaCodeVerificationRecord,
+  createSubjectCodeVerificationRecord,
   getTemplateTypeByEvent,
 } from '../classes/verifications/code-verification.js';
 import { experienceRoutes } from '../const.js';
 import { type ExperienceInteractionRouterContext } from '../types.js';
 
+import {
+  getSubjectCodeRecordIdentifier,
+  getSubjectIdentifier,
+} from './subject-verification-code-helpers.js';
 import {
   sendCode,
   verifyCode,
@@ -31,26 +41,78 @@ export default function verificationCodeRoutes<T extends ExperienceInteractionRo
   router: Router<unknown, T>,
   { libraries, queries, sentinel }: TenantContext
 ) {
+  // The subject-bound variant is part of the unreleased step-up feature: outside it the request
+  // contract keeps requiring an identifier with a value, and the OpenAPI document omits the
+  // variant.
+  const localeField = {
+    // Optional: explicitly request a locale for the verification-code message. The experience
+    // UI sends its current language so that anonymous flows (sign-in, forgot-password) can
+    // localize emails even when OIDC `ui_locales` is not set. Region tags are normalized to
+    // their base tag (e.g. `ka-GE` -> `ka`); unsupported tags gracefully fall back.
+    locale: z.string().optional(),
+  };
+  const stableBodyGuard = z.object({
+    identifier: verificationCodeIdentifierGuard,
+    interactionEvent: z.nativeEnum(InteractionEvent),
+    ...localeField,
+  });
+  const subjectBodyGuard = z.object({
+    identifier: subjectVerificationCodeIdentifierGuard,
+    interactionEvent: z.literal(InteractionEvent.SignIn),
+    ...localeField,
+  });
+  const bodyGuard = EnvSet.values.isDevFeaturesEnabled
+    ? z.union([stableBodyGuard, subjectBodyGuard])
+    : stableBodyGuard;
+  const verifyIdentifierGuard = EnvSet.values.isDevFeaturesEnabled
+    ? verificationCodeIdentifierPayloadGuard
+    : verificationCodeIdentifierGuard;
+
   router.post(
     `${experienceRoutes.verification}/verification-code`,
     koaGuard({
-      body: z.object({
-        identifier: verificationCodeIdentifierGuard,
-        interactionEvent: z.nativeEnum(InteractionEvent),
-        // Optional: explicitly request a locale for the verification-code message. The experience
-        // UI sends its current language so that anonymous flows (sign-in, forgot-password) can
-        // localize emails even when OIDC `ui_locales` is not set. Region tags are normalized to
-        // their base tag (e.g. `ka-GE` -> `ka`); unsupported tags gracefully fall back.
-        locale: z.string().optional(),
-      }),
+      body: bodyGuard,
       response: z.object({
         verificationId: z.string(),
       }),
-      // 501: connector not found
-      status: [200, 400, 404, 422, 501],
+      // 403: a pure step-up supplied a raw identifier
+      // 404: subject-bound variant without a subject; 429: rate limited; 501: connector not found
+      status: [200, 400, 403, 404, 422, 429, 501],
     }),
     async (ctx, next) => {
-      const { identifier, interactionEvent, locale } = ctx.guard.body;
+      const { identifier: identifierPayload, interactionEvent, locale } = ctx.guard.body;
+      const { experienceInteraction } = ctx;
+
+      assertThat(
+        !experienceInteraction.isStepUp || identifierPayload.value === undefined,
+        new RequestError({ code: 'session.step_up.forbidden_identifier', status: 403 })
+      );
+
+      // The subject is already authenticated, so no captcha applies
+      if (identifierPayload.value === undefined) {
+        const { userId, identifier } = await getSubjectIdentifier({
+          identifierType: identifierPayload.type,
+          experienceInteraction,
+          queries,
+        });
+
+        ctx.body = await sendCode({
+          identifier,
+          interactionEvent,
+          locale,
+          createVerificationRecord: () =>
+            createSubjectCodeVerificationRecord(libraries, queries, identifier, userId),
+          libraries,
+          queries,
+          ctx,
+        });
+
+        await next();
+        return;
+      }
+
+      const identifier = identifierPayload;
+
       // Require captcha if the user is not identified.
       if (!ctx.experienceInteraction.identifiedUserId) {
         await ctx.experienceInteraction.guardCaptcha();
@@ -94,25 +156,41 @@ export default function verificationCodeRoutes<T extends ExperienceInteractionRo
     `${experienceRoutes.verification}/verification-code/verify`,
     koaGuard({
       body: z.object({
-        identifier: verificationCodeIdentifierGuard,
+        identifier: verifyIdentifierGuard,
         verificationId: z.string(),
         code: z.string(),
       }),
       response: z.object({
         verificationId: z.string(),
       }),
-      // 501: connector not found
-      status: [200, 400, 404, 501],
+      // 403: a pure step-up supplied a raw identifier; 501: connector not found
+      status: [200, 400, 403, 404, 501],
     }),
     async (ctx, next) => {
-      const { verificationId, code, identifier } = ctx.guard.body;
+      const { verificationId, code, identifier: identifierPayload } = ctx.guard.body;
+      const verificationType = codeVerificationIdentifierRecordTypeMap[identifierPayload.type];
+
+      assertThat(
+        !ctx.experienceInteraction.isStepUp || identifierPayload.value === undefined,
+        new RequestError({ code: 'session.step_up.forbidden_identifier', status: 403 })
+      );
+
+      const identifier =
+        identifierPayload.value === undefined
+          ? getSubjectCodeRecordIdentifier({
+              verificationType,
+              verificationId,
+              experienceInteraction: ctx.experienceInteraction,
+            })
+          : identifierPayload;
 
       ctx.body = await verifyCode({
         verificationId,
         code,
         identifier,
-        verificationType: codeVerificationIdentifierRecordTypeMap[identifier.type],
+        verificationType,
         sentinel,
+        queries,
         ctx,
       });
 
@@ -133,7 +211,8 @@ export default function verificationCodeRoutes<T extends ExperienceInteractionRo
       response: z.object({
         verificationId: z.string(),
       }),
-      status: [200, 400, 404, 501],
+      // 429: rate limited; 501: connector not found
+      status: [200, 400, 404, 429, 501],
     }),
     async (ctx, next) => {
       const { identifierType, locale } = ctx.guard.body;
@@ -195,6 +274,7 @@ export default function verificationCodeRoutes<T extends ExperienceInteractionRo
         identifier,
         verificationType: mfaVerificationType,
         sentinel,
+        queries,
         ctx,
       });
 

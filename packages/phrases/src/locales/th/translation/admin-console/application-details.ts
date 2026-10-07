@@ -120,6 +120,43 @@ const application_details = {
   field_custom_data_tip:
     'ข้อมูลเพิ่มเติมที่ไม่อยู่ในคุณสมบัติแอปที่กำหนดไว้ล่วงหน้าเช่น ข้อมูลธุรกิจหรือการตั้งค่าเฉพาะ',
   custom_data_invalid: 'ข้อมูลกำหนดเองต้องเป็น JSON object ที่ถูกต้อง',
+  access_control: {
+    name: 'กฎ',
+    title: 'การควบคุมการเข้าถึง',
+    description: 'ปรับแต่งกฎของคุณสำหรับการควบคุมการเข้าถึงระดับแอป',
+    enable: 'เปิดใช้งานการควบคุมการเข้าถึงระดับแอป',
+    enable_description:
+      'เปิดใช้งานการควบคุมการเข้าถึงแบบละเอียดเพื่อจำกัดว่าผู้ใช้ใดสามารถเข้าถึงแอปพลิเคชันนี้ได้ หากปิดใช้งาน ผู้ใช้ที่ลงทะเบียนทั้งหมดในระบบจะสามารถเข้าถึงได้',
+    enable_without_rules_notice:
+      'เพิ่มกฎการเข้าถึงอย่างน้อยหนึ่งข้อก่อนเปิดใช้งานการควบคุมการเข้าถึง',
+    load_error: 'โหลดกฎการควบคุมการเข้าถึงไม่สำเร็จ',
+    custom_allow_rules: 'กฎอนุญาตแบบกำหนดเอง',
+    custom_allow_rules_description:
+      'สร้างกฎเพื่อให้ผู้ใช้ที่มีคุณลักษณะบางอย่างสามารถเข้าถึงได้โดยอัตโนมัติ ต้องมีกฎอย่างน้อยหนึ่งข้อเมื่อเปิดใช้งาน',
+    rules: 'กฎการเข้าถึง',
+    add_rules: 'เพิ่มกฎ',
+    rules_description: 'ผู้ใช้สามารถเข้าถึงแอปนี้ได้เมื่อตรงกับกฎที่กำหนดไว้ข้อใดข้อหนึ่ง',
+    empty_rules_description: 'ยังไม่ได้กำหนดค่ากฎใด ๆ',
+    delete_rule_confirmation: 'คุณแน่ใจหรือไม่ว่าต้องการลบกฎนี้?',
+    rule_table_rules: 'กฎ',
+    rule_table_description: 'คำอธิบาย',
+    rule_table_users: 'ผู้ใช้',
+    rule_table_members: 'สมาชิก',
+    rule_table_user_id: 'ID ผู้ใช้',
+    rule_count: '{{count}} กฎ',
+    rule_count_other: '{{count}} กฎ',
+    rule_users: 'ผู้ใช้',
+    rule_users_description: 'ผู้ใช้ที่ระบุสามารถเข้าถึงแอปนี้ได้',
+    rule_roles: 'บทบาท',
+    rule_user_roles: 'บทบาทผู้ใช้',
+    rule_user_roles_description: 'ผู้ใช้ที่ได้รับบทบาทผู้ใช้ที่เลือกสามารถเข้าถึงแอปนี้ได้',
+    rule_organizations: 'องค์กร',
+    rule_organizations_description:
+      'สมาชิกปัจจุบันและอนาคตทั้งหมดขององค์กรที่เลือกสามารถเข้าถึงแอปนี้ได้',
+    rule_organization_roles: 'บทบาทองค์กร',
+    rule_organization_roles_description:
+      'สมาชิกที่มีบทบาทองค์กรที่เลือกในองค์กรที่เลือกสามารถเข้าถึงแอปนี้ได้',
+  },
   branding: {
     name: 'การสร้างแบรนด์',
     description: 'ปรับแต่งโลโก้แอปและสีแบรนด์สำหรับประสบการณ์ในระดับแอป',
@@ -256,6 +293,13 @@ const application_details = {
     unspecified_description: 'ใช้รหัสผู้ใช้ Logto เป็น Name ID',
     email_address: 'อีเมล',
     email_address_description: 'ใช้อีเมลเป็น Name ID',
+  },
+  saml_idp_authentication: {
+    always_force_authn: 'บังคับการตรวจสอบตัวตนเสมอ',
+    always_force_authn_description:
+      'บังคับให้ผู้ใช้ลงชื่อเข้าใช้อีกครั้งทุกครั้งที่เข้าใช้แอปพลิเคชันนี้ แม้ว่าจะมีเซสชัน Logto อยู่แล้วก็ตาม',
+    always_force_authn_tip:
+      'เมื่อเปิดใช้งาน Logto จะบังคับให้ผู้ใช้ลงชื่อเข้าใช้อีกครั้งสำหรับแอปพลิเคชันนี้เสมอ เมื่อปิดใช้งาน จะใช้เซสชัน Logto ที่มีอยู่เว้นแต่ผู้ให้บริการต้องการการตรวจสอบตัวตนใหม่ด้วย ForceAuthn.',
   },
   saml_encryption_config: {
     encrypt_assertion: 'เข้ารหัส SAML assertion',

@@ -4,17 +4,12 @@ import {
   SignInIdentifier,
   type VerificationCodeIdentifier,
 } from '@logto/schemas';
-import i18next from 'i18next';
 
 import { type ContinueFlowInteractionEvent } from '@/types';
 
 import api from '../api';
 
-import {
-  experienceApiRoutes,
-  type PasswordVerificationResponse,
-  type VerificationResponse,
-} from './const';
+import { experienceApiRoutes, type VerificationResponse } from './const';
 import {
   initInteraction,
   identifyUser,
@@ -29,12 +24,15 @@ export {
   submitInteraction,
   identifyUser,
   identifyAndSubmitInteraction,
+  setTrustedDeviceOptInDecision,
 } from './interaction';
 
+export * from './avatar';
 export * from './mfa';
 export * from './social';
 export * from './one-time-token';
 export * from './passkey-sign-in';
+export * from './step-up';
 
 /**
  * For sign-in flow user identity not found error handling use.
@@ -75,15 +73,14 @@ export const signInWithPasswordIdentifier = async (
 ) => {
   await initInteraction(InteractionEvent.SignIn, captchaToken);
 
-  return api
+  const { verificationId } = await api
     .post(`${experienceApiRoutes.verification}/password`, {
       json: payload,
     })
-    .json<PasswordVerificationResponse>();
-};
+    .json<VerificationResponse>();
 
-export const continueSignInWithPasswordIdentifier = async (verificationId: string) =>
-  identifyAndSubmitInteraction({ verificationId });
+  return identifyAndSubmitInteraction({ verificationId });
+};
 
 export const registerWithUsername = async (username: string, captchaToken?: string) => {
   await initInteraction(InteractionEvent.Register, captchaToken);
@@ -113,7 +110,6 @@ export const sendVerificationCode = async (
       json: {
         interactionEvent,
         identifier,
-        locale: i18next.language,
       },
     })
     .json<VerificationResponse>();
@@ -132,7 +128,7 @@ export const identifyWithVerificationCode = async (json: VerificationCodePayload
 
 // Profile APIs
 
-export const updateProfileWithVerificationCode = async (
+export const verifyAndUpdateProfileWithVerificationCode = async (
   json: VerificationCodePayload,
   interactionEvent?: ContinueFlowInteractionEvent
 ) => {
@@ -150,6 +146,13 @@ export const updateProfileWithVerificationCode = async (
   if (interactionEvent === InteractionEvent.Register) {
     await identifyUser();
   }
+};
+
+export const updateProfileWithVerificationCode = async (
+  json: VerificationCodePayload,
+  interactionEvent?: ContinueFlowInteractionEvent
+) => {
+  await verifyAndUpdateProfileWithVerificationCode(json, interactionEvent);
 
   return submitInteraction();
 };

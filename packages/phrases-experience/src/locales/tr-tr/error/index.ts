@@ -35,9 +35,15 @@ const error = {
   invalid_link_description:
     'Tek kullanımlık belirtecin süresi dolmuş olabilir veya artık geçerli değil.',
   captcha_verification_failed: 'Captcha doğrulama hatası.',
+  send_verification_code_failed: 'Doğrulama kodu gönderilemedi. Lütfen daha sonra tekrar dene.',
+  send_verification_code_failed_use_password:
+    'Doğrulama kodu gönderilemedi. Lütfen bunun yerine şifrenle giriş yap.',
   terms_acceptance_required: 'Şartların kabulü gerekli',
   terms_acceptance_required_description: 'Devam etmek için şartları kabul etmelisiniz.',
   something_went_wrong: 'Bir şeyler yanlış gitti',
+  account_suspended: 'Hesap askıya alındı',
+  account_suspended_description:
+    'Bu hesap askıya alındı. Yardım için lütfen yöneticiyle iletişime geçin.',
   access_denied: 'Erişim reddedildi',
   application_access_denied:
     'Bu uygulamaya erişim izniniz yok.\nYardım için lütfen yöneticinizle iletişime geçin.',

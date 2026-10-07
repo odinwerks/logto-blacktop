@@ -4,12 +4,15 @@ import {
   type OidcConfigKeysResponse,
   type LogtoOidcConfigKeyType,
   type AccessTokenJwtCustomizer,
+  type CimdConfig,
   type ClientCredentialsJwtCustomizer,
   type JwtCustomizerConfigs,
   type JwtCustomizerTestRequestBody,
   type Json,
   type IdTokenConfig,
   type OidcSessionConfig,
+  type LogtoActionKey,
+  type LogtoAction,
 } from '@logto/schemas';
 
 import { waitFor } from '#src/utils.js';
@@ -95,6 +98,15 @@ export const testJwtCustomizer = async (payload: JwtCustomizerTestRequestBody) =
     })
     .json<Json>();
 
+export const upsertAction = async (key: LogtoActionKey, value: LogtoAction) =>
+  authedAdminApi.put(`configs/actions/${key}`, { json: value }).json<LogtoAction>();
+
+export const updateAction = async (key: LogtoActionKey, value: Partial<LogtoAction>) =>
+  authedAdminApi.patch(`configs/actions/${key}`, { json: value }).json<LogtoAction>();
+
+export const deleteAction = async (key: LogtoActionKey) =>
+  authedAdminApi.delete(`configs/actions/${key}`);
+
 export const getIdTokenConfig = async () =>
   authedAdminApi.get('configs/id-token').json<IdTokenConfig>();
 
@@ -114,4 +126,14 @@ export const updateSessionConfig = async (payload: Partial<OidcSessionConfig>) =
     .json<OidcSessionConfig & { ttl: number }>();
   await waitForTenantCacheInvalidation();
   return sessionConfig;
+};
+
+export const getCimdConfig = async () => authedAdminApi.get('configs/cimd').json<CimdConfig>();
+
+export const updateCimdConfig = async (payload: Partial<CimdConfig>) => {
+  const cimdConfig = await authedAdminApi
+    .patch('configs/cimd', { json: payload })
+    .json<CimdConfig>();
+  await waitForTenantCacheInvalidation();
+  return cimdConfig;
 };

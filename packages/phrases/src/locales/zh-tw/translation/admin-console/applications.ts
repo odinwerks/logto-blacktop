@@ -75,6 +75,48 @@ const applications = {
     'Logto 使用 OIDC 的應用程式實體來幫助識別你的應用程式、管理登入和創建審計日誌等任務。',
   third_party_application_placeholder_description:
     '使用 Logto 作為身份提供者來提供對第三方服務的 OAuth 授權。 \n 包括用於資源訪問的預建用戶同意屏幕。<a>了解更多</a>',
+  dynamic_app: {
+    title: '動態應用',
+    subtitle: 'CIMD',
+    description: '動態應用允許 OAuth 用戶端無需預先註冊即可接入。',
+    settings_description:
+      '動態應用允許 OAuth 用戶端無需預先註冊即可接入，基於 OAuth Client ID Metadata Document (CIMD) 規範。',
+    beta_notice:
+      '動態應用目前正處於測試版。歡迎探索並 <ContactLink>分享您的反饋意見</ContactLink>。',
+    app_id_placeholder: '由每個用戶端動態提供',
+    enable_confirm_modal: {
+      title: '啟用動態用戶端接入？',
+      content:
+        '任何擁有有效公開 HTTPS 用戶端 ID URL 的 OAuth 用戶端，都可以無需預先註冊即向該租戶發起授權。存取範圍仍受你設定的最大權限和使用者同意的限制。',
+      beta_pricing_notice:
+        '動態應用在 Beta 期間免費使用。Beta 結束後可能會作為附加功能收費。屆時我們會提前通知你，你也可以隨時關閉它。',
+    },
+    enabled: '動態應用已成功啟用。',
+    disable_confirm_modal: {
+      title: '停用動態應用？',
+      content:
+        'CIMD 用戶端將無法再發起新的授權請求。既有的授權記錄會保留，已簽發的存取權杖在到期前可能仍然有效。',
+    },
+    disabled: '動態應用已成功停用。',
+    permissions: {
+      user_title: '用戶',
+      user_description: '選擇 OAuth 用戶端為存取特定用戶資料所需的權限。',
+      grant_user_level_permissions: '授予用戶權限',
+      organization_title: '組織',
+      organization_description: '選擇 OAuth 用戶端為存取特定組織資料所需的權限。',
+      grant_organization_level_permissions: '授予組織權限',
+      permission_delete_confirm:
+        '此操作將從動態應用中移除該權限，防止 OAuth 用戶端為其要求用戶授權。確定要繼續嗎？',
+    },
+    client_compatibility: {
+      title: '用戶端相容性',
+      description:
+        '針對尚未完整支援 OpenID Connect 的 OAuth 用戶端，調整 Logto 處理其授權請求的方式。這些設定處於實驗階段，可能會變更或被移除。',
+      add_consent_prompt_for_offline_access: '為離線存取新增同意提示',
+      add_consent_prompt_for_offline_access_description:
+        '當 OAuth 用戶端要求 `offline_access` 但未附帶 `prompt=consent` 時，Logto 會新增同意提示，以便用戶端取得 Refresh Token。建議在串接 ChatGPT、Codex 等用戶端時開啟。',
+    },
+  },
   guide: {
     third_party: {
       title: '整合第三方應用',

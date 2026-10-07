@@ -8,12 +8,25 @@ import { Trans, useTranslation } from 'react-i18next';
 import Modal from 'react-modal';
 import useSWR from 'swr';
 
+import ExternalLink from '@/assets/icons/external-link.svg?react';
+import LogtoEmailLogoDark from '@/assets/icons/logto-email-service-dark.svg?url';
+import LogtoEmailLogo from '@/assets/icons/logto-email-service.svg?url';
+import ConnectorLogo from '@/components/ConnectorLogo';
+import { isCloud } from '@/consts/env';
+import Button from '@/ds-components/Button';
+import DangerousRaw from '@/ds-components/DangerousRaw';
 import DynamicT from '@/ds-components/DynamicT';
 import ModalLayout from '@/ds-components/ModalLayout';
 import TextLink from '@/ds-components/TextLink';
 import type { RequestError } from '@/hooks/use-api';
 import useDocumentationUrl from '@/hooks/use-documentation-url';
 import modalStyles from '@/scss/modal.module.scss';
+import {
+  buildCloudUpsellUrl,
+  buildSelfHostedPlansUrl,
+  ossUpsellEntries,
+  getSelfHostedPlansUpsellTargetBlank,
+} from '@/utils/oss-upsell';
 
 import { getConnectorGroups } from '../../pages/Connectors/utils';
 
@@ -22,13 +35,65 @@ import Footer from './Footer';
 import PlatformSelector from './PlatformSelector';
 import Skeleton from './Skeleton';
 import styles from './index.module.scss';
-import { compareConnectors, getConnectorRadioGroupSize, getModalTitle } from './utils';
+import {
+  compareConnectors,
+  getEmailConnectorUpsellCopyKeys,
+  getConnectorRadioGroupSize,
+  getModalTitle,
+  shouldShowEmailConnectorUpsellBanner,
+} from './utils';
 
 type Props = {
   readonly isOpen: boolean;
   readonly type?: ConnectorType;
   readonly onClose?: (connectorId?: string) => void;
 };
+
+function EmailConnectorUpsellBanner() {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: 'admin_console',
+  });
+  const copyKeys = getEmailConnectorUpsellCopyKeys();
+  const entry = ossUpsellEntries.connectorEmailBuiltinUpsellBanner;
+  const cloudUpsellUrl = buildCloudUpsellUrl(entry);
+  const selfHostedPlansUrl = buildSelfHostedPlansUrl(entry);
+
+  return (
+    <div className={styles.upsellBanner}>
+      <div className={styles.upsellInfo}>
+        <ConnectorLogo data={{ logo: LogtoEmailLogo, logoDark: LogtoEmailLogoDark }} />
+        <div className={styles.upsellContent}>
+          <div className={styles.upsellTitle}>
+            <DynamicT forKey={copyKeys.title} />
+          </div>
+          <div className={styles.upsellDescription}>
+            <DynamicT forKey={copyKeys.description} />
+          </div>
+        </div>
+      </div>
+      <div className={styles.upsellActions}>
+        <Button
+          className={styles.upsellButton}
+          type="primary"
+          title={<DangerousRaw>{t(copyKeys.action, { productName: 'Logto Cloud' })}</DangerousRaw>}
+          trailingIcon={<ExternalLink />}
+          onClick={() => {
+            window.open(cloudUpsellUrl, '_blank', 'noopener,noreferrer');
+          }}
+        />
+        <TextLink
+          className={styles.cloudAction}
+          {...(getSelfHostedPlansUpsellTargetBlank()
+            ? { href: selfHostedPlansUrl }
+            : { to: selfHostedPlansUrl })}
+          targetBlank={getSelfHostedPlansUpsellTargetBlank()}
+        >
+          {t(copyKeys.secondaryAction)}
+        </TextLink>
+      </div>
+    </div>
+  );
+}
 
 function CreateConnectorForm({ onClose, isOpen: isFormOpen, type }: Props) {
   const { data: existingConnectors, error: connectorsError } = useSWR<
@@ -75,6 +140,11 @@ function CreateConnectorForm({ onClose, isOpen: isFormOpen, type }: Props) {
       .slice()
       .sort(compareConnectors);
   }, [factories, type, existingConnectors]);
+
+  const shouldShowEmailConnectorUpsellBannerValue = shouldShowEmailConnectorUpsellBanner({
+    type,
+    isCloud,
+  });
 
   const activeGroup = useMemo(
     () => groups.find(({ id }) => id === activeGroupId),
@@ -157,6 +227,7 @@ function CreateConnectorForm({ onClose, isOpen: isFormOpen, type }: Props) {
       >
         {isLoading && <Skeleton />}
         {factoriesError?.message ?? connectorsError?.message}
+        {shouldShowEmailConnectorUpsellBannerValue && <EmailConnectorUpsellBanner />}
 
         <ConnectorRadioGroup
           name="group"

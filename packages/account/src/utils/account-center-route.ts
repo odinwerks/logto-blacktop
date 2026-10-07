@@ -10,6 +10,7 @@ import {
   usernameRoute,
   usernameSuccessRoute,
   authenticatorAppRoute,
+  authenticatorAppReplaceRoute,
   authenticatorAppSuccessRoute,
   backupCodesGenerateRoute,
   backupCodesRegenerateRoute,
@@ -20,6 +21,7 @@ import {
   passkeySuccessRoute,
   profileRoute,
   securityRoute,
+  sessionsRoute,
   verifiedActionRoute,
   socialRoutePrefix,
 } from '@ac/constants/routes';
@@ -58,14 +60,40 @@ const knownRoutePrefixes: readonly string[] = [
   passkeyManageRoute,
   passkeySuccessRoute,
   verifiedActionRoute,
+  sessionsRoute,
   socialRoutePrefix,
 ];
+
+const taskFlowRoutes = new Set([
+  emailRoute,
+  phoneRoute,
+  passwordRoute,
+  usernameRoute,
+  authenticatorAppRoute,
+  authenticatorAppReplaceRoute,
+  backupCodesGenerateRoute,
+  backupCodesRegenerateRoute,
+  backupCodesManageRoute,
+  passkeyAddRoute,
+  passkeyManageRoute,
+]);
 
 const isKnownRoute = (pathname?: string): pathname is string =>
   pathname !== undefined &&
   knownRoutePrefixes.some((prefix) =>
     pathname.replace(accountCenterBasePath, '').startsWith(prefix)
   );
+
+const getInternalPathname = (pathname: string) =>
+  pathname.replace(accountCenterBasePath, '') || '/';
+
+const isTaskFlowRoute = (pathname: string): boolean => {
+  const internalPathname = getInternalPathname(pathname);
+
+  return (
+    taskFlowRoutes.has(internalPathname) || internalPathname.startsWith(`${socialRoutePrefix}/`)
+  );
+};
 
 const parseStoredRoute = (storedRoute: string | undefined): string | undefined => {
   if (storedRoute && isKnownRoute(storedRoute)) {
@@ -92,10 +120,14 @@ export const {
 } = sessionStorage;
 
 /**
- * Parse and store the redirect URL and show success flag from query parameters.
+ * Parse and store the redirect URL and show success flag from single-task flow query parameters.
  * This needs to be done before OAuth flow starts so it persists through the sign-in.
  */
 const handleRedirectParameter = () => {
+  if (!isTaskFlowRoute(window.location.pathname)) {
+    return;
+  }
+
   const parameters = new URLSearchParams(window.location.search);
   const redirectUrl = parameters.get(redirectUrlParameter);
   const showSuccess = parameters.get(showSuccessParameter);

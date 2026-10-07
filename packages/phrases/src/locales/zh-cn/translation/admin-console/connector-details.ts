@@ -36,6 +36,19 @@ const connector_details = {
     total_email_sent: '已发送邮件总数: {{value, number}}',
     total_email_sent_tip:
       'Logto 使用 SendGrid 进行安全稳定的内置电子邮件功能。此功能完全免费使用。<a>了解更多</a>',
+    hosted_email_usage: {
+      daily: '每日 <value>{{usage, number}}</value> / {{limit, number}}',
+      daily_unlimited: '每日 <value>{{usage, number}}</value>',
+      monthly: '每月 <value>{{usage, number}}</value> / {{limit, number}}',
+      monthly_unlimited: '每月 <value>{{usage, number}}</value>',
+      tip: 'Free 和 Development 方案包含每日和每月的内置邮件服务限额。',
+      banner: {
+        approaching:
+          '您即将达到 Logto 内置邮件服务的发送上限。<provider>连接您自己的电子邮件服务商</provider>，或<upgrade>升级您的方案</upgrade>以继续使用 Logto 内置邮件服务。',
+        reached:
+          '您已达到 Logto 内置邮件服务的发送上限，这可能会中断登录邮件。<provider>连接您自己的电子邮件服务商</provider>，或<upgrade>升级您的方案</upgrade>以继续使用 Logto 内置邮件服务。',
+      },
+    },
     email_template_title: '电子邮件模板',
     template_description:
       '内置电子邮件使用默认模板，无需配置即可无缝发送验证电子邮件。您可以自定义基本品牌信息。',
@@ -67,6 +80,20 @@ const connector_details = {
   sign_in_experience: {
     in_use: '已启用用于登录',
     not_in_use: '已禁用用于登录',
+  },
+  email_logs: {
+    title: '邮件日志',
+    time: '时间',
+    recipient: '收件人',
+    recipient_placeholder: '按完整收件人地址搜索',
+    template_type: '模板类型',
+    status: '状态',
+    status_sent: '已发送',
+    status_failed: '发送失败',
+    language_tag: '语言',
+    provider_message_id: '服务商消息 ID',
+    previous_page: '上一页',
+    next_page: '下一页',
   },
 };
 

@@ -10,12 +10,54 @@ const tenants = {
     oidc_configs: 'การกำหนดค่า OIDC',
     subscription: 'แผนและการเรียกเก็บเงิน',
     billing_history: 'ประวัติการเรียกเก็บเงิน',
+    license: 'ใบอนุญาต',
+  },
+  license: {
+    purchase_title: 'แผนแบบ SELF-HOSTED',
+    purchase_description:
+      'แผน Pro และแผนองค์กรแบบ self-hosted จะปลดล็อกฟีเจอร์แบบชำระเงินบนอินสแตนซ์ของคุณเอง เช่น การซ่อนแบรนด์ Logto การใช้ UI ของคุณเอง SSO ที่เริ่มโดย IdP การทำงานร่วมกันในคอนโซล และแอปพลิเคชัน SAML ไม่จำกัด ซื้อแผนเพื่อรับคีย์ใบอนุญาตของคุณ',
+    purchase_button: 'ดูแผนแบบ self-hosted',
+    install_title: 'ติดตั้งใบอนุญาต',
+    install_description: 'วางคีย์ใบอนุญาตที่คุณได้รับหลังจากซื้อแผนแบบ self-hosted',
+    install_button: 'ติดตั้งใบอนุญาต',
+    key_field: 'คีย์ใบอนุญาต',
+    key_field_description:
+      'คีย์จะถูกตรวจสอบบนอินสแตนซ์ของคุณและไม่ถูกส่งออกไปที่ใด หากคีย์ที่คุณมีหมดอายุแล้ว ให้รับคีย์ใหม่จากบัญชี Logto ของคุณ',
+    key_placeholder: 'วางคีย์ใบอนุญาตของคุณที่นี่',
+    installed_toast: 'ติดตั้งใบอนุญาตเรียบร้อยแล้ว',
+    details_title: 'ใบอนุญาต',
+    details_description: 'ใบอนุญาตที่ติดตั้งบนอินสแตนซ์นี้และสิทธิ์ที่ได้รับ',
+    plan_field: 'แผน',
+    environment_field: 'สภาพแวดล้อม',
+    environment_production: 'โปรดักชัน',
+    environment_non_production: 'ไม่ใช่โปรดักชัน',
+    expires_at_field: 'หมดอายุวันที่',
+    installed_at_field: 'ติดตั้งเมื่อ',
+    last_refreshed_at_field: 'รีเฟรชล่าสุดเมื่อ',
+    grace_ends_at_field: 'ระยะเวลาผ่อนผันสิ้นสุดวันที่',
+    refresh_expired_description:
+      'คีย์ใบอนุญาตหมดอายุเมื่อ {{expiresAt}} ฟีเจอร์ที่ได้รับอนุญาตจะยังใช้งานได้จนถึง {{graceEndsAt}} ขณะที่ Logto พยายามรีเฟรชคีย์',
+    refresh_refused_description:
+      'การรีเฟรชใบอนุญาตถูกปฏิเสธ เนื่องจากใบอนุญาต{{reason}} ฟีเจอร์ที่ได้รับอนุญาตจะยังใช้งานได้จนถึง {{graceEndsAt}}',
+    refusal_reason_canceled: 'ถูกยกเลิก',
+    refusal_reason_unpaid: 'ยังไม่ได้ชำระเงิน',
+    refusal_reason_expired: 'หมดอายุ',
+    refusal_reason_revoked: 'ถูกเพิกถอน',
+    refusal_reason_unknown: 'ไม่พร้อมใช้งาน',
+    grace_expired_description:
+      'ระยะเวลาผ่อนผันของใบอนุญาตสิ้นสุดเมื่อ {{graceEndsAt}} การติดตั้งนี้กลับไปใช้ค่าเริ่มต้นของ OSS แล้ว รับคีย์ใบอนุญาตใหม่จาก Logto Cloud และติดตั้งอีกครั้ง',
+    get_fresh_key_button: 'รับคีย์ใบอนุญาตใหม่',
+    replace_button: 'เปลี่ยนใบอนุญาต',
   },
   members: {
-    card_title: '',
+    card_title: 'จัดการเทนแนนต์ได้อย่างปลอดภัยยิ่งขึ้นด้วย Logto Cloud',
     card_description:
       'เพิ่มผู้ดูแลระบบหรือผู้ทำงานร่วมกันให้กับเทนแนนต์ของคุณได้โดยไม่ต้องแชร์บัญชีผู้ดูแลระบบเพียงบัญชีเดียว',
-    card_action: '',
+    card_action: 'สำรวจ Logto Cloud',
+    self_hosted_card_title: 'จัดการเทนแนนต์ได้อย่างปลอดภัยยิ่งขึ้นด้วยแผน self-hosted',
+    self_hosted_card_description:
+      'เพิ่มผู้ดูแลระบบหรือผู้ทำงานร่วมกันให้กับเทนแนนต์ของคุณได้โดยไม่ต้องแชร์บัญชีผู้ดูแลระบบเพียงบัญชีเดียว',
+    self_hosted_card_action: 'สำรวจแผน self-hosted',
   },
   settings: {
     title: 'การตั้งค่า',
@@ -23,7 +65,8 @@ const tenants = {
     tenant_id: 'รหัสผู้เช่า',
     tenant_name: 'ชื่อผู้เช่า',
     tenant_instance: 'เลือกอินสแตนซ์ของคุณ',
-    tenant_instance_description: '',
+    tenant_instance_description:
+      'เลือกสถานที่โฮสต์สำหรับผู้เช่าของคุณ เลือก Logto Cloud สำหรับโครงสร้างพื้นฐานที่ใช้ร่วมกันสาธารณะ หรืออินสแตนซ์ส่วนตัวสำหรับทรัพยากรเฉพาะ',
     tenant_region: 'ภูมิภาคข้อมูล',
     tenant_region_description:
       'ตำแหน่งทางกายภาพที่ทรัพยากรผู้เช่าของคุณ (ผู้ใช้, แอปพลิเคชัน ฯลฯ) ถูกโฮสต์ ไม่สามารถเปลี่ยนแปลงได้หลังจากสร้างแล้ว',
@@ -39,8 +82,19 @@ const tenants = {
     tenant_mfa: 'การยืนยันตัวตนหลายปัจจัย',
     tenant_mfa_description:
       'กำหนดให้สมาชิกของคุณตั้งค่าการยืนยันตัวตนหลายปัจจัยเพื่อเข้าถึงผู้เช่านี้',
+    oss_description: 'จัดการวิธีที่สมาชิกเข้าถึงคอนโซลบนอินสแตนซ์นี้',
+    tenant_mfa_confirm_title: 'กำหนดให้สมาชิกทุกคนต้องใช้ MFA หรือไม่?',
+    tenant_mfa_confirm_description:
+      'สมาชิกเหล่านี้ยังไม่ได้ตั้งค่า MFA พวกเขาจะยังคงลงชื่อเข้าใช้อยู่ และจะถูกขอให้ตั้งค่าในการลงชื่อเข้าใช้ครั้งถัดไป:',
+    tenant_mfa_confirm_self:
+      'คุณเองก็ยังไม่ได้ตั้งค่า MFA ตั้งค่าได้ในการตั้งค่าบัญชีของคุณก่อนการลงชื่อเข้าใช้ครั้งถัดไป',
+    tenant_mfa_confirm_button: 'กำหนดให้ใช้ MFA',
+    tenant_mfa_setup_required:
+      'ผู้เช่านี้กำหนดให้ใช้การยืนยันตัวตนหลายปัจจัย ตั้งค่าตอนนี้ มิฉะนั้นคุณจะถูกขอให้ตั้งค่าในการลงชื่อเข้าใช้ครั้งถัดไป',
+    tenant_mfa_setup_action: 'ตั้งค่า MFA',
     enterprise_sso: 'Enterprise SSO',
-    enterprise_sso_description: '',
+    enterprise_sso_description:
+      'มีให้บริการในแผนชำระเงิน ติดต่อเราเพื่อเปิดใช้งาน Enterprise SSO เพื่อให้สมาชิกทุกคนสามารถลงชื่อเข้าใช้คอนโซล Logto Cloud โดยใช้ผู้ให้บริการตัวตนขององค์กรของคุณ',
   },
   full_env_tag: {
     development: 'ทดสอบ',

@@ -170,6 +170,8 @@ export const sieFormDataParser = {
       captchaPolicy,
       sentinelPolicy,
       emailBlocklistPolicy,
+      passwordExpiration,
+      usernamePolicy,
       socialSignIn,
       // End: Remove the omitted fields from the data
       ...rest
@@ -202,7 +204,10 @@ export const sieFormDataParser = {
   },
   toSignInExperience: (
     formData: SignInExperienceForm,
-    { isCustomUiCspEnabled = false }: { isCustomUiCspEnabled?: boolean } = {}
+    {
+      isHideLogtoBrandingAvailable = true,
+      isCustomUiCspEnabled = false,
+    }: { isHideLogtoBrandingAvailable?: boolean; isCustomUiCspEnabled?: boolean } = {}
   ): SignInExperiencePageManagedData => {
     const {
       branding,
@@ -232,7 +237,7 @@ export const sieFormDataParser = {
           customUiCsp: normalizeCustomUiCspForSubmit(customUiCsp),
         }
       ),
-      hideLogtoBranding,
+      ...conditional(isHideLogtoBrandingAvailable && { hideLogtoBranding }),
     };
   },
 };
@@ -256,10 +261,15 @@ export const sieFormDataParser = {
  * - `captchaPolicy`
  * - `sentinelPolicy`
  * - `emailBlocklistPolicy`
+ * - `passwordExpiration`
+ * - `usernamePolicy`
  */
 export const signInExperienceToUpdatedDataParser = (
   data: SignInExperience,
-  { isCustomUiCspEnabled = false }: { isCustomUiCspEnabled?: boolean } = {}
+  {
+    isHideLogtoBrandingAvailable = true,
+    isCustomUiCspEnabled = false,
+  }: { isHideLogtoBrandingAvailable?: boolean; isCustomUiCspEnabled?: boolean } = {}
 ): SignInExperiencePageManagedData => {
   const {
     signUp,
@@ -272,6 +282,8 @@ export const signInExperienceToUpdatedDataParser = (
     sentinelPolicy,
     emailBlocklistPolicy,
     hideLogtoBranding,
+    passwordExpiration,
+    usernamePolicy,
     // End: Remove the omitted fields from the data
     ...rest
   } = data;
@@ -288,6 +300,6 @@ export const signInExperienceToUpdatedDataParser = (
         customUiCsp: normalizeCustomUiCspForSubmit(normalizeCustomUiCspForForm(customUiCsp)),
       }
     ),
-    hideLogtoBranding,
+    ...conditional(isHideLogtoBrandingAvailable && { hideLogtoBranding }),
   };
 };

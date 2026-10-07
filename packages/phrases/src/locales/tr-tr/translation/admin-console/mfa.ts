@@ -11,7 +11,6 @@ const mfa = {
   webauthn: 'Passkeys',
   webauthn_description:
     'Tarayıcı tarafından desteklenen yöntemle doğrulama yapın: biyometri, telefon tarama veya güvenlik anahtarı vb.',
-  webauthn_native_tip: 'WebAuthn, Native uygulamalar için desteklenmiyor.',
   webauthn_domain_tip:
     'WebAuthn, genel anahtarları belirli bir alanla ilişkilendirir. Hizmet alanınızı değiştirmek, kullanıcıların mevcut geçiş anahtarları aracılığıyla kimlik doğrulamasını engeller.',
   backup_code: 'Yedek kodlar',
@@ -73,6 +72,30 @@ const mfa = {
   no_sms_connector_error:
     'SMS bağlantısı olmadan SMS doğrulama kodu MFA etkinleştirilemez. Lütfen önce bir SMS bağlantısı yapılandırın.',
   setup_link: 'Kur',
+  trusted_device: {
+    title: 'Güvenilen cihazlar',
+    description:
+      'Güvenilen tarayıcıların, mevcut MFA akışı gerektirdiğinde MFA doğrulamasını otomatik olarak tamamlamasına izin verin.',
+    enable_title: 'Güvenilen cihazları etkinleştir',
+    enable_description:
+      'Uygun bir MFA faktörü tamamlandıktan sonra bu tarayıcıya güvenilmesine izin verin.',
+    duration_title: 'Güven süresi (gün)',
+    duration_error: '{{min}} ile {{max}} arasında bir tam sayı girin.',
+    duration_note: 'Güven süresi değişiklikleri yalnızca daha sonra güvenilen cihazlara uygulanır.',
+    organization_allow_title: 'Güvenilen cihazlara izin ver',
+    organization_allow_tip:
+      'Bir kuruluş yalnızca tenant ilkesini daraltabilir; özellik tenant düzeyinde kapalıyken etkinleştiremez.',
+    organization_allow_description:
+      'Bu kuruluşun üyeleri için güvenilen cihaz doğrulamasına izin verin.',
+    organization_global_disabled: 'Önce tenant MFA ayarlarında güvenilen cihazları etkinleştirin.',
+    management_description:
+      'Bu kullanıcının MFA işlemini tamamladıktan sonra güvendiği tarayıcıları yönetin. Kaldırılan tarayıcı bir sonraki oturum açmada yeniden MFA isteyecektir.',
+    management_hint: 'Son konum yalnızca bilgi amaçlıdır.',
+    management_empty: 'Bu kullanıcının etkin güvenilen cihazı yok.',
+    management_deletion_confirmation:
+      '{{name}} kaldırılsın mı? Bu tarayıcı bir sonraki oturum açmada yeniden MFA isteyecektir.',
+    management_removed: 'Güvenilen cihaz kaldırıldı.',
+  },
 };
 
 export default Object.freeze(mfa);

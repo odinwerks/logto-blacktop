@@ -1,5 +1,37 @@
 # @logto/tunnel
 
+## 0.3.11
+
+### Patch Changes
+
+- Updated dependencies [ebfefb513d]
+- Updated dependencies [ab106cdb82]
+- Updated dependencies [28c3c9283e]
+- Updated dependencies [16f4b2e732]
+  - @logto/core-kit@2.13.0
+  - @logto/shared@3.4.3
+
+## 0.3.10
+
+### Patch Changes
+
+- Updated dependencies [af678dd84]
+- Updated dependencies [1650be05e]
+- Updated dependencies [58cb52c705]
+  - @logto/core-kit@2.12.0
+  - @logto/shared@3.4.2
+
+## 0.3.9
+
+### Patch Changes
+
+- 5686815955: prevent static file requests from reading files outside the configured experience path
+- Updated dependencies [e1fadfb1a]
+- Updated dependencies [67b99bba85]
+- Updated dependencies [a88413689]
+  - @logto/core-kit@2.11.0
+  - @logto/shared@3.4.1
+
 ## 0.3.8
 
 ### Patch Changes

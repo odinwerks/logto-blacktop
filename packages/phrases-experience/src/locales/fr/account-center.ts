@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Page introuvable',
@@ -14,6 +15,8 @@ const account_center = {
     sidebar_security: 'Sécurité',
     sidebar_sessions: 'Sessions',
     support: 'Assistance',
+    user_menu: 'Menu utilisateur',
+    sign_out: 'Se déconnecter',
   },
   verification: {
     title: 'Vérification de sécurité',
@@ -125,6 +128,21 @@ const account_center = {
     email_removed: "L'adresse e-mail a été supprimée avec succès.",
     phone_removed: 'Le numéro de téléphone a été supprimé avec succès.',
     username_removed: "Le nom d'utilisateur a été supprimé avec succès.",
+    trusted_devices: {
+      title: 'Appareils de confiance MFA',
+      current_device: 'Appareil actuel',
+      expires_on: 'Expire le {{date}}',
+      unknown_location: 'Emplacement inconnu',
+      remove: 'Supprimer',
+      removed: "L'appareil de confiance a été supprimé.",
+      loading: 'Chargement...',
+      empty: 'Aucun appareil de confiance.',
+      load_failed: 'Impossible de charger les appareils de confiance. Veuillez réessayer.',
+      retry: 'Réessayer',
+      remove_confirmation_title: "Supprimer l'appareil de confiance ?",
+      remove_confirmation_description:
+        'Vous devrez à nouveau effectuer la MFA sur cet appareil lors de votre prochaine connexion. Votre session actuelle restera active.',
+    },
   },
   social: {
     linked: '{{connector}} a été lié avec succès.',
@@ -280,12 +298,15 @@ const account_center = {
     third_party_apps_load_failed:
       'Impossible de charger les applications tierces. Veuillez réessayer.',
     granted_at: 'Autorisé le {{date}}',
+    dynamic_app: 'Application dynamique',
+    client_id: 'ID client : {{clientId}}',
     revoke_grant: 'Supprimer',
     revoke_grant_title: "Supprimer l'accès de l'application tierce",
     revoke_grant_description:
-      'Cela révoquera tous les accès accordés à cette application. Êtes-vous sûr de vouloir continuer ?',
+      "Cela révoquera l'accès accordé à cette application. Les jetons d'accès déjà émis peuvent rester valides jusqu'à leur expiration. Êtes-vous sûr de vouloir continuer ?",
     revoke_grant_failed: 'Échec de la révocation de certaines autorisations. Veuillez réessayer.',
   },
 };
 
 export default Object.freeze(account_center);
+/* eslint-enable max-lines */

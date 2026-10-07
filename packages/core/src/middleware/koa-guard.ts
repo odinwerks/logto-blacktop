@@ -2,7 +2,7 @@ import { appInsights } from '@logto/app-insights/node';
 import type { Optional } from '@silverhand/essentials';
 import { has } from '@silverhand/essentials';
 import type { MiddlewareType } from 'koa';
-import { koaBody } from 'koa-body';
+import { koaBody, type ScalarOrArrayFiles } from 'koa-body';
 import type { IMiddleware, IRouterParamContext } from 'koa-router';
 import type { ZodType, ZodTypeDef } from 'zod';
 
@@ -49,6 +49,8 @@ export type GuardConfig<QueryT, BodyT, ParametersT, ResponseT, FilesT> = {
    * @example z.object({ key1: z.string() })
    */
   response?: ZodType<ResponseT, ZodTypeDef, unknown>;
+  /** Override the response schema used for OpenAPI without changing runtime validation. */
+  responseForOpenApi?: ZodType<unknown, ZodTypeDef, unknown>;
   /**
    * Guard response status code. It produces a `ServerError` (500) if the response does not satisfy
    * any of the given value(s).
@@ -123,6 +125,17 @@ const tryParse = <Output, Definition extends ZodTypeDef, Input>(
 };
 
 /**
+ * `koa-body@8` unwraps single-element file arrays into scalars, while earlier versions always
+ * produced an array per field for multipart uploads. Restore the array shape so that the file
+ * guards (which expect arrays) keep working as before.
+ */
+const normalizeFiles = (files: ScalarOrArrayFiles | undefined) =>
+  files &&
+  Object.fromEntries(
+    Object.entries(files).map(([key, value]) => [key, Array.isArray(value) ? value : [value]])
+  );
+
+/**
  * Guard middleware factory for request and response.
  *
  * Note: A context-aware console log is required to be present in the context (i.e. `ctx.console`).
@@ -140,6 +153,7 @@ export default function koaGuard<
   body,
   params,
   response,
+  responseForOpenApi,
   status,
   files,
 }: GuardConfig<
@@ -163,7 +177,7 @@ export default function koaGuard<
       query: tryParse('query', query, ctx.request.query),
       body: tryParse('body', body, ctx.request.body ?? {}), // Fallback to empty object since it's the original behavior of koa-body@5
       params: tryParse('params', params, ctx.params),
-      files: tryParse('files', files, ctx.request.files),
+      files: tryParse('files', files, normalizeFiles(ctx.request.files)),
     } as GuardedRequest<GuardQueryT, GuardBodyT, GuardParametersT, GuardFilesT>; // Have to do this since it's too complicated for TS
 
     return next();
@@ -244,7 +258,7 @@ export default function koaGuard<
 
   // Intended
   // eslint-disable-next-line @silverhand/fp/no-mutation
-  guardMiddleware.config = { query, body, params, response, status };
+  guardMiddleware.config = { query, body, params, response, responseForOpenApi, status };
 
   return guardMiddleware;
 }

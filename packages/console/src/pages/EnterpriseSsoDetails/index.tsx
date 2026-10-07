@@ -1,10 +1,6 @@
-import {
-  SsoProviderType,
-  type SignInExperience,
-  type SsoConnectorWithProviderConfig,
-} from '@logto/schemas';
+import { type SignInExperience, type SsoConnectorWithProviderConfig } from '@logto/schemas';
 import { pick } from '@silverhand/essentials';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import useSWR from 'swr';
 
@@ -16,6 +12,7 @@ import Skeleton from '@/components/DetailsPage/Skeleton';
 import Drawer from '@/components/Drawer';
 import PageMeta from '@/components/PageMeta';
 import { EnterpriseSsoDetailsTabs } from '@/consts';
+import { isCloud } from '@/consts/env';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import ConfirmModal from '@/ds-components/ConfirmModal';
 import DynamicT from '@/ds-components/DynamicT';
@@ -32,6 +29,7 @@ import SsoGuide from './SsoGuide';
 import { enterpriseSsoPathname } from './config';
 import styles from './index.module.scss';
 import useDeleteConnector from './use-delete-connector';
+import { shouldShowIdpInitiatedAuthTab } from './utils';
 
 const getSsoConnectorDetailsPathname = (ssoConnectorId: string, tab: EnterpriseSsoDetailsTabs) =>
   `${enterpriseSsoPathname}/${ssoConnectorId}/${tab}`;
@@ -66,12 +64,12 @@ function EnterpriseSsoDetails() {
 
   const isDarkModeEnabled = signInExperience?.color.isDarkModeEnabled ?? false;
 
-  const isIdpInitiatedAuthConfigEnabled = useMemo(
-    () =>
-      ssoConnector?.providerType === SsoProviderType.SAML &&
-      currentSubscriptionQuota.idpInitiatedSsoEnabled,
-    [ssoConnector, currentSubscriptionQuota]
-  );
+  // `isCloud` is a build-time constant, so this does not need memoization.
+  const isIdpInitiatedAuthConfigEnabled = shouldShowIdpInitiatedAuthTab({
+    isCloud,
+    providerType: ssoConnector?.providerType,
+    isIdpInitiatedSsoEnabled: currentSubscriptionQuota.idpInitiatedSsoEnabled,
+  });
 
   useEffect(() => {
     setIsDeleteAlertOpen(false);

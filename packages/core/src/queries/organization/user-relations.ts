@@ -8,6 +8,7 @@ import {
   type UserWithOrganizationRoles,
   type FeaturedUser,
   userInfoSelectFields,
+  type User,
 } from '@logto/schemas';
 import { sql, type CommonQueryMethods } from '@silverhand/slonik';
 
@@ -18,6 +19,8 @@ import { convertToIdentifiers } from '#src/utils/sql.js';
 import { type userSearchKeys } from '../user.js';
 
 import { aggregateRoles } from './utils.js';
+
+type UserWithoutMfa = Pick<User, 'id' | 'username' | 'primaryEmail' | 'name' | 'avatar'>;
 
 /** The query class for the organization - user relation. */
 export class UserRelationQueries extends TwoRelationsQueries<typeof Organizations, typeof Users> {
@@ -76,6 +79,45 @@ export class UserRelationQueries extends TwoRelationsQueries<typeof Organization
         on ${relations.fields.userId} = ${users.fields.id}
       where ${relations.fields.organizationId} = ${organizationId}
       and ${users.fields.primaryEmail} = ${email}
+    `);
+  }
+
+  /**
+   * Find the members of an organization who have no MFA configured, i.e. the members its MFA
+   * requirement will challenge at their next sign-in. "Configured" follows
+   * `OrganizationQueries.getMfaStatus()`: any MFA verification counts.
+   */
+  async getUsersWithoutMfa(organizationId: string): Promise<readonly UserWithoutMfa[]> {
+    const users = convertToIdentifiers(Users, true);
+    const relations = convertToIdentifiers(OrganizationUserRelations, true);
+
+    return this.pool.any<UserWithoutMfa>(sql`
+      select
+        ${users.fields.id},
+        ${users.fields.username},
+        ${users.fields.primaryEmail},
+        ${users.fields.name},
+        ${users.fields.avatar}
+      from ${relations.table}
+      join ${users.table}
+        on ${relations.fields.userId} = ${users.fields.id}
+      where ${relations.fields.organizationId} = ${organizationId}
+        and jsonb_array_length(${users.fields.mfaVerifications}) = 0
+      order by ${users.fields.createdAt}
+    `);
+  }
+
+  async hasUserDisallowedTrustedDeviceOrganization(userId: string): Promise<boolean> {
+    const organizations = convertToIdentifiers(Organizations, true);
+    const relations = convertToIdentifiers(OrganizationUserRelations, true);
+
+    return this.pool.exists(sql`
+      select 1
+      from ${relations.table}
+      join ${organizations.table}
+        on ${relations.fields.organizationId} = ${organizations.fields.id}
+      where ${relations.fields.userId} = ${userId}
+        and ${organizations.fields.isTrustedDeviceAllowed} = false
     `);
   }
 
@@ -142,12 +184,24 @@ export class UserRelationQueries extends TwoRelationsQueries<typeof Organization
   async getUsersByOrganizationId(
     organizationId: string,
     { limit, offset }: GetEntitiesOptions,
-    search?: SearchOptions<(typeof userSearchKeys)[number]>
+    search?: SearchOptions<(typeof userSearchKeys)[number]>,
+    { organizationRoleId }: { organizationRoleId?: string } = {}
   ): Promise<[totalNumber: number, entities: Readonly<UserWithOrganizationRoles[]>]> {
     const roles = convertToIdentifiers(OrganizationRoles, true);
     const users = convertToIdentifiers(Users, true);
     const { fields } = convertToIdentifiers(OrganizationUserRelations, true);
     const relations = convertToIdentifiers(OrganizationRoleUserRelations, true);
+    const organizationRoleFilterSql = organizationRoleId
+      ? sql`
+        and exists (
+          select 1
+          from ${relations.table}
+          where ${relations.fields.organizationId} = ${organizationId}
+            and ${relations.fields.userId} = ${fields.userId}
+            and ${relations.fields.organizationRoleId} = ${organizationRoleId}
+        )
+      `
+      : sql``;
 
     const [{ count }, entities] = await Promise.all([
       this.pool.one<{ count: string }>(sql`
@@ -156,6 +210,7 @@ export class UserRelationQueries extends TwoRelationsQueries<typeof Organization
         left join ${users.table}
           on ${fields.userId} = ${users.fields.id}
         where ${fields.organizationId} = ${organizationId}
+        ${organizationRoleFilterSql}
         ${buildSearchSql(Users, search, sql`and `)}
       `),
       // Aggregate roles via LATERAL so the per-user role lookup runs at most `limit` times
@@ -190,6 +245,7 @@ export class UserRelationQueries extends TwoRelationsQueries<typeof Organization
             and ${relations.fields.userId} = ${users.fields.id}
         ) as user_roles on true
         where ${fields.organizationId} = ${organizationId}
+        ${organizationRoleFilterSql}
         ${buildSearchSql(Users, search, sql`and `)}
         order by ${fields.userId}
         limit ${limit}

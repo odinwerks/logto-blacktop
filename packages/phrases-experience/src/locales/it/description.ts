@@ -36,6 +36,8 @@ const description = {
   reset_password: 'Resetta la password',
   reset_password_description:
     'Inserisci il {{types, list(type: disjunction;)}} associato al tuo account, e ti invieremo il codice di verifica per resettare la password.',
+  reset_password_magic_link_description:
+    "Inserisci l'indirizzo email associato al tuo account per continuare a reimpostare la password.",
   new_password: 'Nuova password',
   set_password: 'Imposta una password',
   password_changed: 'Password cambiata',
@@ -102,6 +104,8 @@ const description = {
     "La tua azienda ha abilitato il Single Sign-On per l'account email {{email}}. Puoi continuare ad accedere con i seguenti fornitori di SSO.",
   single_sign_on_enabled: 'Il Single Sign-On è abilitato per questo account',
   authorize_title: 'Autorizza {{name}}',
+  unregistered_client_notice:
+    'Questa app è autodichiarata da <hostname>{{host}}</hostname>, inclusi nome e logo. Verifica il nome host prima di continuare.',
   request_permission: '{{name}} sta richiedendo accesso a:',
   grant_organization_access: "Concedi accesso all'organizzazione:",
   authorize_personal_data_usage: "Autorizza l'utilizzo dei tuoi dati personali:",
@@ -123,9 +127,6 @@ const description = {
   all_account_creation_options: 'Tutte le opzioni di creazione account',
   password_expired:
     'La tua password è scaduta e deve essere reimpostata prima di poter effettuare l’accesso.',
-  password_expiration_reminder:
-    'La tua password scadrà tra {{days}} giorno/i. Ti consigliamo di reimpostarla ora.',
-  password_expiration_reminder_skip: 'Ignora per ora',
   password_expiration_reset: 'Reimposta password',
   back_to_sign_in: 'Torna al login',
   support_email: 'Email di supporto: <link></link>',

@@ -6,12 +6,11 @@ import {
   type LogtoSkuResponse,
   type TenantResponse,
   type SubscriptionCountBasedUsage,
-} from '@/types/cloud-router';
+} from '@/cloud/types/router';
+import { defaultRegionName } from '@/components/Region';
 import { LogtoSkuType } from '@/types/skus';
 
 import { adminEndpoint, isCloud } from './env';
-
-const defaultRegionName = 'default';
 
 const { tenantId, indicator } = defaultManagementApi.resource;
 
@@ -86,12 +85,15 @@ export const defaultLogtoSku: LogtoSkuResponse = {
     thirdPartyApplicationsLimit: null,
     tenantMembersLimit: 20,
     customJwtEnabled: true,
+    actionsEnabled: false,
     subjectTokenEnabled: true,
     bringYourUiEnabled: true,
     collectUserProfileEnabled: true,
     passkeySignInEnabled: true,
-    idpInitiatedSsoEnabled: true,
+    idpInitiatedSsoEnabled: false,
+    samlApplicationsLimit: 3,
     securityFeaturesEnabled: true,
+    customDomainsLimit: 2,
   },
 };
 
@@ -99,6 +101,8 @@ export const defaultLogtoSku: LogtoSkuResponse = {
 export const defaultSubscriptionQuota: SubscriptionQuota = {
   mauLimit: 50_000,
   tokenLimit: 500_000,
+  hostedEmailLimit: 100_000,
+  hostedEmailDailyLimit: 10_000,
   applicationsLimit: 3,
   machineToMachineLimit: 1,
   resourcesLimit: 1,
@@ -110,11 +114,12 @@ export const defaultSubscriptionQuota: SubscriptionQuota = {
   hooksLimit: 1,
   auditLogsRetentionDays: 3,
   mfaEnabled: false,
-  organizationsLimit: null,
+  organizationsLimit: 0,
   enterpriseSsoLimit: 0,
   thirdPartyApplicationsLimit: 0,
   tenantMembersLimit: 1,
   customJwtEnabled: false,
+  actionsEnabled: false,
   subjectTokenEnabled: false,
   bringYourUiEnabled: false,
   collectUserProfileEnabled: false,
@@ -141,6 +146,7 @@ export const defaultSubscriptionUsage: SubscriptionCountBasedUsage = {
   thirdPartyApplicationsLimit: 0,
   tenantMembersLimit: 0,
   customJwtEnabled: false,
+  actionsEnabled: false,
   bringYourUiEnabled: false,
   collectUserProfileEnabled: false,
   passkeySignInEnabled: false,

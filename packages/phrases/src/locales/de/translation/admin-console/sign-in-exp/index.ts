@@ -176,6 +176,7 @@ const sign_in_exp = {
       password: 'Passwort',
       mfa: 'Multi-Faktor-Authentifizierung',
       mfa_description: 'Erlauben Sie Nutzern, ihre MFA-Methoden im Kontozentrum zu verwalten.',
+      passkey: 'Passkey',
       username: 'Benutzername',
       name: 'Name',
       avatar: 'Avatar',
@@ -185,6 +186,7 @@ const sign_in_exp = {
       custom_data_description:
         'Steuern Sie den Zugriff auf benutzerdefinierte JSON-Daten, die beim Benutzer gespeichert sind.',
       sessions: 'Sitzungen',
+      trusted_devices: 'Vertrauenswürdige Geräte',
     },
     profile_fields: {
       title: 'Profilfelder für vorgefertigtes Konto-Center',
@@ -247,6 +249,7 @@ const sign_in_exp = {
           'Greifen Sie auf das Kontocenter zu, um Sicherheitseinstellungen wie E-Mail, Telefon, Benutzername, Passwort, MFA und verbundene Konten zu verwalten',
         profile:
           'Die zentrale Anlaufstelle zur Verwaltung Ihrer persönlichen Informationen (z. B. Name, Avatar)',
+        sessions: 'Aktive Sitzungen auf allen Geräten anzeigen und verwalten',
       },
       customize_note:
         'Möchten Sie nicht das vorgefertigte Erlebnis? Sie können mit der Account-API stattdessen vollständig',

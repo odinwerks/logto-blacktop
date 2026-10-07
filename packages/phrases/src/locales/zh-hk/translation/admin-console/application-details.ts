@@ -114,6 +114,40 @@ const application_details = {
   field_custom_data_tip:
     '額外的自定義應用程式資訊，不在預定義的應用程式屬性中列出，例如業務特定的設定和配置。',
   custom_data_invalid: '自定義資料必須是一個有效的 JSON 對象',
+  access_control: {
+    name: '規則',
+    title: '訪問控制',
+    description: '自訂應用程式級別訪問控制規則。',
+    enable: '啟用應用程式級別訪問控制',
+    enable_description:
+      '啟用精細化訪問控制，以限制哪些用戶可以訪問此應用程式。如停用，系統中的所有已註冊用戶都可以訪問。',
+    enable_without_rules_notice: '請先新增至少一條訪問規則，再啟用訪問控制。',
+    load_error: '載入訪問控制規則失敗。',
+    custom_allow_rules: '自定義允許規則',
+    custom_allow_rules_description:
+      '建立規則，讓具備特定屬性的用戶可以自動訪問。啟用時至少需要一條規則。',
+    rules: '訪問規則',
+    add_rules: '新增規則',
+    rules_description: '用戶符合任一條已配置規則時即可訪問此應用程式。',
+    empty_rules_description: '尚未配置任何規則。',
+    delete_rule_confirmation: '確定要移除此規則嗎？',
+    rule_table_rules: '規則',
+    rule_table_description: '描述',
+    rule_table_users: '用戶',
+    rule_table_members: '成員',
+    rule_table_user_id: '用戶 ID',
+    rule_count: '{{count}} 條規則',
+    rule_count_other: '{{count}} 條規則',
+    rule_users: '用戶',
+    rule_users_description: '指定用戶可以訪問此應用程式。',
+    rule_roles: '角色',
+    rule_user_roles: '用戶角色',
+    rule_user_roles_description: '擁有所選用戶角色的用戶可以訪問此應用程式。',
+    rule_organizations: '組織',
+    rule_organizations_description: '所選組織中的現有和未來成員都可以訪問此應用程式。',
+    rule_organization_roles: '組織角色',
+    rule_organization_roles_description: '在所選組織中擁有所選組織角色的成員可以訪問此應用程式。',
+  },
   branding: {
     name: '品牌推廣',
     description: '在同意屏幕上自訂您應用程式的顯示名稱和標誌。',
@@ -244,6 +278,13 @@ const application_details = {
     unspecified_description: '使用 Logto 使用者 ID 作為名稱 ID',
     email_address: '電子郵件地址',
     email_address_description: '使用電子郵件地址作為名稱 ID',
+  },
+  saml_idp_authentication: {
+    always_force_authn: '始終強制身份驗證',
+    always_force_authn_description:
+      '要求用戶每次訪問此應用程式時再次登入，即使他們已經有 Logto 會話。',
+    always_force_authn_tip:
+      '啟用後，Logto 總是要求用戶再次登入此應用程式。禁用時，除非服務提供者要求使用 ForceAuthn 進行新的身份驗證，否則將重用現有的 Logto 會話。',
   },
   saml_encryption_config: {
     encrypt_assertion: '加密 SAML 斷言',

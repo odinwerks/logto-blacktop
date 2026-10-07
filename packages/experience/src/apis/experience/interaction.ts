@@ -24,7 +24,15 @@ export const identifyUser = async (payload: IdentificationApiPayload = {}) =>
   api.post(experienceApiRoutes.identification, { json: payload });
 
 export const submitInteraction = async () =>
-  api.post(`${experienceApiRoutes.submit}`).json<SubmitInteractionResponse>();
+  api.post(experienceApiRoutes.submit).json<SubmitInteractionResponse>();
+
+export const setTrustedDeviceOptInDecision = async (trusted: boolean) => {
+  await api.post(`${experienceApiRoutes.profile}/trusted-device`, {
+    json: { trusted },
+  });
+
+  return submitInteraction();
+};
 
 export const updateProfile = async (payload: UpdateProfileApiPayload) =>
   api.post(experienceApiRoutes.profile, { json: payload });

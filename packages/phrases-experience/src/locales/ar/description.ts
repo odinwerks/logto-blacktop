@@ -35,6 +35,8 @@ const description = {
   reset_password: 'إعادة تعيين كلمة المرور',
   reset_password_description:
     'أدخل {{types, list(type: disjunction;)}} المرتبطة بحسابك، وسنرسل لك رمز التحقق لإعادة تعيين كلمة المرور.',
+  reset_password_magic_link_description:
+    'أدخل عنوان البريد الإلكتروني المرتبط بحسابك لمتابعة إعادة تعيين كلمة المرور.',
   new_password: 'كلمة المرور الجديدة',
   set_password: 'تعيين كلمة المرور',
   password_changed: 'تم تغيير كلمة المرور',
@@ -99,6 +101,8 @@ const description = {
     'لقد قامت الشركة بتمكين تسجيل الدخول الموحد لحساب البريد الإلكتروني {{email}}. يمكنك الاستمرار في تسجيل الدخول باستخدام موفرات SSO التالية.',
   single_sign_on_enabled: 'تم تمكين تسجيل الدخول الموحد لهذا الحساب',
   authorize_title: 'السماح لـ {{name}}',
+  unregistered_client_notice:
+    'هذا التطبيق معلن ذاتيًا من قِبل <hostname>{{host}}</hostname>، بما في ذلك اسمه وشعاره. يرجى التحقق من اسم المضيف قبل المتابعة.',
   request_permission: '{{name}} يطلب الوصول إلى:',
   grant_organization_access: 'منح الوصول إلى المؤسسة:',
   authorize_personal_data_usage: 'السماح باستخدام البيانات الشخصية الخاصة بك:',
@@ -118,9 +122,6 @@ const description = {
     'أدخل {{types, list(type: disjunction;)}} الخاص بك لإنشاء حساب جديد.',
   all_account_creation_options: 'جميع خيارات إنشاء الحساب',
   password_expired: 'انتهت صلاحية كلمة المرور الخاصة بك ويجب إعادة تعيينها قبل تسجيل الدخول.',
-  password_expiration_reminder:
-    'ستنتهي صلاحية كلمة المرور الخاصة بك خلال {{days}} يوم (أيام). نوصي بإعادة تعيينها الآن.',
-  password_expiration_reminder_skip: 'تخطي الآن',
   password_expiration_reset: 'إعادة تعيين كلمة المرور',
   back_to_sign_in: 'العودة إلى تسجيل الدخول',
   support_email: 'البريد الإلكتروني للدعم: <link></link>',

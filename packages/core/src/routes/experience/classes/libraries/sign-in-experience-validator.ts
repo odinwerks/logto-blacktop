@@ -242,6 +242,12 @@ export class SignInExperienceValidator {
     return passwordPolicy;
   }
 
+  public async getUsernamePolicy() {
+    const { usernamePolicy } = await this.getSignInExperienceData();
+
+    return usernamePolicy;
+  }
+
   public async getPasswordExpirationPolicy() {
     const { passwordExpiration } = await this.getSignInExperienceData();
 
@@ -259,6 +265,18 @@ export class SignInExperienceValidator {
       await this.queries.signInExperiences.findDefaultSignInExperience();
 
     return this.signInExperienceDataCache;
+  }
+
+  /**
+   * Whether new-user registration is disabled for the tenant (sign-in only). Used by the
+   * verification-code send flow to suppress delivery to unknown recipients: when registration is
+   * off, an unregistered recipient can never use the code to authenticate, so a delivered code
+   * would only serve account enumeration / spam.
+   */
+  public async isRegistrationDisabled(): Promise<boolean> {
+    const { signInMode } = await this.getSignInExperienceData();
+
+    return signInMode === SignInMode.SignIn;
   }
 
   public async getMandatoryUserProfileBySignUpMethods(): Promise<Set<MissingProfile>> {
@@ -387,6 +405,12 @@ export class SignInExperienceValidator {
       case VerificationType.Password:
       case VerificationType.EmailVerificationCode:
       case VerificationType.PhoneVerificationCode: {
+        // A record created for the subject verifies an enrolled credential offered by the step-up
+        // eligibility, not a sign-in method.
+        if (verificationRecord.userId) {
+          return;
+        }
+
         const {
           identifier: { type },
         } = verificationRecord;

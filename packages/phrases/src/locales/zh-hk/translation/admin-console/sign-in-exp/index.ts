@@ -170,6 +170,7 @@ const sign_in_exp = {
       password: '密碼',
       mfa: '多重驗證',
       mfa_description: '允許使用者於帳戶中心管理其多重驗證方式。',
+      passkey: 'Passkey',
       username: '使用者名稱',
       name: '姓名',
       avatar: '頭像',
@@ -178,6 +179,7 @@ const sign_in_exp = {
       custom_data: '自訂資料',
       custom_data_description: '控制對儲存在使用者上的自訂 JSON 資料的存取權。',
       sessions: '會話',
+      trusted_devices: '受信任裝置',
     },
     profile_fields: {
       title: '預構建帳戶中心的檔案欄位',
@@ -188,10 +190,11 @@ const sign_in_exp = {
         go_to: '其他檔案欄位。',
       },
       disabled_hint: {
-        name: '要新增此欄位，請先在上方檔案資料中將「姓名」權限設定為「可編輯/唯讀」。',
-        avatar: '要新增此欄位，請先在上方檔案資料中將「頭像」權限設定為「可編輯/唯讀」。',
-        profile: '要新增此欄位，請先在上方檔案資料中將「檔案」權限設定為「可編輯/唯讀」。',
-        custom_data: '要新增此欄位，請先在上方檔案資料中將「自訂資料」權限設定為「可編輯/唯讀」。',
+        name: '要新增此欄位，請先在下方用戶資料部分中將「姓名」權限設定為「可編輯/唯讀」。',
+        avatar: '要新增此欄位，請先在下方用戶資料部分中將「頭像」權限設定為「可編輯/唯讀」。',
+        profile: '要新增此欄位，請先在下方用戶資料部分中將「檔案」權限設定為「可編輯/唯讀」。',
+        custom_data:
+          '要新增此欄位，請先在下方用戶資料部分中將「自訂資料」權限設定為「可編輯/唯讀」。',
       },
     },
     webauthn_related_origins: 'WebAuthn 關聯來源',
@@ -231,6 +234,7 @@ const sign_in_exp = {
         account_center:
           '訪問帳戶中心以管理電郵地址、電話號碼、使用者名稱、密碼、MFA 和關聯帳號等安全設定',
         profile: '管理個人資料（如姓名、頭像）的中心樞紐',
+        sessions: '查看和管理你在各裝置上的活躍會話',
       },
       customize_note: '不想要開箱即用的體驗？你可以完全',
       customize_link: '使用 Account API 自定義你的流程。',

@@ -17,6 +17,7 @@ export const normalizeData = (
   jit?: { emailDomains: string[]; roles: Array<Option<string>>; ssoConnectorIds: string[] }
 ): FormData => ({
   ...data,
+  isTrustedDeviceAllowed: data.isTrustedDeviceAllowed,
   branding: {
     ...emptyBranding,
     ...data.branding,
@@ -44,9 +45,11 @@ export const assembleData = ({
   color,
   customCss,
   isBrandingEnabled,
+  isTrustedDeviceAllowed,
   ...data
 }: Partial<FormData>): Partial<Organization> => ({
   ...data,
+  isTrustedDeviceAllowed,
   ...(isBrandingEnabled
     ? { color, branding: branding && removeFalsyValues(branding), customCss }
     : { color: {}, branding: {}, customCss: '' }),

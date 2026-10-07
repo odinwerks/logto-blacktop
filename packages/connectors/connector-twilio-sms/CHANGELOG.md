@@ -1,5 +1,25 @@
 # @logto/connector-twilio-sms
 
+## 1.5.0
+
+### Minor Changes
+
+- ee039b6: add an optional API host configuration to the Twilio SMS connector
+
+## 1.4.5
+
+### Patch Changes
+
+- @logto/connector-kit@5.1.1
+
+## 1.4.4
+
+### Patch Changes
+
+- Updated dependencies [e7b6e9de1]
+- Updated dependencies [b7386a5113]
+  - @logto/connector-kit@5.1.0
+
 ## 1.4.3
 
 ### Patch Changes

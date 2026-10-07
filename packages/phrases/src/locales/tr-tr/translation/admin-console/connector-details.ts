@@ -38,6 +38,19 @@ const connector_details = {
     total_email_sent: 'Toplam e-posta gönderildi: {{value, number}}',
     total_email_sent_tip:
       'Logto dahili e-posta için güvenli ve stabil SendGrid kullanır. Tamamen ücretsizdir. <a>Daha fazla bilgi edinin</a>',
+    hosted_email_usage: {
+      daily: 'Günlük <value>{{usage, number}}</value> / {{limit, number}}',
+      daily_unlimited: 'Günlük <value>{{usage, number}}</value>',
+      monthly: 'Aylık <value>{{usage, number}}</value> / {{limit, number}}',
+      monthly_unlimited: 'Aylık <value>{{usage, number}}</value>',
+      tip: 'Free ve Development planları, günlük ve aylık yerleşik e-posta hizmeti limitleri içerir.',
+      banner: {
+        approaching:
+          'Logto yerleşik e-posta hizmeti gönderim sınırınıza yaklaşıyorsunuz. Logto yerleşik e-posta hizmetini kullanmaya devam etmek için <provider>kendi e-posta sağlayıcınızı bağlayın</provider> veya <upgrade>planınızı yükseltin</upgrade>.',
+        reached:
+          'Logto yerleşik e-posta hizmeti gönderim sınırınıza ulaştınız, bu da oturum açma e-postalarını kesintiye uğratabilir. Logto yerleşik e-posta hizmetini kullanmaya devam etmek için <provider>kendi e-posta sağlayıcınızı bağlayın</provider> veya <upgrade>planınızı yükseltin</upgrade>.',
+      },
+    },
     email_template_title: 'E-posta Şablonu',
     template_description:
       'Yerleşik e-posta, doğrulama e-postalarının sorunsuz teslimi için varsayılan şablonları kullanır. Herhangi bir yapılandırma gerektirmez ve temel marka bilgilerini özelleştirebilirsiniz.',
@@ -73,6 +86,20 @@ const connector_details = {
   sign_in_experience: {
     in_use: 'Oturum açma için etkin',
     not_in_use: 'Oturum açma için devre dışı',
+  },
+  email_logs: {
+    title: 'E-posta kayıtları',
+    time: 'Zaman',
+    recipient: 'Alıcı',
+    recipient_placeholder: 'Alıcının tam adresiyle ara',
+    template_type: 'Şablon türü',
+    status: 'Durum',
+    status_sent: 'Gönderildi',
+    status_failed: 'Başarısız',
+    language_tag: 'Dil',
+    provider_message_id: 'Sağlayıcı mesaj kimliği',
+    previous_page: 'Önceki',
+    next_page: 'Sonraki',
   },
 };
 

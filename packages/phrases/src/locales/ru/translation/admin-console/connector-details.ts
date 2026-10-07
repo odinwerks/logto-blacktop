@@ -38,6 +38,19 @@ const connector_details = {
     total_email_sent: 'Всего отправлено электронных писем: {{value, number}}',
     total_email_sent_tip:
       'Logto использует SendGrid для безопасной и стабильной встроенной электронной почты. Полностью бесплатно. <a>Узнать больше</a>',
+    hosted_email_usage: {
+      daily: 'Ежедневно <value>{{usage, number}}</value> / {{limit, number}}',
+      daily_unlimited: 'Ежедневно <value>{{usage, number}}</value>',
+      monthly: 'Ежемесячно <value>{{usage, number}}</value> / {{limit, number}}',
+      monthly_unlimited: 'Ежемесячно <value>{{usage, number}}</value>',
+      tip: 'Планы Free и Development включают ежедневные и ежемесячные лимиты встроенного почтового сервиса.',
+      banner: {
+        approaching:
+          'Вы приближаетесь к лимиту отправки встроенного почтового сервиса Logto. <provider>Подключите собственного почтового провайдера</provider> или <upgrade>обновите тариф</upgrade>, чтобы продолжить использовать встроенный почтовый сервис Logto.',
+        reached:
+          'Вы достигли лимита отправки встроенного почтового сервиса Logto, что может прервать письма для входа. <provider>Подключите собственного почтового провайдера</provider> или <upgrade>обновите тариф</upgrade>, чтобы продолжить использовать встроенный почтовый сервис Logto.',
+      },
+    },
     email_template_title: 'Шаблон электронной почты',
     template_description:
       'Встроенная электронная почта использует шаблоны по умолчанию для безшовной доставки писем с подтверждением. Никакой дополнительной настройки не требуется, и вы можете настроить базовую информацию о бренде.',
@@ -73,6 +86,20 @@ const connector_details = {
   sign_in_experience: {
     in_use: 'Включён для входа в систему ',
     not_in_use: 'Отключён для входа в систему ',
+  },
+  email_logs: {
+    title: 'Журналы электронной почты',
+    time: 'Время',
+    recipient: 'Получатель',
+    recipient_placeholder: 'Поиск по полному адресу получателя',
+    template_type: 'Тип шаблона',
+    status: 'Статус',
+    status_sent: 'Отправлено',
+    status_failed: 'Ошибка',
+    language_tag: 'Язык',
+    provider_message_id: 'ID сообщения у провайдера',
+    previous_page: 'Назад',
+    next_page: 'Далее',
   },
 };
 

@@ -59,6 +59,11 @@ const jwt_claims = {
     subtitle:
       'Use o parâmetro de entrada `context.application` para fornecer as informações da aplicação associadas ao token.',
   },
+  organization_data: {
+    title: 'Contexto da organização',
+    subtitle:
+      'Use o parâmetro de entrada `context.organization` para fornecer as informações da organização de destino, disponível apenas para tokens de organização.',
+  },
   token_data: {
     title: 'Dados do token',
     subtitle: 'Use o parâmetro de entrada `token` para a carga útil do token de acesso atual. ',
@@ -98,6 +103,11 @@ const jwt_claims = {
     subtitle: 'Ajuste o token simulado e os dados do usuário para testar.',
     run_button: 'Executar teste',
     result_title: 'Resultado do teste',
+  },
+  sandbox_warning: {
+    title: 'Os scripts são executados com privilégios do servidor',
+    description:
+      'No Logto auto-hospedado, este script é executado no mesmo ambiente que o próprio Logto: ele pode ler variáveis de ambiente do servidor e acessar serviços na sua rede interna. Não está em sandbox. Conceda acesso a esta página apenas a pessoas em quem você confiaria o acesso ao servidor.',
   },
   form_error: {
     invalid_json: 'Formato JSON inválido',

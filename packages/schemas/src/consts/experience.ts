@@ -9,8 +9,15 @@ const routes = Object.freeze({
   identifierRegister: 'identifier-register',
   switchAccount: 'switch-account',
   oneTimeToken: 'one-time-token',
+  accountSuspended: 'account-suspended',
+  trustedDevice: 'trusted-device',
+  /** Pure step-up: an authenticated session pins the subject and only the missing assurance is asked. */
+  stepUp: 'step-up',
 } as const);
 
 export const experience = Object.freeze({
   routes,
 } as const);
+
+/** `postMessage` sender tag from admin Console sign-in experience live preview. */
+export const signInExperiencePreviewMessageSender = 'ac_preview';

@@ -38,6 +38,19 @@ const connector_details = {
     total_email_sent: 'Total de emails enviados: {{value, number}}',
     total_email_sent_tip:
       'Logto utiliza o SendGrid para e-mail interno seguro e estável. É completamente gratuito para usar. <a>Saiba mais</a>',
+    hosted_email_usage: {
+      daily: 'Diário <value>{{usage, number}}</value> / {{limit, number}}',
+      daily_unlimited: 'Diário <value>{{usage, number}}</value>',
+      monthly: 'Mensal <value>{{usage, number}}</value> / {{limit, number}}',
+      monthly_unlimited: 'Mensal <value>{{usage, number}}</value>',
+      tip: 'Os planos Free e Development incluem limites diários e mensais do serviço de email integrado.',
+      banner: {
+        approaching:
+          'Está a aproximar-se do limite de envio do seu serviço de email integrado da Logto. <provider>Ligue o seu próprio fornecedor de e-mail</provider> ou <upgrade>atualize o seu plano</upgrade> para continuar a usar o serviço de email integrado da Logto.',
+        reached:
+          'Atingiu o limite de envio do seu serviço de email integrado da Logto, o que pode interromper os e-mails de início de sessão. <provider>Ligue o seu próprio fornecedor de e-mail</provider> ou <upgrade>atualize o seu plano</upgrade> para continuar a usar o serviço de email integrado da Logto.',
+      },
+    },
     email_template_title: 'Modelo de e-mail',
     template_description:
       'O e-mail integrado usa modelos padrão para entrega perfeita de e-mails de verificação. Nenhuma configuração é necessária e você pode personalizar informações básicas da marca.',
@@ -73,6 +86,20 @@ const connector_details = {
   sign_in_experience: {
     in_use: 'Ativado para início de sessão',
     not_in_use: 'Desativado para início de sessão',
+  },
+  email_logs: {
+    title: 'Registos de e-mail',
+    time: 'Hora',
+    recipient: 'Destinatário',
+    recipient_placeholder: 'Pesquisar pelo endereço completo do destinatário',
+    template_type: 'Tipo de modelo',
+    status: 'Estado',
+    status_sent: 'Enviado',
+    status_failed: 'Falhou',
+    language_tag: 'Idioma',
+    provider_message_id: 'ID da mensagem do fornecedor',
+    previous_page: 'Anterior',
+    next_page: 'Seguinte',
   },
 };
 

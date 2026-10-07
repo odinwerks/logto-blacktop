@@ -178,7 +178,7 @@ const Sessions = () => {
       setRemovingAppId(app.applicationId);
 
       const results = await Promise.allSettled(
-        app.grantIds.map(async (grantId: string) => {
+        app.grantIds.map(async (grantId) => {
           const [error] = await revokeGrantApi(verificationId, grantId);
           if (error) {
             throw error instanceof Error ? error : new Error('revoke_failed');
@@ -186,9 +186,7 @@ const Sessions = () => {
         })
       );
 
-      const failure = results.find(
-        (result: PromiseSettledResult<unknown>) => result.status === 'rejected'
-      );
+      const failure = results.find((result) => result.status === 'rejected');
       if (failure) {
         if (failure.reason instanceof HTTPError) {
           await handleError(failure.reason);

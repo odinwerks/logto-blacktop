@@ -22,10 +22,12 @@ import koaDeviceFlowShortcut from '#src/middleware/koa-device-flow-shortcut.js';
 import koaErrorHandler from '#src/middleware/koa-error-handler.js';
 import koaExperienceSsr from '#src/middleware/koa-experience-ssr.js';
 import koaI18next from '#src/middleware/koa-i18next.js';
+import koaInteractionDetails from '#src/middleware/koa-interaction-details.js';
 import koaOidcErrorHandler from '#src/middleware/koa-oidc-error-handler.js';
 import koaSecurityHeaders, {
   koaExperienceSecurityHeaders,
 } from '#src/middleware/koa-security-headers.js';
+import koaServeDomainVerificationFiles from '#src/middleware/koa-serve-domain-verification-files.js';
 import koaSlonikErrorHandler from '#src/middleware/koa-slonik-error-handler.js';
 import koaSpaProxy from '#src/middleware/koa-spa-proxy.js';
 import koaSpaSessionGuard from '#src/middleware/koa-spa-session-guard.js';
@@ -48,6 +50,7 @@ import {
   syncSigningKeyRotationStateCache,
 } from './signing-key-rotation-state.js';
 import { getTenantDatabaseDsn } from './utils.js';
+import { type WithDefaultTenant } from './with-default-tenant.js';
 
 const consoleLog = new ConsoleLog('tenant');
 // Keep tenant disposal draining longer than the HTTP server timeout (120s in app/init.ts) so
@@ -62,10 +65,20 @@ type CreateTenant = {
   redisCache: CacheStore;
   /** The custom domain of the tenant, if applicable. */
   customDomain?: string;
+  /**
+   * Run a task against the default tenant of this deployment. Injected by the tenant pool, which
+   * owns the tenant instances.
+   */
+  withDefaultTenant: WithDefaultTenant;
 };
 
 export default class Tenant implements TenantContext {
-  static async create({ id, redisCache, customDomain }: CreateTenant): Promise<Tenant> {
+  static async create({
+    id,
+    redisCache,
+    customDomain,
+    withDefaultTenant,
+  }: CreateTenant): Promise<Tenant> {
     // Try to avoid unexpected "triggerUncaughtException" by using try-catch block
     try {
       // Treat the default database URL as the management URL
@@ -74,7 +87,13 @@ export default class Tenant implements TenantContext {
       // Custom endpoint is used for building OIDC issuer URL when the request is a custom domain
       await envSet.load(customDomain);
 
-      return new Tenant(envSet, id, new WellKnownCache(id, redisCache));
+      return new Tenant(
+        envSet,
+        id,
+        customDomain,
+        withDefaultTenant,
+        new WellKnownCache(id, redisCache)
+      );
     } catch (error) {
       consoleLog.error('Failed to create tenant:', id, error);
       throw error;
@@ -99,6 +118,8 @@ export default class Tenant implements TenantContext {
   private constructor(
     public readonly envSet: EnvSet,
     public readonly id: string,
+    private readonly customDomain: string | undefined,
+    public readonly withDefaultTenant: WithDefaultTenant,
     public readonly wellKnownCache: WellKnownCache,
     public readonly queries = new Queries(envSet.pool, wellKnownCache),
     public readonly logtoConfigs = createLogtoConfigLibrary(queries),
@@ -143,7 +164,7 @@ export default class Tenant implements TenantContext {
     const provider = initOidc(id, envSet, queries, libraries, logtoConfigs, subscription);
 
     app.use(koaDeviceFlowShortcut());
-    app.use(mount('/oidc', provider.app));
+    app.use(mount('/oidc', provider));
 
     const tenantContext: TenantContext = {
       id,
@@ -156,6 +177,8 @@ export default class Tenant implements TenantContext {
       libraries,
       envSet,
       sentinel,
+      subscription,
+      withDefaultTenant,
       invalidateCache: this.invalidateCache.bind(this),
       scheduleSigningKeyRotation: this.scheduleSigningKeyRotation.bind(this),
     };
@@ -168,6 +191,11 @@ export default class Tenant implements TenantContext {
 
     // Mount APIs
     app.use(mount('/api', initApis(tenantContext)));
+
+    // Serve custom domain verification files when the request is on a custom domain.
+    if (this.customDomain) {
+      app.use(koaServeDomainVerificationFiles(this.customDomain, queries));
+    }
 
     const { isMultiTenancy } = EnvSet.values;
 
@@ -260,8 +288,9 @@ export default class Tenant implements TenantContext {
         mount(
           `/${experience.routes.consent}`,
           compose([
-            koaConsentGuard(provider, libraries, queries),
-            koaAutoConsent(provider, queries),
+            koaInteractionDetails(provider),
+            koaConsentGuard(libraries, queries),
+            koaAutoConsent(provider, envSet, queries, libraries),
           ])
         ),
         koaSpaProxy({ mountedApps, queries }),

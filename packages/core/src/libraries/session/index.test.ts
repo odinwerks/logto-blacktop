@@ -1,11 +1,104 @@
 import { SessionGrantRevokeTarget } from '@logto/schemas';
 import type { Provider } from 'oidc-provider';
 
+import RequestError from '#src/errors/RequestError/index.js';
+import { type ActiveApplicationGrantInstance } from '#src/queries/oidc-model-instance.js';
 import type Queries from '#src/tenants/Queries.js';
 
 import { createSessionLibrary } from './index.js';
 
 const { jest } = import.meta;
+
+describe('findUserActiveApplicationGrants', () => {
+  const findActiveApplicationGrants = jest.fn<
+    Promise<ActiveApplicationGrantInstance[]>,
+    [string, ('firstParty' | 'thirdParty')?]
+  >(async () => []);
+  const findActiveCimdGrants = jest.fn<Promise<ActiveApplicationGrantInstance[]>, [string]>(
+    async () => []
+  );
+
+  const sessionLibrary = createSessionLibrary({
+    oidcModelInstances: {
+      findUserActiveApplicationGrants: findActiveApplicationGrants,
+      findUserActiveCimdGrants: findActiveCimdGrants,
+    },
+    oidcSessionExtensions: {
+      findUserActiveSessionsWithExtensions: jest.fn(async () => []),
+      findUserActiveSessionWithExtension: jest.fn(async () => null),
+    },
+  } as unknown as Queries);
+
+  const basePayload = {
+    exp: 1_700_000_600,
+    iat: 1_700_000_000,
+    jti: 'jti',
+    kind: 'Grant',
+    accountId: 'user-id',
+  } as const;
+
+  const registeredGrantRow = {
+    id: 'grant-1',
+    payload: { ...basePayload, clientId: 'app-1' },
+    expiresAt: 1_700_000_600_000,
+    application: { id: 'app-1', name: 'App One' },
+  };
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should pass registered application grants through', async () => {
+    findActiveApplicationGrants.mockResolvedValueOnce([registeredGrantRow]);
+
+    await expect(
+      sessionLibrary.findUserActiveApplicationGrants('user-id', 'thirdParty')
+    ).resolves.toEqual([registeredGrantRow]);
+    expect(findActiveApplicationGrants).toHaveBeenCalledWith('user-id', 'thirdParty');
+    expect(findActiveCimdGrants).toHaveBeenCalledWith('user-id');
+  });
+
+  it('should append cimd grants after the registered ones', async () => {
+    const cimdClientId = 'https://client.example.com/oauth/metadata.json';
+    const cimdGrantRow = {
+      id: 'cimd-grant-id',
+      payload: { ...basePayload, clientId: cimdClientId },
+      expiresAt: 1_700_000_600_000,
+      application: { id: cimdClientId, name: 'Example App' },
+    };
+
+    findActiveApplicationGrants.mockResolvedValueOnce([registeredGrantRow]);
+    findActiveCimdGrants.mockResolvedValueOnce([cimdGrantRow]);
+
+    await expect(sessionLibrary.findUserActiveApplicationGrants('user-id')).resolves.toEqual([
+      registeredGrantRow,
+      cimdGrantRow,
+    ]);
+  });
+
+  it('should not query cimd grants for the first-party filter', async () => {
+    await sessionLibrary.findUserActiveApplicationGrants('user-id', 'firstParty');
+
+    expect(findActiveCimdGrants).not.toHaveBeenCalled();
+    expect(findActiveApplicationGrants).toHaveBeenCalledWith('user-id', 'firstParty');
+  });
+
+  it('should throw a server error on an invalid grant payload', async () => {
+    findActiveApplicationGrants.mockResolvedValueOnce([
+      {
+        id: 'grant-1',
+        // Missing the required `clientId` field.
+        payload: { ...basePayload },
+        expiresAt: 1_700_000_600_000,
+        application: { id: 'app-1', name: 'App One' },
+      },
+    ]);
+
+    await expect(sessionLibrary.findUserActiveApplicationGrants('user-id')).rejects.toThrow(
+      RequestError
+    );
+  });
+});
 
 describe('revokeSessionAssociatedGrants', () => {
   const revokeAccessTokenByGrantId = jest.fn(async () => 'ok');
@@ -151,7 +244,7 @@ describe('removeUserSessionAuthorizationByGrantId', () => {
     jest.clearAllMocks();
   });
 
-  it('should remove matching authorization and persist session', async () => {
+  it('should remove matching authorization and persist session without resetting its identifier', async () => {
     findUserActiveSessionUidByGrantId.mockResolvedValueOnce({ sessionUid: 'session-id' });
     findByUid.mockResolvedValueOnce({
       accountId: 'user-id',
@@ -164,7 +257,9 @@ describe('removeUserSessionAuthorizationByGrantId', () => {
 
     expect(findUserActiveSessionUidByGrantId).toHaveBeenCalledWith('user-id', 'grant-id');
     expect(findByUid).toHaveBeenCalledWith('session-id');
-    expect(resetIdentifier).toHaveBeenCalled();
+    // Rotating the identifier would orphan the browser session cookie and silently
+    // drop the browser's SSO session; grant revocation must keep the session alive.
+    expect(resetIdentifier).not.toHaveBeenCalled();
     expect(persist).toHaveBeenCalled();
   });
 
@@ -246,7 +341,7 @@ describe('removeUserSessionAuthorizationsByGrantIds', () => {
     expect(findUserActiveSessionUidByGrantId).toHaveBeenNthCalledWith(2, 'user-id', 'grant-2');
     expect(findByUid).toHaveBeenCalledTimes(1);
     expect(findByUid).toHaveBeenCalledWith('session-1');
-    expect(resetIdentifier).toHaveBeenCalledTimes(1);
+    expect(resetIdentifier).not.toHaveBeenCalled();
     expect(persist).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
       succeededGrantIds: ['grant-1', 'grant-2'],

@@ -1,5 +1,451 @@
 # Change Log
 
+## 1.44.0
+
+### Minor Changes
+
+- 655317e: support Cap as a self-hosted CAPTCHA provider
+
+  [Cap](https://capjs.js.org) is an open-source, self-hosted proof-of-work CAPTCHA. It needs no third-party service, so bot protection keeps working in regions where Cloudflare Turnstile and Google reCAPTCHA are unreachable or unreliable.
+
+  To use it, deploy a publicly reachable [Cap Standalone](https://capjs.js.org/guide/standalone/) instance, create a site key, then go to Console > Security > CAPTCHA and add Cap with the instance endpoint, site key, and secret key. The same configuration is available through the `PUT /api/captcha-provider` Management API with `type: "Cap"`.
+
+  While Cap is the CAPTCHA provider, the sign-in page's Content Security Policy allows the Cap instance and dynamic JavaScript evaluation, which Cap's bot-detection (instrumentation) challenge requires.
+
+- 0f1af96: support custom user ID when creating a user via the Management API
+
+  This capability is available in Logto Open Source only and is not supported in Logto Cloud.
+
+  `POST /api/users` now accepts an optional `id` (up to 128 characters of letters, numbers, and `_ - . @ : + = |`). This lets you preserve existing user IDs, such as `auth0|abc123` or UUIDs, when migrating users from another identity provider. If the ID is already taken, the request fails with `user.id_already_in_use`.
+
+- 9af3b69: allow user IDs up to 128 characters
+
+  `users.id` and every column referencing it were limited to 12 or 21 characters. They now accept up to 128 characters, so users migrated from another identity provider can keep their original IDs.
+
+- c8d00ee: support looking up users by external identity in the Management API
+
+  `GET /api/users` now accepts `identityType`, `identityProvider`, and `identityId` query parameters for exact user lookup. Use `identityType=social` with a connector target (such as `dingtalk`), or `identityType=sso` with an enterprise SSO issuer, together with the user identifier issued by the external provider. The identity filter is combined with other search filters using AND logic
+
+- 022317f: add a client compatibility setting so dynamic app clients such as ChatGPT and Codex can receive refresh tokens
+
+  These clients request `offline_access` without `prompt=consent`, so they don't receive a refresh token and users have to sign in again whenever the access token expires. Turn on "Add consent prompt for offline access" under Client compatibility in the dynamic app settings, and Logto adds the consent prompt to these requests. The setting is experimental and off by default, and audit logs show the added `consent` in `prompt`.
+
+- 5bd627f: add a configurable score threshold for reCAPTCHA Enterprise so admins can control how strict CAPTCHA verification is
+- 3f9fd15: add authentication policies for SAML applications
+
+  SAML applications force fresh authentication by default, as before. To let a SAML application reuse an existing Logto session, turn off "Always force authentication" in the application settings, or set `authnRequestConfig.forceAuthn` to `false` using the SAML application Management API. The service provider can still require fresh authentication for a single sign-in with `ForceAuthn="true"` (SAML 2.0 core, section 3.4.1).
+
+  SAML assertions report the actual authentication time.
+
+  To require signed authentication requests, set `authnRequestConfig.requireSignedAuthnRequests` to `true` and provide the service provider’s PEM-encoded RSA X.509 certificate in `authnRequestConfig.signingCertificate`. Both HTTP-POST and HTTP-Redirect signatures are verified. Unsigned requests remain accepted by default.
+
+- c5bd438: add MFA trusted devices with configurable policies and device management
+
+  Configure tenant-wide trusted-device policies and organization-level restrictions. After completing MFA, users can choose whether to trust their device on a dedicated page at the end of sign-in or sign-up, then skip repeated MFA on that browser. Manage trusted devices through Console, Account Center, the Management API, and the Account API, and subscribe to device lifecycle webhooks.
+
+- 0429b3a: support the `theme` authentication parameter to control the sign-in experience theme
+
+  Pass `theme=light` or `theme=dark` as an extra authentication parameter to render the sign-in experience in that theme instead of following the end-user's OS setting, so applications with their own light / dark toggle can keep Logto in sync. The override lasts for the whole authentication flow, including page reloads, social / SSO callbacks, and the consent page. It is ignored when dark mode is disabled in the sign-in experience settings, and unsupported values are ignored.
+
+### Patch Changes
+
+- 7d54310: use a supported base language for API error messages when the requested regional language is unavailable
+- 3da75ce: support a trailing slash in the issuer of OIDC enterprise SSO connectors
+
+  The discovery path is now joined onto the connector's `Issuer`, so `https://idp.example.com/` and `https://idp.example.com` both resolve to `https://idp.example.com/.well-known/openid-configuration`. The stored issuer value stays exactly as configured, so existing SSO identities keep resolving.
+
+  Failed outbound requests made by an OIDC SSO connector now report a concise reason: the error message, or the status code alongside the response body for an HTTP failure.
+
+- Updated dependencies [655317e]
+- Updated dependencies [0f1af96]
+- Updated dependencies [9af3b69]
+- Updated dependencies [e11805c]
+- Updated dependencies [022317f]
+- Updated dependencies [5bd627f]
+- Updated dependencies [979e37c]
+- Updated dependencies [3f9fd15]
+- Updated dependencies [8ee61e3]
+- Updated dependencies [a2d6e83]
+- Updated dependencies [c5bd438]
+- Updated dependencies [0429b3a]
+  - @logto/schemas@1.44.0
+  - @logto/console@1.41.0
+  - @logto/experience@1.23.0
+  - @logto/phrases@1.32.0
+  - @logto/cli@1.44.0
+  - @logto/account@0.7.0
+
+## 1.43.0
+
+### Minor Changes
+
+- b64d46d495: unify social callback URI between Sign-in Experience and Account Center
+- 8b2aaab9b0: add dynamic app support (OAuth Client ID Metadata Documents)
+
+  The dynamic app lets compatible public clients, such as MCP clients, connect to your tenant without registering an application. Following the OAuth Client ID Metadata Documents (CIMD) draft, such a client presents a public HTTPS URL as its `client_id`, and Logto fetches the client metadata from that URL.
+
+  Enable it from the dynamic app card in the third-party app section on the create application page in Console. The switch is tenant-level and off by default, and requires the OIDC provider SSRF protection to be active. Control what dynamic app clients can request with the permission settings on the dynamic app page.
+
+- 28885b42d5: add optional signed SAML authentication requests for enterprise SSO connectors
+
+  Enterprise SSO SAML connectors can now sign the SAML authentication request (AuthnRequest) sent to the identity provider. Generate a service-provider signing key on the connector, download its certificate and register it at the identity provider, then enable "Sign authentication request". RSA-SHA256 (default) and RSA-SHA512 are supported, and staged keys allow graceful, zero-downtime certificate rotation. Identity-provider metadata advertising `WantAuthnRequestsSigned` no longer breaks SAML sign-in when signing is disabled.
+
+- 860188898f: run Custom JWT and Actions scripts on the consolidated script runtime
+
+  Self-hosted deployments execute Custom JWT and Actions scripts on a pooled worker-thread runner with a 5-second wall-clock deadline and a 128 MB memory budget, so a runaway or never-settling async script fails instead of hanging token issuance. Script return values must be JSON-serializable.
+
+- e516f6eaba: block third-party applications from mutating account data through the Account API and Verification API
+
+  The Account API is the user managing their own account at the identity provider, and was built for the first-party Account Center.
+
+  Third-party applications now receive `403 auth.third_party_application_forbidden` when they try to change account data. First-party applications are unaffected, including Account Center and Console.
+
+  The check fails closed: a client identifier that no longer resolves to an application is treated as third-party. Two cases follow from that. A client identifier document (CIMD) client identifier is a URL and never names a registered application, so CIMD clients are blocked from these routes. An application that has been deleted while its access tokens are still live is blocked as well, because the token keeps authenticating after the application row is gone.
+
+  No read route gained a guard. Three reads do become unreachable for third-party applications as a side effect, because they require a verified user-permission verification record and the routes that mint one are now guarded:
+
+  - `GET /api/my-account/grants`
+  - `GET /api/my-account/sessions`
+  - `GET /api/my-account/mfa-verifications/backup-codes`
+
+  For a third-party application these now return `401 verification_record.permission_denied` whenever Account Center is enabled, and the existing `400 account_center.not_enabled` when it is not. Every other read is unchanged.
+
+### Patch Changes
+
+- 43999c7189: fix consent submission granting user scopes that were removed while the consent screen was open
+- f0d369f377: drop deleted profile fields from account center and sign-up configs on save
+
+  When a custom profile field is removed from Collect user profile, saving Account Center (or sign-up) settings no longer fails with `custom_profile_fields.entity_not_exists_with_names`. Stale field references are ignored on save, and deleted fields remain removable in the Console editor even when their permission control is Off.
+
+- 7bf7131d7b: key identifier lockout on the normalized identifier
+
+  The identifier lockout counter is now keyed on the same form of the identifier that the user lookup matches on, so a single account maps to a single lockout bucket however the identifier was spelled in the request. Previously the counter keyed on the value exactly as submitted while the lookup normalized before matching, which let the two disagree and weakened the configured `maxAttempts` policy.
+
+  Emails are lower-cased and phone numbers canonicalized, matching their lookups. Usernames fold case only when the tenant's username policy is case-insensitive: under the default case-sensitive policy `Alice` and `alice` are different accounts and keep separate buckets, so attempts against one cannot lock out the other.
+
+  Manual unlock (`POST /sentinel-activities/delete`) also clears the other spellings of the submitted identifier, so unblocking works when an admin types an address in a different case. Case is only folded where both spellings must be the same account — always for an email address, and otherwise only when the tenant's username policy is case-insensitive — so an unlock can never reach a different account. Identifiers that are keyed verbatim still have to be submitted as they were typed.
+
+  Note for operators upgrading: lockouts are re-keyed by this change, so an active lockout recorded under a non-canonical spelling stops applying once deployed. Affected users are unblocked early, at most one `lockoutDuration` ahead of schedule; no user becomes more locked out than before, and failure counters older than an hour are already outside the counting window.
+
+- 3e609e9a71: fix revoking a user's third-party app authorization also signing the user out of that browser session
+
+  Revoking now only invalidates the revoked app's tokens and requires it to go through consent again on the next sign-in. The browser's single sign-on session stays intact.
+
+- 42222f07a4: honor Accept-Language quality values written with whitespace before `q=`
+
+  RFC 7231 allows optional whitespace around the quality parameter, so `Accept-Language: en; q=0.7, pl; q=0.9` is a valid way to ask for Polish ahead of English. Logto discarded the weight whenever that whitespace was present and fell back to header order, serving the sign-in experience and the emails it sends in the wrong language. A non-numeric quality value such as `q=high` now falls back to the default weight instead of producing `NaN`.
+
+- 28c3c9283e: treat Gmail address aliases as the same address in custom email allowlist and blocklist rules
+
+  The matcher treats gmail.com and googlemail.com as equivalent and ignores local-part dots. The Console now shows custom email rule examples and Gmail matching behavior in the field descriptions, with shorter input placeholders.
+
+- 6dd496bd2e: fix OIDC scope error messages showing a raw placeholder instead of the rejected scope
+
+  The `invalid_scope` and `insufficient_scope` messages rendered the literal `{{error_description}}` and `{{scope}}` text because the error handler never passed the values in. They now name the scope that was rejected, so an end user who hits a stale scope on the consent page no longer sees a placeholder in the error toast.
+
+- f5289eb78b: fix a 500 error when assigning an empty list of scopes or roles
+
+  Management API endpoints that assign relations, such as `POST /applications/:applicationId/user-consent-scopes` and `POST /organizations/:id/users/:userId/roles`, now accept an empty array and make no changes, instead of responding with a 500 error.
+
+- 7692f43b07: require token exchange subject tokens to come from a first-party application
+
+  Token exchange does not inherit the subject token's audience or scopes — the issued token carries the receiver's authorization for the user, which for a first-party receiver means every scope the user's roles grant. The subject token's issuing client was previously discarded, so an access token held by a third-party application could be presented to any token-exchange-enabled client and converted into the user's full first-party authorization, turning a narrowly consented credential into a much broader one.
+
+  The subject token must now have been issued to a first-party application, on both the opaque and the JWT path. Third-party applications are already barred from enabling token exchange as the receiver; this closes the same boundary on the subject side. A subject token whose issuing client no longer exists is rejected as well.
+
+  **Breaking**: if you deliberately exchange access tokens issued to third-party applications, those requests now fail with `invalid_grant`. Use a first-party application to obtain the subject token instead.
+
+- 6f43932ae9: declare the token signing algorithm that matches the signing key's curve
+
+  Previously, every Elliptic Curve signing key was declared as `ES384` regardless of its curve, so tenants seeded with a custom P-256 or P-521 private key advertised an algorithm their key cannot sign and clients failed validation at the authorization endpoint. The declared algorithm now follows the key's actual curve: P-256 declares `ES256`, P-384 declares `ES384`, and P-521 declares `ES512`. RSA keys keep the `RS256` default.
+
+- 508de60b9f: validate the subject token class in token exchange
+
+  The `access_token` subject path of the token exchange grant falls back to JWT verification when the token is not a known opaque token. That fallback checked only the signature and the issuer, so any JWT signed by the tenant's keys was accepted as an access token — including an OIDC ID token, which is an authentication assertion and carries no API authorization. A client with token exchange enabled could therefore submit an ID token as `subject_token` and receive an API access token for that user.
+
+  The JWT subject token is now required to carry the RFC 9068 `at+jwt` type header and a `client_id` claim before the account is resolved. Both are set unconditionally on every JWT access token Logto issues, so legitimate subject tokens are unaffected; ID tokens are rejected with `invalid_grant`.
+
+- fafc8cd9f3: reject token issuance for suspended users
+
+  Suspending a user revokes their sessions and tokens, but token issuance itself never checked the suspension flag — if revocation partially failed, a surviving refresh token kept working indefinitely. The OIDC `findAccount` hook now rejects suspended users with `invalid_grant`, mirroring how deleted users are handled, so all user token grants (refresh token, authorization code, device code, token exchange) and userinfo reject suspended users regardless of revocation state.
+
+- 16f4b2e732: extend SSRF protection to webhook delivery and enterprise SSO connector requests
+
+  Outbound requests to URLs supplied through the Management API are now blocked when they resolve to a special-use address such as loopback, a private range, or the cloud metadata endpoint (`169.254.169.254`). Previously a tenant admin could point a webhook URL or an enterprise SSO connector at an internal address and read the response back from the API error, letting them reach services on the deployment's own network.
+
+  The check covers webhook delivery (including `POST /api/hooks/:id/test`), OIDC SSO connector discovery, token and userinfo requests, and SAML IdP metadata fetching. It runs when the connection is established, so a hostname that resolves to an internal address is rejected just like a literal IP, and every redirect hop is checked again.
+
+  ## Action required
+
+  Protection is enabled by default. If your deployment intentionally delivers webhooks or reaches SSO endpoints on a private network, list those destinations in `SSRF_ALLOWED_ADDRESSES` before starting Logto, as a comma-separated set of IP addresses or CIDR ranges:
+
+  ```
+  SSRF_ALLOWED_ADDRESSES=10.0.0.0/8,127.0.0.1
+  ```
+
+  Allowlisting the destinations is preferable to turning the protection off: every other special-use address, including the cloud metadata endpoint, stays blocked. Since CIMD accepts target URLs from unauthenticated callers, configuring an allowlist disables CIMD to prevent those callers from reaching private destinations. `SSRF_PROTECTION_DISABLED=true` also disables CIMD by turning the protection off entirely.
+
+  Both variables are only honored in self-hosted deployments. `OIDC_PROVIDER_SSRF_PROTECTION_DISABLED`, which previously covered only the OIDC provider's own requests, keeps working as an alias for `SSRF_PROTECTION_DISABLED`.
+
+- a481ffaba7: stop issuing user scopes a third-party application is no longer configured for
+
+  Removing a user scope from a third-party application's consent settings used to affect only new authorization requests, and scopes already in a user's grant kept being issued. Now a refresh token exchange drops the removed scopes, an authorization resuming on an existing grant fails with `invalid_scope`, and an organization token request is rejected with `insufficient_scope` once the organizations scope is removed.
+
+- 6d9e42c069: retry webhook deliveries on HTTP 5xx responses
+
+  Webhook POST requests now retry up to 3 times when the endpoint returns any 5xx status, matching the documented delivery contract.
+
+  Since retries may deliver the same webhook more than once, webhook receivers should process events idempotently.
+
+- Updated dependencies [c377946617]
+- Updated dependencies [ebfefb513d]
+- Updated dependencies [317fa41400]
+- Updated dependencies [f0d369f377]
+- Updated dependencies [7978c638a9]
+- Updated dependencies [ab106cdb82]
+- Updated dependencies [b64d46d495]
+- Updated dependencies [7464c6a97a]
+- Updated dependencies [28c3c9283e]
+- Updated dependencies [e6ed7d8be9]
+- Updated dependencies [6dd496bd2e]
+- Updated dependencies [8b2aaab9b0]
+- Updated dependencies [28885b42d5]
+- Updated dependencies [860188898f]
+- Updated dependencies [16f4b2e732]
+- Updated dependencies [c62e043982]
+  - @logto/account@0.6.0
+  - @logto/phrases-experience@1.15.0
+  - @logto/core-kit@2.13.0
+  - @logto/experience@1.22.0
+  - @logto/console@1.40.0
+  - @logto/schemas@1.43.0
+  - @logto/language-kit@1.4.0
+  - @logto/phrases@1.31.0
+  - @logto/shared@3.4.3
+  - @logto/cli@1.43.0
+  - @logto/demo-app@1.5.0
+  - @logto/device-demo-app@0.1.0
+  - @logto/connector-kit@5.1.1
+
+## 1.42.0
+
+### Minor Changes
+
+- 292da8db9: support wildcard email address patterns in custom email blocklist rules
+- f21edfafdf: fire a `Grant.LimitExceeded` webhook event when OIDC grants are evicted due to exceeding the application's max allowed grants limit
+- 7b1ba44fd: upgrade the OIDC provider to node-oidc-provider v9
+
+  ## Security
+
+  - revoking an opaque access token now also revokes all tokens under the same grant, including the refresh token. In v8, the refresh token stayed usable after revocation and could keep requesting new access tokens.
+
+  ## Updates
+
+  - the revocation endpoint now rejects JWT access tokens with `unsupported_token_type`, instead of returning a success response without actually revoking anything in v8.
+  - add the RFC 8414 authorization server metadata endpoint (`/oidc/.well-known/oauth-authorization-server`).
+  - remove the redundant `at_hash` claim from ID tokens issued at the token endpoint.
+  - ID tokens no longer include the optional `typ: "JWT"` header. OpenID Connect defines ID tokens as JWTs and does not require clients to verify this header.
+
+  ## Action required for custom ID token verification
+
+  No action is required when using an official Logto SDK. If your integration performs custom ID token verification:
+
+  - if it requires the `at_hash` claim on ID tokens returned by the token endpoint, update it to allow the claim to be absent.
+  - if it requires the `typ: "JWT"` header, update it to allow the header to be absent.
+
+- 829646a4a: add custom domain verification file support
+
+  Admins can configure small text or JSON verification files for active custom domains. Files are limited to root-level filenames or paths under `/.well-known/`, with caps on count and content size. Exact GET and HEAD matches are served with safe content types while existing Logto routes take precedence.
+
+- 893860c636: add email allowlist support for email registration and account email updates
+
+### Patch Changes
+
+- b560d17a4: require the `identities` user scope to retrieve stored third-party provider access tokens through the Account API, matching the other social and enterprise SSO identity endpoints
+- fb9fcf36e8: atomic passwordless connector insert and old cleanup in a transaction
+
+  Previously, creating a new email or SMS connector ran the INSERT and the DELETE of old connectors as two separate statements. A crash between them left duplicate connectors. Now both operations are wrapped in a single database transaction, so either both succeed or neither does.
+
+- 8d2dade42: decode percent-encoded Redis cluster credentials so connections succeed when usernames or passwords include URL-reserved characters
+- 959b203d1: fix TLS not being enabled for Redis cluster connections using the rediss protocol
+- ea3ede350: remove email blocklist policy from public sign-in experience responses
+- c75b16ad8: upgrade the HTTP framework from Koa 2 to Koa 3
+
+  Logto now runs on Koa 3, the actively maintained release line that receives Koa's security fixes first. No behavior change is expected: all endpoints, OIDC flows, and API responses behave exactly as before.
+
+- a1e0f2b680: prevent internal application secrets from being exposed through Management APIs
+- 58cb52c705: strengthen OIDC provider outbound request security with SSRF protection enabled by default
+
+  ## Action required
+
+  Self-hosted deployments that need to reach trusted relying-party endpoints on private networks must set `OIDC_PROVIDER_SSRF_PROTECTION_DISABLED=true` before starting Logto; otherwise, leave the variable unset.
+
+- d91696c70: automatically enable MFA after users bind a factor via Account APIs
+- 2e1973d3a: prevent Account API verification codes from being sent to blocked email addresses
+- Updated dependencies [af678dd84]
+- Updated dependencies [292da8db9]
+- Updated dependencies [1650be05e]
+- Updated dependencies [ea3ede350]
+- Updated dependencies [a1e0f2b680]
+- Updated dependencies [829646a4a]
+- Updated dependencies [893860c636]
+- Updated dependencies [bfbe9c40b]
+- Updated dependencies [58cb52c705]
+- Updated dependencies [b4ef434b3b]
+  - @logto/core-kit@2.12.0
+  - @logto/console@1.39.0
+  - @logto/phrases@1.30.0
+  - @logto/schemas@1.42.0
+  - @logto/experience@1.21.0
+  - @logto/shared@3.4.2
+  - @logto/account@0.5.0
+  - @logto/cli@1.42.0
+  - @logto/demo-app@1.5.0
+  - @logto/device-demo-app@0.1.0
+  - @logto/phrases-experience@1.14.1
+
+## 1.41.0
+
+### Minor Changes
+
+- a923dcbdc: Make `POST /api/applications/:applicationId/roles` idempotent: role IDs already attached to the application are silently ignored instead of causing the request to fail with `422 application.role_exists`. The response is now `201` with body `{ roleIds, addedRoleIds }`, matching the response shape of `POST /api/users/:userId/roles`.
+
+  Closes #8900.
+
+- a305713bb2: expose the target organization to the access token JWT customizer for organization (API resource) tokens
+
+  When Logto issues an organization access token (a token requested with both `organization_id` and `resource`), the access token JWT customizer now receives a `context.organization` object with the target organization's `id`, `name`, `description` and `customData`. Previously the customizer was invoked with the same payload as a regular user access token and had no way to know which organization the token was being issued for — the `organization_id` claim is only injected after the customizer runs.
+
+  This lets scripts attach per-organization claims (for example mapping the Logto organization id to an internal id stored in `organization.customData`) without embedding a map of every organization the user belongs to into every token.
+
+- c7f17d6c5c: rate-limit outbound verification-code and message sends per recipient and suppress delivery to unknown recipients
+
+  Adds a mandatory, system-level per-recipient send rate limit across all email/SMS send paths (experience verification codes including MFA, the account and management verification-code APIs, `/me`, organization invitations, and the legacy interaction API), emits a `Message.RateLimited` webhook when a send is throttled, and suppresses verification-code delivery to unregistered recipients when registration is disabled to prevent account enumeration. The `Message.RateLimited` event is now selectable in the Console webhook settings.
+
+- d41082bd7d: add app-level access control for applications
+
+  Add a new application access control feature that allows administrators to restrict user access to applications. When enabled, users who do not have permission to access an application will see an access denied error message when they attempt to sign in or access the application. This feature can be configured in the Console Security settings.
+
+  Supported custom control rules include:
+
+  - User IDs
+  - User roles
+  - Organizations
+  - Organization roles
+
+  Refer to the documentation for more details: https://docs.logto.io/integrate-logto/app-level-access-control
+
+- c1ff0c114: release account center profile page, custom profile fields at sign-up, and experience/account avatar upload from dev feature gates
+
+  The collect-user-profile sign-up flow now respects the explicit `signUpProfileFields` list instead of always showing the full catalog. The account center profile page and avatar upload endpoints are no longer gated behind a dev feature flag.
+
+- bcd517bacf: add independent Account Center passkey controls for passkey sign-in
+
+  Admins can now configure passkey visibility separately from MFA in Account Center, and users can manage passkeys plus their passkey sign-in prompt preference when passkey sign-in is enabled.
+
+- c2016a044c: add a configurable per-tenant password expiration policy
+
+  Operators can enable password expiration from Console → Security → Password policy and set the number of days a password stays valid. When a password reaches the end of its valid period — or is manually expired for a specific user — the end user is forced through the forgot-password flow on their next password sign-in before they can continue. Users signing in via SSO or passkey are not affected.
+
+  - **Console**: a new "Password expiration" card with an enable toggle and a valid-period (days) input, an inline reminder when sign-up requires no contact identifier to guarantee password recovery, and a per-user "Expire password" action on the user details page.
+  - **Core / API**: the policy is stored on the sign-in experience (`passwordExpiration`) and enforced after password verification. `PATCH /api/users/:userId/password/expiration` lets admins manually expire a user's password, and deleting the last forgot-password connector is rejected while the policy is enabled.
+  - **Experience**: an expired password prompts the user to reset it via the configured recovery method before sign-in completes.
+
+  Legacy users without a recorded password-change date are anchored to the timestamp the policy was enabled, so they get a full valid period instead of being expired immediately.
+
+- 67b99bba85: add per-tenant username policy enforcement and mirror preferred_username from username by default
+
+  The sign-in experience now stores a per-tenant username policy (case sensitivity, length bounds, and allowed character types) that is enforced on end-user username writes: experience sign-up and profile fulfillment, the account API, and `/me`. Admin (Management API) writes keep the always-on baseline rules only.
+
+  Switching usernames to case-insensitive is guarded: `PATCH /api/sign-in-exp` is rejected with a 409 while usernames that differ only by case exist, and the new `GET /api/sign-in-exp/username-policy/case-sensitivity-conflicts` endpoint reports such conflicts.
+
+  For deployments using the legacy `CASE_SENSITIVE_USERNAME` environment variable: the effective case sensitivity is the per-tenant policy AND-combined with the env var, so usernames are treated case-insensitively if either is false. Existing `CASE_SENSITIVE_USERNAME=false` setups keep their behavior — the env var acts as a runtime override that forces case-insensitive handling for every tenant, and the per-tenant policy cannot re-enable case sensitivity while it is set. The env var is deprecated and slated for removal in the next major; migrate by unsetting it and configuring `usernamePolicy.caseSensitive` per tenant instead.
+
+  The OIDC `preferred_username` claim now falls back to the user's `username` when `profile.preferredUsername` is unset, so standards-compliant clients receive a usable value out of the box.
+
+- eb45edbe34: allow customizing verification code settings
+
+  Admins can configure the verification code expiration duration and maximum retry attempts in Console Security settings.
+
+### Patch Changes
+
+- 811740be44: make organization role creation transactional when assigning initial scopes
+
+  When creating an organization role with initial organization scopes or resource scopes, Logto now saves the role and its scope assignments in a single transaction. If any provided scope ID is invalid, the whole request fails without leaving a partially created role.
+
+- 413b7ec1a7: map custom UI asset Azure Blob transport failures to retryable storage download errors
+- 0213812375: avoid constructing a regular expression from user-controlled input in the email subaddressing blocklist check
+- 209fa0a5cb: escape HTML attribute values in the SAML IdP auto-submit form
+
+  When Logto acts as a SAML IdP, the auto-submit form posted to the SP's ACS interpolated `SAMLResponse`, `RelayState` and the action URL into HTML attributes without escaping. If a value contained a double quote, the browser truncated the attribute at that quote.
+
+  This broke SPs that send a JSON string as `RelayState`: the SP received only `{` instead of the full value, losing the post-login context. The values are now HTML-escaped, so quotes and other markup characters round-trip intact (this also closes a reflected-markup injection vector in the interstitial page).
+
+  In addition, the form action URL is now restricted to the `http`/`https` schemes before rendering. Escaping the attribute value alone does not neutralize a scriptable scheme such as `javascript:`, which the browser would execute on submission, so such URLs are now rejected.
+
+- 37999f7fce: fix a flash of built-in styles on the hosted sign-in experience when custom CSS is configured
+
+  Custom CSS was injected on the client via react-helmet, which mutates `<head>` asynchronously after the page had already painted with the built-in styles. The server-rendered experience HTML now inlines the configured custom CSS into `<head>`, so it is part of the cascade on the first paint. The `</style>` sequence in custom CSS is escaped so it cannot terminate the style element early, and the SSR data embedded in the inline `<script>` is now serialized with HTML-significant characters escaped to prevent script breakout.
+
+- 9de40208e2: fix identifier-lockout sentinel misfiring because `count(*)` was treated as a string
+
+  Postgres returns `count(*)` as a bigint that Slonik surfaces as a string. The sentinel added `1` to this value to decide whether to lock an identifier, so `'10' + 1` evaluated to `'101'` and the failed-attempt threshold (default 100) tripped far too early — roughly at 10 failed attempts. The count is now coerced to a number so the threshold is compared numerically.
+
+- 5b5005db0d: fix custom UI asset upload timeout caused by Azure blob existence checks
+- ba0e70c28b: support OIDC enterprise connector discovery endpoints that reject JSON-only response negotiation
+
+  OIDC enterprise connectors can now fetch discovery configuration from providers that reject JSON-only response negotiation with `406 Not Acceptable`.
+
+- 9847dfd13: fix one-time token consent handling for switch-account sign-in flows
+- f56255a7ed: restrict account center step-up verification to user permission verification records
+- 9118867f6c: prevent replaying an already accepted TOTP code during MFA verification
+
+  Existing TOTP verification now records the accepted TOTP time-step counter and rejects any later verification that matches the same or an older counter. This enforces one-time use for TOTP codes across the RFC 6238 acceptance window.
+
+- c98403862a: reject null bytes in OIDC request bodies and strip them from audit logs so malformed input returns a clean 400 instead of a 500
+
+  A null byte (`U+0000`) in an `application/x-www-form-urlencoded` body sent to `/oidc/token` previously surfaced as a `500 Internal Server Error`. The actual cause was the audit log insert: PostgreSQL rejects null bytes in `jsonb` (error `22P05`), and because the insert runs in a `finally` block, that failure masked the original clean error. The OIDC body parser now rejects null bytes with a `400 invalid_request`, and audit log payloads are sanitized of null bytes before insert as defense in depth.
+
+  Closes #8990.
+
+- 72820ac41e: prevent theme flash in sign-in experience and account center
+
+  Sign-in experience and account center now apply tenant theme, platform, and brand color before the app hydrates, reducing flashes of the wrong theme during initial page load.
+
+- 9097054860: upgrade `samlify` to `^2.13.0`, which consistently XML-escapes attribute values in generated SAML assertions, and adapt the SAML application and SSO connector call sites to its stricter return types (`getAssertionConsumerService`, `getX509Certificate`, and the `createLoginResponse` binding-context union)
+- 17c52384b: allow linking social identities in account center without password, email, or phone when the user has no legacy security verification methods
+- Updated dependencies [e7b6e9de1]
+- Updated dependencies [413b7ec1a7]
+- Updated dependencies [92560f6b2e]
+- Updated dependencies [a305713bb2]
+- Updated dependencies [c7f17d6c5c]
+- Updated dependencies [d41082bd7d]
+- Updated dependencies [3d38ae2074]
+- Updated dependencies [c1ff0c114]
+- Updated dependencies [bcd517bacf]
+- Updated dependencies [c2016a044c]
+- Updated dependencies [72820ac41e]
+- Updated dependencies [c73d32b5ee]
+- Updated dependencies [b7386a5113]
+- Updated dependencies [67b99bba85]
+- Updated dependencies [67b99bba85]
+- Updated dependencies [e1fadfb1a]
+- Updated dependencies [67b99bba85]
+- Updated dependencies [a88413689]
+- Updated dependencies [eb45edbe34]
+  - @logto/connector-kit@5.1.0
+  - @logto/phrases@1.29.0
+  - @logto/console@1.38.0
+  - @logto/schemas@1.41.0
+  - @logto/experience@1.20.0
+  - @logto/phrases-experience@1.14.0
+  - @logto/account@0.5.0
+  - @logto/core-kit@2.11.0
+  - @logto/shared@3.4.1
+  - @logto/cli@1.41.0
+  - @logto/demo-app@1.5.0
+  - @logto/device-demo-app@0.1.0
+
 ## 1.40.1
 
 ### Patch Changes
@@ -655,9 +1101,9 @@
 
   ```ts
   await logtoClient.signIn({
-    redirectUri: "https://your.app/callback",
+    redirectUri: 'https://your.app/callback',
     extraParams: {
-      ui_locales: "fr-CA fr en",
+      ui_locales: 'fr-CA fr en',
     },
   });
   ```
@@ -874,14 +1320,11 @@
   Developers can read the verification records from the interaction context. If an Enterprise SSO verification record is found, they can pass the user profile from the Enterprise SSO identities as additional token claims.
 
   ```ts
-  const ssoVerification = verifications.find(
-    (record) => record.type === "EnterpriseSso",
-  );
+  const ssoVerification = verifications.find((record) => record.type === 'EnterpriseSso');
 
   if (ssoVerification) {
     return {
-      enterpriseSsoIdentityId:
-        enterpriseSsoVerification?.enterpriseSsoUserInfo?.id,
+      enterpriseSsoIdentityId: enterpriseSsoVerification?.enterpriseSsoUserInfo?.id,
       familyName: enterpriseSsoVerification?.enterpriseSsoUserInfo?.familyName,
     };
   }
@@ -1265,11 +1708,7 @@
   For example, if you are using SHA256 with a salt, you can store the password in the following format:
 
   ```json
-  [
-    "sha256",
-    ["salt123", "@"],
-    "c465f66c6ac481a7a17e9ed5b4e2e7e7288d892f12bf1c95c140901e9a70436e"
-  ]
+  ["sha256", ["salt123", "@"], "c465f66c6ac481a7a17e9ed5b4e2e7e7288d892f12bf1c95c140901e9a70436e"]
   ```
 
   Then when the user uses the password (`password123`), the `legacyVerify` function will use the `sha256` algorithm with the `salt123` and the input password to verify the password.
@@ -1277,9 +1716,9 @@
   In this case, `salt123` is the first argument, `@` is the input password, then the following code will be executed:
 
   ```ts
-  const hash = crypto.createHash("sha256");
-  hash.update("salt123" + "password123");
-  const expectedHashedValue = hash.digest("hex");
+  const hash = crypto.createHash('sha256');
+  hash.update('salt123' + 'password123');
+  const expectedHashedValue = hash.digest('hex');
   ```
 
 - 03ea1f96c: feat: custom email templates in multiple languages via Management API
@@ -1669,13 +2108,13 @@
   // Example usage (React project using React SDK)
   void signIn({
     redirectUri,
-    firstScreen: "identifier:sign_in",
+    firstScreen: 'identifier:sign_in',
     /**
      * Optional. Specifies which sign-in methods to display on the identifier sign-in page.
      * If not specified, the default sign-in experience configuration will be used.
      * This option is effective when the `firstScreen` value is `identifier:sign_in`, `identifier:register`, or `reset_password`.
      */
-    identifiers: ["email", "phone"],
+    identifiers: ['email', 'phone'],
   });
   ```
 
@@ -1689,8 +2128,8 @@
   // Example usage (React project using React SDK)
   void signIn({
     redirectUri,
-    loginHint: "user@example.com",
-    firstScreen: "signIn", // or 'register'
+    loginHint: 'user@example.com',
+    firstScreen: 'signIn', // or 'register'
   });
   ```
 
@@ -1815,14 +2254,14 @@
   For example, in the JavaScript SDK:
 
   ```ts
-  import LogtoClient from "@logto/client";
+  import LogtoClient from '@logto/client';
 
   const logtoClient = new LogtoClient(/* your configuration */);
 
   logtoClient.signIn({
-    redirectUri: "https://your-app.com/callback",
+    redirectUri: 'https://your-app.com/callback',
     extraParams: {
-      organization_id: "<organization-id>",
+      organization_id: '<organization-id>',
     },
   });
   ```

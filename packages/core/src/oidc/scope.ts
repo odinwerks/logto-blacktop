@@ -64,6 +64,15 @@ const isUserProfileClaim = (claim: string): claim is UserProfileClaimSnakeCase =
   userProfileKeys.some((key) => snakeCase(key) === claim);
 
 /**
+ * Resolve the standard `preferred_username` claim. Falls back to `user.username` when the user has
+ * no explicit `profile.preferredUsername`, so standards-compliant clients (e.g. Gitea, Forgejo,
+ * Mealie) receive a usable value out of the box. The explicit profile value always wins. Falls back
+ * to `undefined` (not `null`) to keep it stripped from tokens, matching the other profile claims.
+ */
+const getPreferredUsername = (user: User): string | undefined =>
+  user.profile.preferredUsername ?? user.username ?? undefined;
+
+/**
  * Get user claims data according to the claims.
  *
  * @param user The current user.
@@ -124,6 +133,9 @@ export const getUserClaimsData = async (
             claim,
             ssoIdentities.map(({ issuer, identityId, detail }) => ({ issuer, identityId, detail })),
           ];
+        }
+        case 'preferred_username': {
+          return [claim, getPreferredUsername(user)];
         }
         default: {
           if (isUserProfileClaim(claim)) {

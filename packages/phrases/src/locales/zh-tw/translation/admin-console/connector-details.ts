@@ -36,6 +36,19 @@ const connector_details = {
     total_email_sent: '總發送郵件數：{{value, number}}',
     total_email_sent_tip:
       '在 Logto 中，使用 SendGrid 進行安全、穩定的內建郵件發送。完全免費使用。<a>了解更多</a>',
+    hosted_email_usage: {
+      daily: '每日 <value>{{usage, number}}</value> / {{limit, number}}',
+      daily_unlimited: '每日 <value>{{usage, number}}</value>',
+      monthly: '每月 <value>{{usage, number}}</value> / {{limit, number}}',
+      monthly_unlimited: '每月 <value>{{usage, number}}</value>',
+      tip: 'Free 和 Development 方案包含每日和每月的內建電子郵件服務限額。',
+      banner: {
+        approaching:
+          '您即將達到 Logto 內建電子郵件服務的發送上限。<provider>連接您自己的電子郵件服務商</provider>，或<upgrade>升級您的方案</upgrade>以繼續使用 Logto 內建電子郵件服務。',
+        reached:
+          '您已達到 Logto 內建電子郵件服務的發送上限，這可能會中斷登入郵件。<provider>連接您自己的電子郵件服務商</provider>，或<upgrade>升級您的方案</upgrade>以繼續使用 Logto 內建電子郵件服務。',
+      },
+    },
     email_template_title: '郵件模板',
     template_description:
       '內置郵件使用默認模板實現無縫交付驗證郵件。無需配置，您可以自定義基本品牌信息。',
@@ -67,6 +80,20 @@ const connector_details = {
   sign_in_experience: {
     in_use: '已啟用登錄',
     not_in_use: '已停用登錄',
+  },
+  email_logs: {
+    title: '電子郵件日誌',
+    time: '時間',
+    recipient: '收件人',
+    recipient_placeholder: '依完整收件人地址搜尋',
+    template_type: '範本類型',
+    status: '狀態',
+    status_sent: '已傳送',
+    status_failed: '傳送失敗',
+    language_tag: '語言',
+    provider_message_id: '服務商訊息 ID',
+    previous_page: '上一頁',
+    next_page: '下一頁',
   },
 };
 

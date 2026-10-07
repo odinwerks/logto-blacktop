@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { customUiCspGuard } from './sign-in-experience.js';
+import {
+  customUiCspGuard,
+  defaultTrustedDevicePolicy,
+  passwordExpirationPolicyGuard,
+  trustedDevicePolicyGuard,
+} from './sign-in-experience.js';
 
 describe('customUiCspGuard', () => {
   it.each([
@@ -17,5 +22,90 @@ describe('customUiCspGuard', () => {
 
   it('rejects unsupported directives', () => {
     expect(customUiCspGuard.safeParse({ imgSrc: ['https://example.com'] }).success).toBe(false);
+  });
+});
+
+describe('passwordExpirationPolicyGuard', () => {
+  it.each([
+    [{}, {}],
+    [{ enabled: false }, { enabled: false }],
+  ])('accepts disabled policy %p', (value, expected) => {
+    expect(passwordExpirationPolicyGuard.parse(value)).toEqual(expected);
+  });
+
+  it('accepts enabled policy with a valid period', () => {
+    expect(
+      passwordExpirationPolicyGuard.parse({
+        enabled: true,
+        validPeriodDays: 30,
+      })
+    ).toEqual({
+      enabled: true,
+      validPeriodDays: 30,
+    });
+  });
+
+  it('accepts enabled policy with an enabledAt timestamp', () => {
+    expect(
+      passwordExpirationPolicyGuard.parse({
+        enabled: true,
+        validPeriodDays: 30,
+        enabledAt: 1_700_000_000_000,
+      })
+    ).toEqual({
+      enabled: true,
+      validPeriodDays: 30,
+      enabledAt: 1_700_000_000_000,
+    });
+  });
+
+  it('strips unknown keys from legacy rows (e.g. the removed reminderPeriodDays)', () => {
+    expect(
+      passwordExpirationPolicyGuard.parse({
+        enabled: true,
+        validPeriodDays: 30,
+        reminderPeriodDays: 5,
+      })
+    ).toEqual({
+      enabled: true,
+      validPeriodDays: 30,
+    });
+  });
+
+  it.each([
+    { enabled: true },
+    { enabled: true, validPeriodDays: 0 },
+    { enabled: true, validPeriodDays: 1.5 },
+    { enabled: true, reminderPeriodDays: 5 },
+    { enabled: true, validPeriodDays: 30, enabledAt: -1 },
+    { enabled: true, validPeriodDays: 30, enabledAt: 1.5 },
+  ])('rejects invalid policy %p', (value) => {
+    expect(passwordExpirationPolicyGuard.safeParse(value).success).toBe(false);
+  });
+});
+
+describe('trustedDevicePolicyGuard', () => {
+  it.each([{}, { enabled: false }, { durationDays: 1 }, { enabled: true, durationDays: 365 }])(
+    'accepts valid policy %p',
+    (value) => {
+      expect(trustedDevicePolicyGuard.parse(value)).toEqual(value);
+    }
+  );
+
+  it.each([{ durationDays: 0 }, { durationDays: 366 }, { durationDays: 1.5 }])(
+    'rejects invalid policy %p',
+    (value) => {
+      expect(trustedDevicePolicyGuard.safeParse(value).success).toBe(false);
+    }
+  );
+
+  it('provides the complete effective default', () => {
+    expect(defaultTrustedDevicePolicy).toEqual({ enabled: false, durationDays: 30 });
+    expect(trustedDevicePolicyGuard.safeParse(defaultTrustedDevicePolicy).success).toBe(true);
+  });
+
+  it('rejects invalid enabled values', () => {
+    const value = { enabled: 'true' };
+    expect(trustedDevicePolicyGuard.safeParse(value).success).toBe(false);
   });
 });

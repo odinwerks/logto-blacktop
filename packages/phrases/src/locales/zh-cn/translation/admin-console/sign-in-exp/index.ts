@@ -170,6 +170,7 @@ const sign_in_exp = {
       password: '密码',
       mfa: '多因素认证',
       mfa_description: '允许用户在账户中心管理其多因素认证方式。',
+      passkey: 'Passkey',
       username: '用户名',
       name: '姓名',
       avatar: '头像',
@@ -178,6 +179,7 @@ const sign_in_exp = {
       custom_data: '自定义数据',
       custom_data_description: '控制对存储在用户上的自定义 JSON 数据的访问。',
       sessions: '会话',
+      trusted_devices: '可信设备',
     },
     profile_fields: {
       title: '预构建账户中心的资料字段',
@@ -188,10 +190,11 @@ const sign_in_exp = {
         go_to: '其他资料字段。',
       },
       disabled_hint: {
-        name: '要添加此字段，请先在上方资料数据中将“姓名”权限设置为“可编辑/只读”。',
-        avatar: '要添加此字段，请先在上方资料数据中将“头像”权限设置为“可编辑/只读”。',
-        profile: '要添加此字段，请先在上方资料数据中将“资料”权限设置为“可编辑/只读”。',
-        custom_data: '要添加此字段，请先在上方资料数据中将“自定义数据”权限设置为“可编辑/只读”。',
+        name: '要添加此字段，请先在下方用户资料部分中将“姓名”权限设置为“可编辑/只读”。',
+        avatar: '要添加此字段，请先在下方用户资料部分中将“头像”权限设置为“可编辑/只读”。',
+        profile: '要添加此字段，请先在下方用户资料部分中将“资料”权限设置为“可编辑/只读”。',
+        custom_data:
+          '要添加此字段，请先在下方用户资料部分中将“自定义数据”权限设置为“可编辑/只读”。',
       },
     },
     webauthn_related_origins: 'WebAuthn 关联来源',
@@ -231,6 +234,7 @@ const sign_in_exp = {
         account_center:
           '访问账户中心以管理电子邮件、手机号、用户名、密码、MFA 和关联账号等安全设置',
         profile: '管理个人信息（如姓名、头像）的中心枢纽',
+        sessions: '查看和管理你在各设备上的活跃会话',
       },
       customize_note: '不想要开箱即用的体验？你可以完全',
       customize_link: '使用 Account API 自定义你的流程。',

@@ -48,7 +48,6 @@
     },
     "/api/experience/user-assets/avatar": {
       "post": {
-        "tags": ["Dev feature"],
         "operationId": "UploadExperienceAvatar",
         "summary": "Upload avatar during register interaction",
         "description": "Upload an image (e.g. avatar) during the `Register` experience interaction and return the public URL of the uploaded asset. The user account may not have been created yet at this point; the upload is scoped to the current interaction session. The returned URL can then be submitted as a profile field value via `POST /api/experience/profile`.",
@@ -159,6 +158,40 @@
           },
           "422": {
             "description": "The MFA verification binding is `Mandatory`, user can not skip the MFA verification binding flow."
+          }
+        }
+      }
+    },
+    "/api/experience/profile/trusted-device": {
+      "post": {
+        "operationId": "SetTrustedDeviceOptInDecision",
+        "summary": "Set trusted device opt-in decision",
+        "description": "Record whether the user trusts the current device after eligible MFA verification or binding. A trusted-device credential is created only after the interaction is successfully submitted.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "trusted": {
+                    "description": "Whether to trust the current device."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The trusted-device opt-in decision has been recorded for the current interaction."
+          },
+          "400": {
+            "description": "The decision payload is invalid, or trusted-device opt-in is not supported for the current interaction event."
+          },
+          "403": {
+            "description": "An eligible MFA verification or binding is required before accepting the trusted-device opt-in."
+          },
+          "404": {
+            "description": "The user has not been identified yet."
           }
         }
       }

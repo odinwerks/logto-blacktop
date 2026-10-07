@@ -36,6 +36,11 @@ const security = {
       description:
         'Alternativa inteligente ao CAPTCHA da Cloudflare, que oferece proteção não intrusiva contra bots, garantindo uma experiência de utilizador fluida sem quebra-cabeças visuais.',
     },
+    cap: {
+      name: 'Cap',
+      description:
+        'CAPTCHA de código aberto e auto-alojado baseado em prova de trabalho, sem quebra-cabeças visuais nem serviços de terceiros, ideal para regiões onde outros serviços de CAPTCHA não estão acessíveis.',
+    },
   },
   captcha_details: {
     back_to_security: 'Voltar à Segurança',
@@ -51,6 +56,10 @@ const security = {
     domain_placeholder: 'www.google.com (padrão) ou recaptcha.net',
     recaptcha_key_id: 'ID da chave reCAPTCHA',
     recaptcha_api_key: 'Chave de API do projeto',
+    cap_endpoint: 'Endpoint do Cap',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      'Este endpoint utiliza HTTP, o que só é adequado para desenvolvimento local. Os navegadores bloqueiam pedidos HTTP a partir de uma página de início de sessão HTTPS, e a chave secreta seria enviada sem encriptação. Utilize HTTPS em produção.',
     deletion_description: 'Tem a certeza de que deseja eliminar este fornecedor de CAPTCHA?',
     captcha_deleted: 'Fornecedor de CAPTCHA eliminado com sucesso',
     setup_captcha: 'Configurar CAPTCHA',
@@ -59,6 +68,10 @@ const security = {
     mode_checkbox: 'Caixa de seleção',
     mode_notice:
       'O modo de verificação é definido nas definições da chave reCAPTCHA na Google Cloud Console. Alterar o modo aqui requer um tipo de chave correspondente.',
+    score_threshold: 'Limiar de pontuação',
+    score_threshold_description:
+      'Pontuações abaixo do limiar são rejeitadas. 0.0 permite todas, 1.0 apenas pontuações perfeitas. O valor predefinido é 0.5.',
+    score_threshold_error: 'O limiar de pontuação deve estar entre 0 e 1.',
   },
   password_policy: {
     password_requirements: 'Requisitos de password',
@@ -93,19 +106,40 @@ const security = {
       'Exigir que os utilizadores redefinam a sua palavra-passe após um número definido de dias. Os utilizadores que iniciam sessão via SSO ou passkey não são afetados.',
     enable_password_expiration: 'Ativar expiração de palavra-passe',
     enable_password_expiration_description:
-      'Exigir que os utilizadores redefinam periodicamente a sua palavra-passe. Os utilizadores existentes sem uma data de alteração de palavra-passe registada serão avaliados em relação à data de criação da conta.',
+      'Exigir que os utilizadores redefinam periodicamente a sua palavra-passe. Os utilizadores existentes sem uma data de alteração de palavra-passe registada serão avaliados a partir da data em que esta política foi ativada.',
     enable_password_expiration_tip:
       'Só pode ativar a expiração da palavra-passe depois de configurar, na experiência de início de sessão, pelo menos um método de recuperação da palavra-passe com um conector válido.',
     expiration_period: 'Período de validade da palavra-passe (dias)',
     expiration_period_description:
       'Número de dias que uma palavra-passe permanece válida antes de expirar.',
-    expiration_period_error: 'O período de validade da palavra-passe deve ser de pelo menos 1 dia.',
-    expiration_reminder: 'Lembrete de expiração (dias antes da expiração)',
-    expiration_reminder_description:
-      'Número de dias antes da expiração para avisar os utilizadores e solicitar uma redefinição de palavra-passe. Os utilizadores podem ignorar o lembrete e prosseguir com o início de sessão.',
-    expiration_reminder_error:
-      'O período do lembrete de expiração deve estar entre 0 e o período de validade ({{max}} dias).',
+    expiration_period_error:
+      'O período de validade da palavra-passe deve estar entre {{min}} e {{max}} dias.',
+    password_expiration_recovery_reminder:
+      'Alguns utilizadores podem não ter um endereço de e-mail ou número de telefone para receber um código de recuperação da palavra-passe, pelo que não poderão repor uma palavra-passe expirada. Exija um endereço de e-mail ou número de telefone no registo para garantir que todos os utilizadores possam recuperar a sua palavra-passe.',
   },
+  verification_code_policy: {
+    card_title: 'Código de verificação',
+    card_description:
+      'Configure a duração da expiração e o número máximo de novas tentativas para códigos de verificação usados nos fluxos de início de sessão, registo e reposição da palavra-passe.',
+    enable: {
+      title: 'Personalizar definições do código de verificação',
+      description:
+        'Permitir a personalização da duração da expiração do código de verificação e do número máximo de novas tentativas.',
+    },
+    expiration_duration: {
+      title: 'Duração da expiração (segundos)',
+      description:
+        'A duração em segundos durante a qual um código de verificação permanece válido após ser enviado.',
+      error_message: 'A duração da expiração deve estar entre 60 e 3600 segundos.',
+    },
+    max_retry_attempts: {
+      title: 'Número máximo de novas tentativas',
+      description:
+        'Número máximo de tentativas de verificação falhadas permitidas antes de o código ser invalidado.',
+      error_message: 'O número máximo de novas tentativas deve estar entre 1 e 100.',
+    },
+  },
+
   sentinel_policy: {
     card_title: 'Bloqueio de identificador',
     card_description:
@@ -148,6 +182,25 @@ const security = {
     card_title: 'Lista de bloqueio de email',
     card_description:
       'Assuma o controle da sua base de utilizadores, bloqueando endereços de email de alto risco ou indesejados.',
+    custom_email_allowlist: {
+      title: 'Permitir endereços de email personalizados',
+      description:
+        'Adicione regras para permitir apenas domínios de email, endereços de email ou padrões curinga específicos para novos registos e emails recentemente associados. Exemplos: bar@example.com, @example.com, foo*@example.com, *@example.com. Os domínios gmail.com e googlemail.com são tratados como equivalentes e os pontos na parte local são ignorados, pelo que foo.bar@gmail.com corresponde a foobar@googlemail.com.',
+      placeholder: 'Introduza um endereço de email, domínio ou padrão curinga',
+      duplicate_error: 'Endereço de email, domínio ou padrão curinga já adicionado',
+      invalid_format_error:
+        'Deve ser um endereço de email válido (bar@example.com), domínio (@example.com) ou padrão curinga (foo*@example.com, *@example.com)',
+      warnings: {
+        identical_entries:
+          'Algumas entradas da lista de permissões também existem nas regras de bloqueio. Emails correspondentes ainda podem ser bloqueados.',
+        blocked_exact_email:
+          'Alguns emails exatos da lista de permissões correspondem a uma regra de bloqueio. Emails correspondentes ainda podem ser bloqueados.',
+        blocked_subaddressing:
+          'Algumas entradas da lista de permissões contêm sinal de mais (+), mas o subendereçamento de email está bloqueado.',
+        effectively_unusable:
+          'Com base nestas verificações, a lista de permissões atual pode não permitir a passagem de nenhum novo email.',
+      },
+    },
     disposable_email: {
       title: 'Bloquear endereços de email descartáveis',
       description:
@@ -161,12 +214,12 @@ const security = {
     custom_email_address: {
       title: 'Bloquear endereços de email personalizados',
       description:
-        'Adicionar domínios de email ou endereços de email específicos que não possam se registar ou vincular via a IU.',
-      placeholder:
-        'Insira o endereço de email ou domínio bloqueado (por exemplo, bar@example.com, @example.com)',
-      duplicate_error: 'Endereço de email ou domínio já adicionado',
+        'Adicione regras para impedir que domínios de email, endereços de email ou padrões curinga específicos se registem ou sejam associados através da IU. Exemplos: bar@example.com, @example.com, foo*@example.com, *@example.com. Os domínios gmail.com e googlemail.com são tratados como equivalentes e os pontos na parte local são ignorados, pelo que foo.bar@gmail.com corresponde a foobar@googlemail.com.',
+      placeholder: 'Introduza um endereço de email, domínio ou padrão curinga',
+      duplicate_error:
+        'Endereço de email, domínio ou padrão de endereço de email com caracteres universais já adicionado',
       invalid_format_error:
-        'Deve ser um endereço de email válido(bar@example.com) ou domínio(@example.com)',
+        'Deve ser um endereço de email válido (bar@example.com), domínio (@example.com) ou padrão de endereço de email com caracteres universais (foo*@example.com, *@example.com)',
     },
   },
 };

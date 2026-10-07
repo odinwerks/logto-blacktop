@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-import { Applications } from '../db-entries/index.js';
 import { oidcSessionInstancePayloadGuard } from '../foundations/index.js';
 
 import { jwtCustomizerUserInteractionContextGuard } from './logto-config/jwt-customizer.js';
@@ -98,9 +97,15 @@ export const userApplicationGrantGuard = z.object({
   id: z.string(),
   payload: userApplicationGrantPayloadGuard,
   expiresAt: z.number(),
-  application: Applications.guard.pick({
-    id: true,
-    name: true,
+  /**
+   * A CIMD (client ID metadata document) grant fills this slot with a URL identity that has no
+   * `applications` row: the identifier URL lands in `id` and `name` comes from the consent-time
+   * snapshot, so neither field can keep the applications table varchar bounds. Consumers tell
+   * the kinds apart by the id shape.
+   */
+  application: z.object({
+    id: z.string(),
+    name: z.string(),
   }),
 });
 

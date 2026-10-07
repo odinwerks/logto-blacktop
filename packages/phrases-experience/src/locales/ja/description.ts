@@ -37,6 +37,8 @@ const description = {
   reset_password: 'パスワードを再設定する',
   reset_password_description:
     'アカウントに関連する{{types, list(type: disjunction;)}}を入力すると、パスワードの再設定に必要な確認コードが送信されます。',
+  reset_password_magic_link_description:
+    'パスワードのリセットを続行するには、アカウントに関連付けられたメールアドレスを入力してください。',
   new_password: '新しいパスワード',
   set_password: 'パスワードを設定する',
   password_changed: 'パスワードが変更されました',
@@ -99,6 +101,8 @@ const description = {
     'あなたの企業は、メールアカウント{{email}}に対してシングルサインオンを有効にしました。以下のSSOプロバイダーを使用してサインインを続けることができます。',
   single_sign_on_enabled: 'このアカウントではシングル サインオンが有効になっています',
   authorize_title: '{{name}} を承認する',
+  unregistered_client_notice:
+    'このアプリは名前とロゴを含めて <hostname>{{host}}</hostname> による自己申告です。続行する前にホスト名をご確認ください。',
   request_permission: '{{name}} が以下へのアクセスを要求しています：',
   grant_organization_access: '組織へのアクセスを許可する：',
   authorize_personal_data_usage: '個人データの使用を承認する：',
@@ -117,9 +121,6 @@ const description = {
     '{{types, list(type: disjunction;)}}を入力して新しいアカウントを作成します。',
   all_account_creation_options: 'すべてのアカウント作成オプション',
   password_expired: 'パスワードの期限が切れました。サインインする前にリセットする必要があります。',
-  password_expiration_reminder:
-    'パスワードの期限が {{days}} 日後に切れます。今すぐリセットすることをお勧めします。',
-  password_expiration_reminder_skip: '今はスキップ',
   password_expiration_reset: 'パスワードをリセット',
   back_to_sign_in: 'サインインに戻る',
   support_email: 'サポートメール: <link></link>',

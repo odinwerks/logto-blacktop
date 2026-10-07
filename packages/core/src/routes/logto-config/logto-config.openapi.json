@@ -319,6 +319,202 @@
         }
       }
     },
+    "/api/configs/actions": {
+      "get": {
+        "summary": "Get all actions",
+        "description": "Get all action configurations for the tenant.",
+        "responses": {
+          "200": {
+            "description": "The action configurations."
+          }
+        }
+      }
+    },
+    "/api/configs/actions/{actionType}": {
+      "put": {
+        "summary": "Create or update action",
+        "description": "Create or update an action configuration for the given action type.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "actionType",
+            "description": "The action type to create or update."
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "script": {
+                    "description": "The action script."
+                  },
+                  "environmentVariables": {
+                    "description": "The environment variables for the action script."
+                  },
+                  "contextSample": {
+                    "description": "The sample context for action script testing."
+                  },
+                  "enabled": {
+                    "description": "Whether the action is enabled."
+                  },
+                  "onExecutionError": {
+                    "description": "The action execution error handling policy."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated action configuration."
+          },
+          "201": {
+            "description": "The created action configuration."
+          },
+          "400": {
+            "description": "The request body is invalid."
+          },
+          "403": {
+            "description": "The tenant's subscription plan does not support this feature."
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update action",
+        "description": "Update the action configuration for the given action type.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "actionType",
+            "description": "The action type to update."
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "script": {
+                    "description": "The action script."
+                  },
+                  "environmentVariables": {
+                    "description": "The environment variables for the action script."
+                  },
+                  "contextSample": {
+                    "description": "The sample context for action script testing."
+                  },
+                  "enabled": {
+                    "description": "Whether the action is enabled."
+                  },
+                  "onExecutionError": {
+                    "description": "The action execution error handling policy."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated action configuration."
+          },
+          "400": {
+            "description": "The request body is invalid."
+          },
+          "403": {
+            "description": "The tenant's subscription plan does not support this feature."
+          },
+          "404": {
+            "description": "The action configuration does not exist."
+          }
+        }
+      },
+      "get": {
+        "summary": "Get action",
+        "description": "Get the action configuration for the given action type.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "actionType",
+            "description": "The action type to get."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The action configuration."
+          },
+          "404": {
+            "description": "The action configuration does not exist."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete action",
+        "description": "Delete the action configuration for the given action type.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "actionType",
+            "description": "The action type to delete."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The action configuration was deleted successfully."
+          },
+          "404": {
+            "description": "The action configuration does not exist."
+          }
+        }
+      }
+    },
+    "/api/configs/actions/test": {
+      "post": {
+        "summary": "Test action",
+        "description": "Test an action script with a sample context.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "actionType": {
+                    "description": "The action type to test."
+                  },
+                  "script": {
+                    "description": "The action script to test."
+                  },
+                  "event": {
+                    "description": "The sample event for action script testing."
+                  },
+                  "environmentVariables": {
+                    "description": "The environment variables for the action script."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The result of the action script testing."
+          },
+          "204": {
+            "description": "The action script returned no result."
+          },
+          "400": {
+            "description": "The request body or response body is invalid."
+          },
+          "403": {
+            "description": "Cloud connection does not have enough permission to perform the action or the tenant's subscription plan does not support this feature."
+          },
+          "422": {
+            "description": "The action script failed to execute."
+          }
+        }
+      }
+    },
     "/api/configs/id-token": {
       "get": {
         "summary": "Get ID token claims configuration",
@@ -354,6 +550,67 @@
           },
           "403": {
             "description": "The tenant's subscription plan does not support this feature."
+          }
+        }
+      }
+    },
+    "/api/configs/cimd": {
+      "get": {
+        "summary": "Get CIMD config",
+        "description": "Get the tenant-level OAuth Client ID Metadata Document (CIMD) configuration. A missing configuration resolves to the disabled state.",
+        "responses": {
+          "200": {
+            "description": "The CIMD configuration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "addConsentPromptForOfflineAccess": {
+                      "description": "Experimental. When enabled, Logto adds `consent` to the `prompt` parameter of CIMD authorization requests that include the `offline_access` scope without it, so the client can receive a refresh token. Requests with `prompt=none` are not changed. Defaults to `false`."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update CIMD config",
+        "description": "Update the tenant-level OAuth Client ID Metadata Document (CIMD) configuration. Enabling requires the OIDC provider SSRF protection to be active.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "enabled": {
+                    "description": "Whether CIMD is enabled for the tenant."
+                  },
+                  "addConsentPromptForOfflineAccess": {
+                    "description": "Experimental. When enabled, Logto adds `consent` to the `prompt` parameter of CIMD authorization requests that include the `offline_access` scope without it, so the client can receive a refresh token. Requests with `prompt=none` are not changed. Defaults to `false`."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated CIMD configuration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "addConsentPromptForOfflineAccess": {
+                      "description": "Experimental. When enabled, Logto adds `consent` to the `prompt` parameter of CIMD authorization requests that include the `offline_access` scope without it, so the client can receive a refresh token. Requests with `prompt=none` are not changed. Defaults to `false`."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The OIDC provider SSRF protection is disabled, so CIMD cannot be enabled."
           }
         }
       }

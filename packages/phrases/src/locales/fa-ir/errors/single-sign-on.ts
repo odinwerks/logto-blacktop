@@ -1,0 +1,24 @@
+const single_sign_on = {
+  forbidden_domains: 'دامنه‌های ایمیل عمومی مجاز نیستند.',
+  duplicated_domains: 'دامنه‌های تکراری وجود دارند.',
+  invalid_domain_format: 'قالب دامنه نامعتبر است.',
+  duplicate_connector_name: 'نام اتصال‌دهنده از قبل وجود دارد. لطفاً نام دیگری انتخاب کنید.',
+  idp_initiated_authentication_not_supported:
+    'احراز هویت آغازشده توسط IdP فقط برای اتصال‌دهنده‌های SAML پشتیبانی می‌شود.',
+  idp_initiated_authentication_invalid_application_type:
+    'نوع برنامه نامعتبر است. فقط برنامه‌های {{type}} مجاز هستند.',
+  idp_initiated_authentication_redirect_uri_not_registered:
+    'redirect_uri ثبت نشده است. لطفاً تنظیمات برنامه را بررسی کنید.',
+  idp_initiated_authentication_client_callback_uri_not_found:
+    'URI callback احراز هویت آغازشده توسط IdP کلاینت یافت نشد. لطفاً تنظیمات اتصال‌دهنده را بررسی کنید.',
+  sso_signing_unavailable:
+    'ورود از طریق ارائه‌دهنده هویت شما تکمیل نشد. لطفاً با مدیر خود تماس بگیرید.',
+  can_not_delete_active_signing_key:
+    'کلید امضای فعال را نمی‌توان حذف کرد. ابتدا کلید دیگری را فعال کنید یا این کلید را غیرفعال کنید.',
+  can_not_deactivate_signing_key_in_use:
+    'تا زمانی که درخواست‌های احراز هویت امضاشده فعال هستند، نمی‌توان کلید امضا را غیرفعال کرد. ابتدا درخواست‌های احراز هویت امضاشده را غیرفعال کنید.',
+  active_signing_key_required:
+    'هیچ کلید امضای فعالی یافت نشد. پیش از فعال‌سازی درخواست‌های احراز هویت امضاشده، یک کلید امضا تولید و فعال کنید.',
+};
+
+export default Object.freeze(single_sign_on);

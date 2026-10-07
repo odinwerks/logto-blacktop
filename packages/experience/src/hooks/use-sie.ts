@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import PageContext from '@/Providers/PageContextProvider/PageContext';
 // eslint-disable-next-line unused-imports/no-unused-imports -- type only import
 import type useRequiredProfileErrorHandler from '@/hooks/use-required-profile-error-handler';
+import { buildUsernamePolicyDescription } from '@/shared/utils/username-policy-description';
 import { type SignInExperienceResponse, type VerificationCodeIdentifier } from '@/types';
 
 type UseSieMethodsReturnType = {
@@ -174,6 +175,20 @@ export const usePasswordPolicy = () => {
     /** The localized description of the password policy. */
     requirementsDescription,
   };
+};
+
+/**
+ * The localized username policy requirements hint, or `undefined` when the policy is the permissive
+ * default (nothing to surface). Mirrors {@link usePasswordPolicy}'s `requirementsDescription`.
+ */
+export const useUsernamePolicyDescription = () => {
+  const { t } = useTranslation();
+  const { experienceSettings } = useContext(PageContext);
+
+  return useMemo(
+    () => buildUsernamePolicyDescription(experienceSettings?.usernamePolicy, t),
+    [experienceSettings?.usernamePolicy, t]
+  );
 };
 
 export const useForgotPasswordSettings = () => {

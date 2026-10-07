@@ -1,0 +1,231 @@
+import {
+  LogtoActionKey,
+  logtoActionGuard,
+  actionExecutionRequestBodyGuard,
+  jsonGuard,
+} from '@logto/schemas';
+import { ResponseError } from '@withtyped/client';
+import { z } from 'zod';
+
+import RequestError from '#src/errors/RequestError/index.js';
+import { buildSafeActionErrorSummary } from '#src/libraries/action-sanitization.js';
+import koaGuard from '#src/middleware/koa-guard.js';
+import { koaQuotaGuard } from '#src/middleware/koa-quota-guard.js';
+import { getConsoleLogFromContext } from '#src/utils/console.js';
+import { actionQuotaKey } from '#src/utils/subscription/types.js';
+import { isRecord } from '#src/utils/type.js';
+
+import type { ManagementApiRouter, RouterInitArgs } from '../types.js';
+
+const actionConfigsGuard = z.object({
+  key: z.nativeEnum(LogtoActionKey),
+  value: logtoActionGuard,
+});
+
+const parseActionResponseError = async (error: ResponseError): Promise<unknown> => {
+  try {
+    const responseBody: unknown = await error.response.json();
+
+    if (!isRecord(responseBody)) {
+      return error;
+    }
+
+    return {
+      ...responseBody,
+      message: typeof responseBody.message === 'string' ? responseBody.message : error.message,
+    };
+  } catch {
+    return error;
+  }
+};
+
+const getActionResponseErrorStatus = (status: number) =>
+  status === 400 || status === 403 || status === 422 ? status : 422;
+
+const buildSafeActionRequestErrorData = (error: unknown) => {
+  const { message, errors } = buildSafeActionErrorSummary(error);
+
+  return {
+    message,
+    ...(errors ? { errors } : {}),
+  };
+};
+
+export default function logtoConfigActionRoutes<T extends ManagementApiRouter>(
+  ...[router, { queries, logtoConfigs, libraries }]: RouterInitArgs<T>
+) {
+  const { getRowsByKeys, deleteAction } = queries.logtoConfigs;
+  const { upsertAction, getAction, getActions, updateAction } = logtoConfigs;
+
+  router.get(
+    '/configs/actions',
+    koaGuard({
+      response: actionConfigsGuard.array(),
+      status: [200],
+    }),
+    async (ctx, next) => {
+      const actions = await getActions(getConsoleLogFromContext(ctx));
+      ctx.body = Object.values(LogtoActionKey)
+        .filter((key) => actions[key])
+        .map((key) => ({ key, value: actions[key] }));
+      return next();
+    }
+  );
+
+  router.post(
+    '/configs/actions/test',
+    koaGuard({
+      body: actionExecutionRequestBodyGuard,
+      response: jsonGuard.optional(),
+      status: [200, 204, 400, 403, 422],
+    }),
+    koaQuotaGuard({ key: actionQuotaKey, quota: libraries.quota }),
+    async (ctx, next) => {
+      const { body } = ctx.guard;
+
+      try {
+        // Share the same Cloud/local execution selection as production `runAction()`, flagged as
+        // a dry run so the Cloud runner does not account for it as production traffic.
+        const result = await libraries.actions.executeScript({ ...body, isTest: true });
+
+        if (result === undefined) {
+          ctx.status = 204;
+        } else if (result === null) {
+          // Koa treats a null body as no content. Serialize it explicitly so dry runs can
+          // distinguish a returned null from an undefined result.
+          ctx.type = 'application/json';
+          ctx.body = 'null';
+          ctx.status = 200;
+        } else if (typeof result === 'string') {
+          // Koa sends strings as plain text by default. Serialize them explicitly so the
+          // Console can parse every successful dry-run result as JSON.
+          ctx.type = 'application/json';
+          ctx.body = JSON.stringify(result);
+          ctx.status = 200;
+        } else {
+          ctx.body = result;
+          ctx.status = 200;
+        }
+      } catch (error: unknown) {
+        if (error instanceof ResponseError) {
+          const responseError = await parseActionResponseError(error);
+
+          throw new RequestError(
+            {
+              code: 'action.general',
+              status: getActionResponseErrorStatus(error.response.status),
+            },
+            buildSafeActionRequestErrorData(responseError)
+          );
+        }
+
+        if (error instanceof RequestError) {
+          throw new RequestError(
+            {
+              code: error.code,
+              status: error.status,
+              expose: error.expose,
+            },
+            buildSafeActionRequestErrorData(error)
+          );
+        }
+
+        throw new RequestError(
+          { code: 'action.general', status: 422 },
+          buildSafeActionRequestErrorData(error)
+        );
+      }
+
+      return next();
+    }
+  );
+
+  router.get(
+    '/configs/actions/:actionType',
+    koaGuard({
+      params: z.object({
+        actionType: z.nativeEnum(LogtoActionKey),
+      }),
+      response: logtoActionGuard,
+      status: [200, 404],
+    }),
+    async (ctx, next) => {
+      const {
+        params: { actionType },
+      } = ctx.guard;
+
+      ctx.body = await getAction(actionType);
+      return next();
+    }
+  );
+
+  router.put(
+    '/configs/actions/:actionType',
+    koaGuard({
+      params: z.object({
+        actionType: z.nativeEnum(LogtoActionKey),
+      }),
+      body: logtoActionGuard,
+      response: logtoActionGuard,
+      status: [200, 201, 400, 403],
+    }),
+    koaQuotaGuard({ key: actionQuotaKey, quota: libraries.quota }),
+    async (ctx, next) => {
+      const {
+        params: { actionType },
+        body,
+      } = ctx.guard;
+
+      const { rows } = await getRowsByKeys([actionType]);
+      const action = await upsertAction(actionType, body);
+
+      if (rows.length === 0) {
+        ctx.status = 201;
+      }
+
+      ctx.body = action.value;
+      return next();
+    }
+  );
+
+  router.patch(
+    '/configs/actions/:actionType',
+    koaGuard({
+      params: z.object({
+        actionType: z.nativeEnum(LogtoActionKey),
+      }),
+      body: logtoActionGuard.partial(),
+      response: logtoActionGuard,
+      status: [200, 400, 403, 404],
+    }),
+    koaQuotaGuard({ key: actionQuotaKey, quota: libraries.quota }),
+    async (ctx, next) => {
+      const {
+        params: { actionType },
+        body,
+      } = ctx.guard;
+
+      ctx.body = await updateAction(actionType, body);
+      return next();
+    }
+  );
+
+  router.delete(
+    '/configs/actions/:actionType',
+    koaGuard({
+      params: z.object({
+        actionType: z.nativeEnum(LogtoActionKey),
+      }),
+      status: [204, 404],
+    }),
+    async (ctx, next) => {
+      const {
+        params: { actionType },
+      } = ctx.guard;
+
+      await deleteAction(actionType);
+      ctx.status = 204;
+      return next();
+    }
+  );
+}

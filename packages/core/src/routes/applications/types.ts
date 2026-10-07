@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 const protectedAppAdditionalScopeGuard = z.enum(protectedAppAdditionalScopes);
 
-const appLevelAccessControlEnabledGuard = z.boolean().optional();
+export const appLevelAccessControlEnabledGuard = z.boolean().optional();
 
 export const applicationCreateGuard = originalApplicationCreateGuard
   .omit({

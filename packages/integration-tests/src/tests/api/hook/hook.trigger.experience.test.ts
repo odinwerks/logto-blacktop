@@ -121,7 +121,9 @@ describe('experience api hook trigger', () => {
       }),
       webHookApi.create({
         name: 'dataHookEventListener',
-        events: hookEvents.filter((event) => !(event in InteractionHookEvent)),
+        events: getSupportedHookEvents(
+          hookEvents.filter((event) => !(event in InteractionHookEvent))
+        ),
         config: { url: webHookMockServer.endpoint },
       }),
       webHookApi.create({
@@ -451,6 +453,9 @@ describe('should trigger `Identifier.Lockout` event when user repeatedly fails t
 
   afterAll(async () => {
     await deleteUser(userId);
+    // `sentinelPolicy` is tenant-wide, so leaving it tightened makes unrelated suites fail with
+    // spurious lockouts on a reused database. `{}` is the suite baseline.
+    await updateSignInExperience({ sentinelPolicy: {} });
   });
 
   it('should log lockout hook after max failed attempts', async () => {

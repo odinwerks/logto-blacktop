@@ -5,6 +5,7 @@ import {
   MfaPolicy,
   SignInIdentifier,
   SignInMode,
+  defaultUsernamePolicy,
   type SignInExperience,
 } from '@logto/schemas';
 
@@ -55,6 +56,7 @@ const mockSignInExperience: SignInExperience = {
   passwordExpiration: {
     enabled: false,
   },
+  usernamePolicy: defaultUsernamePolicy,
   mfa: {
     policy: MfaPolicy.Mandatory,
     factors: [MfaFactor.TOTP],
@@ -62,6 +64,7 @@ const mockSignInExperience: SignInExperience = {
   adaptiveMfa: {
     enabled: true,
   },
+  trustedDevice: {},
   singleSignOnEnabled: false,
   socialSignIn: {},
   supportEmail: null,
@@ -69,6 +72,7 @@ const mockSignInExperience: SignInExperience = {
   unknownSessionRedirectUrl: null,
   captchaPolicy: {},
   sentinelPolicy: {},
+  verificationCodePolicy: {},
   emailBlocklistPolicy: {},
   forgotPasswordMethods: null,
   passkeySignIn: {
@@ -169,6 +173,20 @@ describe('sign-in experience parser', () => {
     expect(comparePayload).not.toHaveProperty('adaptiveMfa');
   });
 
+  it('should omit usernamePolicy from sign-up and sign-in page data (modal-owned)', () => {
+    const formData = sieFormDataParser.fromSignInExperience(mockSignInExperience);
+
+    expect(formData).not.toHaveProperty('usernamePolicy');
+
+    const submitPayload = sieFormDataParser.toSignInExperience(formData);
+
+    expect(submitPayload).not.toHaveProperty('usernamePolicy');
+
+    const comparePayload = signInExperienceToUpdatedDataParser(mockSignInExperience);
+
+    expect(comparePayload).not.toHaveProperty('usernamePolicy');
+  });
+
   it('should map createAccountEnabled and customCss when building payload', () => {
     const formData = sieFormDataParser.fromSignInExperience(mockSignInExperience);
 
@@ -216,6 +234,16 @@ describe('sign-in experience parser', () => {
     expect(sieFormDataParser.toSignInExperience(formData).signUpProfileFields).toEqual([]);
   });
 
+  it('should omit hideLogtoBranding from payloads where it is unavailable', () => {
+    const formData = sieFormDataParser.fromSignInExperience(mockSignInExperience);
+
+    const payload = sieFormDataParser.toSignInExperience(formData, {
+      isHideLogtoBrandingAvailable: false,
+    });
+
+    expect(payload).not.toHaveProperty('hideLogtoBranding');
+  });
+
   it('should convert merged sign-up identifiers back to sign-up schema', () => {
     const formData = sieFormDataParser.fromSignInExperience(mockSignInExperience);
 
@@ -261,6 +289,14 @@ describe('sign-in experience parser', () => {
         signUpProfileFields: [],
       }).signUpProfileFields
     ).toEqual([]);
+  });
+
+  it('should omit hideLogtoBranding from compare payloads where it is unavailable', () => {
+    const comparePayload = signInExperienceToUpdatedDataParser(mockSignInExperience, {
+      isHideLogtoBrandingAvailable: false,
+    });
+
+    expect(comparePayload).not.toHaveProperty('hideLogtoBranding');
   });
 
   it('should support legacy social and passkey data defaults', () => {

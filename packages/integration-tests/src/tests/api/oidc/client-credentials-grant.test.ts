@@ -16,7 +16,7 @@ import { HTTPError } from 'ky';
 import { oidcApi } from '#src/api/api.js';
 import {
   assignRolesToApplication,
-  createApplication,
+  createApplicationWithSecret,
   deleteApplication,
 } from '#src/api/application.js';
 import { deleteJwtCustomizer, upsertJwtCustomizer } from '#src/api/logto-config.js';
@@ -91,7 +91,10 @@ describe('client credentials grant', () => {
 
   beforeAll(async () => {
     // eslint-disable-next-line @silverhand/fp/no-mutation
-    client = await createApplication('client credentials test', ApplicationType.MachineToMachine);
+    client = await createApplicationWithSecret(
+      'client credentials test',
+      ApplicationType.MachineToMachine
+    );
   });
 
   afterAll(async () => {
@@ -188,11 +191,18 @@ describe('client credentials grant', () => {
     it('should be able to get an organization token', async () => {
       const organization = await organizationApi.create({ name: 'test-organization' });
       await organizationApi.applications.add(organization.id, [client.id]);
-      const { access_token: accessToken, scope } = await post({ organization_id: organization.id });
+      const tokenResponse = await post({ organization_id: organization.id });
 
-      expect(scope).toBe('');
+      expect(typeof tokenResponse.access_token).toBe('string');
+      expect(typeof tokenResponse.expires_in).toBe('number');
+      expect(tokenResponse).toEqual({
+        access_token: tokenResponse.access_token,
+        expires_in: tokenResponse.expires_in,
+        scope: '',
+        token_type: 'Bearer',
+      });
 
-      const verified = await jwtVerify(accessToken, jwkSet, {
+      const verified = await jwtVerify(tokenResponse.access_token, jwkSet, {
         audience: buildOrganizationUrn(organization.id),
       });
       expect(verified.payload.scope).toBe('');

@@ -1,5 +1,10 @@
 import { ConnectorType } from '@logto/connector-kit';
-import { demoAppApplicationId, InteractionEvent, MfaFactor } from '@logto/schemas';
+import {
+  defaultMessageRateLimitPolicy,
+  demoAppApplicationId,
+  InteractionEvent,
+  MfaFactor,
+} from '@logto/schemas';
 import { createMockUtils } from '@logto/shared/esm';
 
 import { mockSignInExperience } from '#src/__mocks__/sign-in-experience.js';
@@ -95,6 +100,9 @@ const baseProviderMock = {
 };
 
 const findUserById = jest.fn().mockResolvedValue(mockUser);
+// Provide a permissive activity store so the message rate guard allows sends by default.
+const countActivities = jest.fn().mockResolvedValue(0);
+const insertActivity = jest.fn();
 const tenantContext = new MockTenant(
   createMockProvider(jest.fn().mockResolvedValue(baseProviderMock)),
   {
@@ -103,6 +111,14 @@ const tenantContext = new MockTenant(
     },
     users: {
       findUserById,
+    },
+    sentinelActivities: {
+      countActivities,
+      insertActivity,
+    },
+    // `buildMessageRateGuard` reads the per-tenant override; default to none so the system policy applies.
+    logtoConfigs: {
+      getMessageRateLimitOverride: jest.fn().mockResolvedValue(null),
     },
   },
   {
@@ -163,6 +179,16 @@ describe('interaction routes', () => {
         tenantContext.libraries.passcodes
       );
       expect(response.status).toEqual(204);
+    });
+
+    it('should reject with 429 and not send when the recipient is over the rate-limit cap', async () => {
+      // Simulate the per-recipient cap being reached for the default policy.
+      countActivities.mockResolvedValueOnce(defaultMessageRateLimitPolicy.maxSendsPerRecipient);
+
+      const response = await sessionRequest.post(path).send({ email: 'spammed@logto.io' });
+
+      expect(response.status).toEqual(429);
+      expect(sendVerificationCodeToIdentifier).not.toBeCalled();
     });
   });
 

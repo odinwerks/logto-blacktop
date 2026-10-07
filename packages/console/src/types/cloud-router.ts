@@ -1,15 +1,43 @@
 import type router from '@logto/cloud/routes';
-import { type tenantAuthRouter } from '@logto/cloud/routes';
-import { type GuardedResponse, type RouterRoutes } from '@withtyped/client';
+import {
+  type consoleSsoRouter,
+  type emailLogsRouter,
+  type tenantAuthRouter,
+  type userStripeCustomersRouter,
+} from '@logto/cloud/routes';
+import { type GuardedPayload, type GuardedResponse, type RouterRoutes } from '@withtyped/client';
 
 type GetRoutes = RouterRoutes<typeof router>['get'];
+type PostRoutes = RouterRoutes<typeof router>['post'];
 type GetTenantAuthRoutes = RouterRoutes<typeof tenantAuthRouter>['get'];
+type GetEmailLogsRoutes = RouterRoutes<typeof emailLogsRouter>['get'];
+type GetUserStripeCustomersRoutes = RouterRoutes<typeof userStripeCustomersRouter>['get'];
+
+/** The paginated hosted-email log page returned by the cloud email-logs endpoint. */
+export type TenantEmailLogsResponse = GuardedResponse<
+  GetEmailLogsRoutes['/api/tenants/:tenantId/email-logs']
+>;
+
+/** A single hosted-email log entry (redacted by the endpoint's response whitelist). */
+export type TenantEmailLog = TenantEmailLogsResponse['logs'][number];
 
 export type GetArrayElementType<T> = T extends Array<infer U> ? U : never;
 
-export type LogtoSkuResponse = GetArrayElementType<GuardedResponse<GetRoutes['/api/skus']>>;
-
 export type Subscription = GuardedResponse<GetRoutes['/api/tenants/:tenantId/subscription']>;
+
+/**
+ * A billing Customer linked to the current user. `name` and `email` are `null` when the Stripe
+ * Customer has none, and absent when Stripe could not be reached.
+ */
+export type BillingCustomer = GetArrayElementType<
+  GuardedResponse<GetUserStripeCustomersRoutes['/api/me/stripe-customers']>
+>;
+
+/** The Checkout body fields that carry the caller's billing Customer choice; the route refuses both at once. */
+export type CheckoutCustomerChoice = Pick<
+  GuardedPayload<PostRoutes['/api/checkout-session']>['body'],
+  'customerId' | 'newCustomer'
+>;
 
 export type TenantUsageAddOnSkus = GuardedResponse<
   GetRoutes['/api/tenants/:tenantId/subscription/add-on-skus']
@@ -23,19 +51,34 @@ export type SubscriptionUsageResponse = GuardedResponse<
 
 export type SubscriptionQuota = Omit<
   SubscriptionUsageResponse['quota'],
-  // Since we are deprecation the `organizationsEnabled` key soon (use `organizationsLimit` instead), we exclude it from the quota keys for now to avoid confusion.
-  'organizationsEnabled'
+  // Drop once `@logto/cloud` no longer declares the legacy Actions quota key.
+  | 'inlineHooksEnabled'
+  // Since we are deprecating the `organizationsEnabled` key soon (use `organizationsLimit` instead), we exclude it from the quota keys for now to avoid confusion.
+  | 'organizationsEnabled'
 >;
+
+export type LogtoSkuResponse = Omit<
+  GetArrayElementType<GuardedResponse<GetRoutes['/api/skus']>>,
+  'quota'
+> & {
+  // Drop the legacy key once `@logto/cloud` stops declaring it on SKU quotas.
+  quota: Omit<
+    GetArrayElementType<GuardedResponse<GetRoutes['/api/skus']>>['quota'],
+    'inlineHooksEnabled'
+  >;
+};
 
 export type SubscriptionCountBasedUsage = Omit<
   SubscriptionUsageResponse['usage'],
-  // Since we are deprecation the `organizationsEnabled` key soon (use `organizationsLimit` instead), we exclude it from the usage keys for now to avoid confusion.
-  'organizationsEnabled'
+  // Drop once `@logto/cloud` no longer declares the legacy Actions quota key.
+  | 'inlineHooksEnabled'
+  // Since we are deprecating the `organizationsEnabled` key soon (use `organizationsLimit` instead), we exclude it from the usage keys for now to avoid confusion.
+  | 'organizationsEnabled'
 >;
 export type SubscriptionResourceScopeUsage = SubscriptionUsageResponse['resources'];
 export type SubscriptionRoleScopeUsage = Omit<
   SubscriptionUsageResponse['roles'],
-  // Since we are deprecation the `organizationsEnabled` key soon (use `organizationsLimit` instead), we exclude it from the quota keys for now to avoid confusion.
+  // Since we are deprecating the `organizationsEnabled` key soon (use `organizationsLimit` instead), we exclude it from the quota keys for now to avoid confusion.
   'organizationsEnabled'
 >;
 
@@ -80,4 +123,16 @@ export type LogtoEnterpriseSubscriptionResponse = GuardedResponse<
 
 export type LogtoEnterpriseSubscriptionInvoiceResponse = GetArrayElementType<
   GuardedResponse<GetRoutes['/api/me/logto-enterprises/:id/invoices']>['invoices']
+>;
+
+/** A customer-owned connector returned by the global Console SSO API. */
+export type ConsoleSsoConnector = GuardedResponse<
+  RouterRoutes<typeof consoleSsoRouter>['get']['/api/me/console-sso/connectors']
+>[number];
+
+/** A domain challenge or an authoritative Core binding returned by the global Console SSO API. */
+export type ConsoleSsoDomain = GuardedResponse<
+  RouterRoutes<
+    typeof consoleSsoRouter
+  >['post']['/api/me/console-sso/connectors/:connectorId/domains']
 >;

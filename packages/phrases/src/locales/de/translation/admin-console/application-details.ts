@@ -123,6 +123,45 @@ const application_details = {
   field_custom_data_tip:
     'Zusätzliche benutzerdefinierte Anwendungsinformationen, die nicht in den vordefinierten Anwendungseigenschaften aufgeführt sind, wie z. B. geschäftsspezifische Einstellungen und Konfigurationen.',
   custom_data_invalid: 'Benutzerdefinierte Daten müssen ein gültiges JSON-Objekt sein',
+  access_control: {
+    name: 'Regeln',
+    title: 'Zugriffskontrolle',
+    description: 'Passen Sie Ihre Regeln für die App-level-Zugriffskontrolle an.',
+    enable: 'App-level-Zugriffskontrolle aktivieren',
+    enable_description:
+      'Aktivieren Sie granulare Zugriffskontrolle, um einzuschränken, welche Benutzer auf diese Anwendung zugreifen können. Wenn deaktiviert, können alle registrierten Benutzer im System darauf zugreifen.',
+    enable_without_rules_notice:
+      'Fügen Sie mindestens eine Zugriffsregel hinzu, bevor Sie die Zugriffskontrolle aktivieren.',
+    load_error: 'Zugriffsregeln konnten nicht geladen werden.',
+    custom_allow_rules: 'Benutzerdefinierte Erlaubnisregeln',
+    custom_allow_rules_description:
+      'Erstellen Sie Regeln, damit Benutzer mit bestimmten Attributen automatisch zugreifen können. Bei Aktivierung ist mindestens eine Regel erforderlich.',
+    rules: 'Zugriffsregeln',
+    add_rules: 'Regeln hinzufügen',
+    rules_description:
+      'Benutzer können auf diese App zugreifen, wenn sie einer der konfigurierten Regeln entsprechen.',
+    empty_rules_description: 'Es sind noch keine Regeln konfiguriert.',
+    delete_rule_confirmation: 'Möchten Sie diese Regel wirklich entfernen?',
+    rule_table_rules: 'Regeln',
+    rule_table_description: 'Beschreibung',
+    rule_table_users: 'Benutzer',
+    rule_table_members: 'Mitglieder',
+    rule_table_user_id: 'Benutzer-ID',
+    rule_count: '{{count}} Regel',
+    rule_count_other: '{{count}} Regeln',
+    rule_users: 'Benutzer',
+    rule_users_description: 'Bestimmte Benutzer können auf diese App zugreifen.',
+    rule_roles: 'Rollen',
+    rule_user_roles: 'Benutzerrollen',
+    rule_user_roles_description:
+      'Benutzer mit ausgewählten Benutzerrollen können auf diese App zugreifen.',
+    rule_organizations: 'Organisationen',
+    rule_organizations_description:
+      'Alle aktuellen und zukünftigen Mitglieder der ausgewählten Organisationen können auf diese App zugreifen.',
+    rule_organization_roles: 'Organisationsrollen',
+    rule_organization_roles_description:
+      'Mitglieder mit ausgewählten Organisationsrollen in ausgewählten Organisationen können auf diese App zugreifen.',
+  },
   branding: {
     name: 'Branding',
     description:
@@ -268,6 +307,13 @@ const application_details = {
     unspecified_description: 'Verwende Logto-Benutzer-ID als Name ID',
     email_address: 'E-Mail-Adresse',
     email_address_description: 'Verwende E-Mail-Adresse als Name ID',
+  },
+  saml_idp_authentication: {
+    always_force_authn: 'Immer Authentifizierung erzwingen',
+    always_force_authn_description:
+      'Verlangen Sie von Benutzern, sich bei jedem Zugriff auf diese Anwendung erneut anzumelden, auch wenn sie bereits eine Logto-Sitzung haben.',
+    always_force_authn_tip:
+      'Wenn aktiviert, fordert Logto die Benutzer immer auf, sich für diese Anwendung erneut anzumelden. Wenn deaktiviert, wird eine vorhandene Logto-Sitzung wiederverwendet, es sei denn, der Dienstanbieter fordert eine frische Authentifizierung mit ForceAuthn an.',
   },
   saml_encryption_config: {
     encrypt_assertion: 'Verschlüssele SAML-Aussage',

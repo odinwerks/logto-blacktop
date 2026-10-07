@@ -10,7 +10,7 @@ import koaGuard from '#src/middleware/koa-guard.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
-import { buildUploadFile } from '#src/utils/storage/index.js';
+import { buildStorage } from '#src/utils/storage/index.js';
 import { getTenantId } from '#src/utils/tenant.js';
 
 import { type ManagementApiRouter, type RouterInitArgs } from '../../types.js';
@@ -44,7 +44,7 @@ export default function customUiAssetsRoutes<T extends ManagementApiRouter>(
       const { storageProviderConfig } = SystemContext.shared;
       assertThat(storageProviderConfig, 'storage.not_configured', 500);
 
-      const storage = buildUploadFile(storageProviderConfig);
+      const storage = buildStorage(storageProviderConfig);
       const customUiAssetId = generateStandardId(8);
 
       try {

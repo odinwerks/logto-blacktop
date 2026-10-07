@@ -5,7 +5,7 @@ import type { MiddlewareType } from 'koa';
 
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
-import { buildUploadFile } from '#src/utils/storage/index.js';
+import { buildStorage } from '#src/utils/storage/index.js';
 import { getTenantId } from '#src/utils/tenant.js';
 
 const noCache = 'no-cache, no-store, must-revalidate';
@@ -24,8 +24,7 @@ export default function koaServeCustomUiAssets(customUiAssetId: string) {
     const { storageProviderConfig } = SystemContext.shared;
     assertThat(storageProviderConfig, 'storage.not_configured');
 
-    const storage = buildUploadFile(storageProviderConfig);
-    assertThat(storage.downloadFile && storage.isFileExisted, 'storage.not_configured');
+    const storage = buildStorage(storageProviderConfig);
 
     const requestPath = ctx.request.path;
     const isFileAssetRequest = isFileAssetPath(requestPath);
@@ -37,8 +36,7 @@ export default function koaServeCustomUiAssets(customUiAssetId: string) {
 
     const result = await storage.downloadFile(objectKey);
 
-    // eslint-disable-next-line no-restricted-syntax, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-    ctx.body = result.body instanceof Readable ? result.body : Readable.fromWeb(result.body as any);
+    ctx.body = result.readableStreamBody;
     ctx.type = result.contentType ?? 'application/octet-stream';
     ctx.status = 200;
     ctx.set('Cache-Control', isFileAssetRequest ? maxAgeSevenDays : noCache);

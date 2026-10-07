@@ -15,10 +15,6 @@
       cursor: pointer;
       overflow: hidden;
 
-      .caret {
-        margin-inline-end: _.unit(2);
-      }
-
       .name {
         font: var(--font-label-2);
         @include _.text-ellipsis;
@@ -29,6 +25,12 @@
         font: var(--font-body-2);
         color: var(--color-text-secondary);
         margin-inline-start: _.unit(2);
+      }
+
+      .spinner {
+        width: 16px;
+        height: 16px;
+        color: var(--color-text-secondary);
       }
     }
   }

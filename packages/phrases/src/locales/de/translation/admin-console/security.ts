@@ -36,6 +36,11 @@ const security = {
       description:
         'Cloudflares intelligente CAPTCHA-Alternative, die einen nicht aufdringlichen Bot-Schutz bietet und gleichzeitig eine nahtlose Benutzererfahrung ohne visuelle Rätsel gewährleistet.',
     },
+    cap: {
+      name: 'Cap',
+      description:
+        'Open-Source-CAPTCHA mit Proof-of-Work zum Selbsthosten, ohne visuelle Rätsel oder Drittanbieterdienste – ideal für Regionen, in denen andere CAPTCHA-Dienste nicht erreichbar sind.',
+    },
   },
   captcha_details: {
     back_to_security: 'Zurück zur Sicherheit',
@@ -51,6 +56,10 @@ const security = {
     domain_placeholder: 'www.google.com (Standard) oder recaptcha.net',
     recaptcha_key_id: 'reCAPTCHA-Schlüssel-ID',
     recaptcha_api_key: 'API-Schlüssel des Projekts',
+    cap_endpoint: 'Cap-Endpunkt',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      'Dieser Endpunkt verwendet HTTP und eignet sich nur für die lokale Entwicklung. Browser blockieren HTTP-Anfragen von einer HTTPS-Anmeldeseite, und der geheime Schlüssel würde unverschlüsselt übertragen. Verwende in der Produktion HTTPS.',
     deletion_description: 'Sind Sie sicher, dass Sie diesen CAPTCHA-Anbieter löschen möchten?',
     captcha_deleted: 'CAPTCHA-Anbieter erfolgreich gelöscht',
     setup_captcha: 'CAPTCHA einrichten',
@@ -59,6 +68,10 @@ const security = {
     mode_checkbox: 'Kontrollkästchen',
     mode_notice:
       'Der Überprüfungsmodus wird in Ihren reCAPTCHA-Schlüsseleinstellungen in der Google Cloud Console definiert. Zum Ändern des Modus hier ist ein passender Schlüsseltyp erforderlich.',
+    score_threshold: 'Punkteschwelle',
+    score_threshold_description:
+      'Bewertungen unterhalb des Schwellenwerts werden abgelehnt. 0.0 erlaubt alle, 1.0 nur perfekte Bewertungen. Standard ist 0.5.',
+    score_threshold_error: 'Die Punkteschwelle muss zwischen 0 und 1 liegen.',
   },
   password_policy: {
     password_requirements: 'Passwortanforderungen',
@@ -93,19 +106,40 @@ const security = {
       'Benutzer müssen ihr Passwort nach einer festgelegten Anzahl von Tagen zurücksetzen. Benutzer, die sich über SSO oder Passkey anmelden, sind nicht betroffen.',
     enable_password_expiration: 'Passwortablauf aktivieren',
     enable_password_expiration_description:
-      'Benutzer müssen ihr Passwort regelmäßig zurücksetzen. Bestehende Benutzer ohne aufgezeichnetes Datum der Passwortänderung werden anhand ihres Erstellungsdatums bewertet.',
+      'Benutzer müssen ihr Passwort regelmäßig zurücksetzen. Bestehende Benutzer ohne aufgezeichnetes Datum der Passwortänderung werden ab dem Datum bewertet, an dem diese Richtlinie aktiviert wurde.',
     enable_password_expiration_tip:
       'Du kannst den Passwortablauf erst aktivieren, nachdem du in der Anmeldeerfahrung mindestens eine Methode zum Zurücksetzen des Passworts mit einem gültigen Connector konfiguriert hast.',
     expiration_period: 'Passwort-Gültigkeitsdauer (Tage)',
     expiration_period_description:
       'Anzahl der Tage, die ein Passwort gültig bleibt, bevor es abläuft.',
-    expiration_period_error: 'Die Passwort-Gültigkeitsdauer muss mindestens 1 Tag betragen.',
-    expiration_reminder: 'Ablauf-Erinnerung (Tage vor Ablauf)',
-    expiration_reminder_description:
-      'Anzahl der Tage vor Ablauf, um Benutzer zu warnen und sie zum Zurücksetzen des Passworts aufzufordern. Benutzer können die Erinnerung überspringen und mit der Anmeldung fortfahren.',
-    expiration_reminder_error:
-      'Der Zeitraum für die Ablauf-Erinnerung muss zwischen 0 und der Gültigkeitsdauer ({{max}} Tage) liegen.',
+    expiration_period_error:
+      'Die Passwort-Gültigkeitsdauer muss zwischen {{min}} und {{max}} Tagen liegen.',
+    password_expiration_recovery_reminder:
+      'Einige Benutzer haben möglicherweise keine E-Mail-Adresse oder Telefonnummer, um einen Code zur Passwortwiederherstellung zu erhalten, und können daher ein abgelaufenes Passwort nicht zurücksetzen. Verlange bei der Registrierung eine E-Mail-Adresse oder Telefonnummer, damit jeder Benutzer sein Passwort wiederherstellen kann.',
   },
+  verification_code_policy: {
+    card_title: 'Verifizierungscode',
+    card_description:
+      'Konfigurieren Sie die Ablaufdauer und die maximale Anzahl erneuter Versuche für Verifizierungscodes, die bei Anmeldung, Registrierung und Passwortzurücksetzung verwendet werden.',
+    enable: {
+      title: 'Verifizierungscode-Einstellungen anpassen',
+      description:
+        'Erlaubt die Anpassung der Ablaufdauer des Verifizierungscodes und der maximalen Anzahl erneuter Versuche.',
+    },
+    expiration_duration: {
+      title: 'Ablaufdauer (Sekunden)',
+      description:
+        'Die Dauer in Sekunden, während der ein Verifizierungscode nach dem Senden gültig bleibt.',
+      error_message: 'Die Ablaufdauer muss zwischen 60 und 3600 Sekunden liegen.',
+    },
+    max_retry_attempts: {
+      title: 'Maximale Anzahl erneuter Versuche',
+      description:
+        'Maximale Anzahl fehlgeschlagener Verifizierungsversuche, bevor der Code ungültig wird.',
+      error_message: 'Die maximale Anzahl erneuter Versuche muss zwischen 1 und 100 liegen.',
+    },
+  },
+
   sentinel_policy: {
     card_title: 'Identifier-Sperre',
     card_description:
@@ -147,6 +181,26 @@ const security = {
     card_title: 'E-Mail-Blockliste',
     card_description:
       'Kontrollieren Sie Ihre Benutzerdatenbank, indem Sie risikoreiche oder unerwünschte E-Mail-Adressen blockieren.',
+    custom_email_allowlist: {
+      title: 'Benutzerdefinierte E-Mail-Adressen zulassen',
+      description:
+        'Fügen Sie Regeln hinzu, um nur bestimmte E-Mail-Domains, E-Mail-Adressen oder Wildcard-Muster für neue Registrierungen und neu verknüpfte E-Mails zuzulassen. Beispiele: bar@example.com, @example.com, foo*@example.com, *@example.com. Die Domains gmail.com und googlemail.com werden als gleichwertig behandelt und Punkte im lokalen Teil werden ignoriert, daher entspricht foo.bar@gmail.com der Adresse foobar@googlemail.com.',
+      placeholder: 'E-Mail-Adresse, Domain oder Wildcard-Muster eingeben',
+      duplicate_error:
+        'E-Mail-Adresse, Domain oder Wildcard-E-Mail-Muster wurde bereits hinzugefügt',
+      invalid_format_error:
+        'Muss eine gültige E-Mail-Adresse (bar@example.com), Domain (@example.com) oder ein Wildcard-E-Mail-Muster (foo*@example.com, *@example.com) sein',
+      warnings: {
+        identical_entries:
+          'Einige Allowlist-Einträge sind auch in den Blockierregeln vorhanden. Passende E-Mails können weiterhin blockiert werden.',
+        blocked_exact_email:
+          'Einige exakte Allowlist-E-Mails passen zu einer Blockierregel. Passende E-Mails können weiterhin blockiert werden.',
+        blocked_subaddressing:
+          'Einige Allowlist-Einträge enthalten ein Pluszeichen (+), aber E-Mail-Subaddressing ist blockiert.',
+        effectively_unusable:
+          'Basierend auf diesen Prüfungen lässt die aktuelle Allowlist möglicherweise keine neue E-Mail durch.',
+      },
+    },
     disposable_email: {
       title: 'Blockieren temporärer E-Mail-Adressen',
       description:
@@ -160,12 +214,12 @@ const security = {
     custom_email_address: {
       title: 'Benutzerdefinierte E-Mail-Adressen blockieren',
       description:
-        'Fügen Sie spezifische E-Mail-Domains oder E-Mail-Adressen hinzu, die nicht registrieren oder über die Benutzeroberfläche verknüpfen können.',
-      placeholder:
-        'Geben Sie die blockierte E-Mail-Adresse oder Domain ein (zum Beispiel, bar@example.com, @example.com)',
-      duplicate_error: 'E-Mail-Adresse oder Domain bereits hinzugefügt',
+        'Fügen Sie Regeln hinzu, um bestimmte E-Mail-Domains, E-Mail-Adressen oder Wildcard-Muster an der Registrierung oder Verknüpfung über die Benutzeroberfläche zu hindern. Beispiele: bar@example.com, @example.com, foo*@example.com, *@example.com. Die Domains gmail.com und googlemail.com werden als gleichwertig behandelt und Punkte im lokalen Teil werden ignoriert, daher entspricht foo.bar@gmail.com der Adresse foobar@googlemail.com.',
+      placeholder: 'E-Mail-Adresse, Domain oder Wildcard-Muster eingeben',
+      duplicate_error:
+        'E-Mail-Adresse, Domain oder E-Mail-Adressmuster mit Platzhalter bereits hinzugefügt',
       invalid_format_error:
-        'Muss eine gültige E-Mail-Adresse (bar@example.com) oder Domain (@example.com) sein',
+        'Muss eine gültige E-Mail-Adresse (bar@example.com), Domain (@example.com) oder ein E-Mail-Adressmuster mit Platzhalter (foo*@example.com, *@example.com) sein',
     },
   },
 };

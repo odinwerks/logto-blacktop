@@ -52,6 +52,7 @@ export default function oneTimeTokenVerificationRoutes<
         {
           ctx,
           sentinel,
+          queries,
           action: SentinelActivityAction.OneTimeToken,
           identifier,
           payload: {
@@ -59,7 +60,7 @@ export default function oneTimeTokenVerificationRoutes<
             verificationId: oneTimeTokenVerificationRecord.id,
           },
         },
-        oneTimeTokenVerificationRecord.verify(token)
+        oneTimeTokenVerificationRecord.verify(token, experienceInteraction.interactionEvent)
       );
 
       // Skip CAPTCHA for one-time token flow

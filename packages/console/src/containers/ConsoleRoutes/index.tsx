@@ -5,6 +5,7 @@ import { safeLazy } from 'react-safe-lazy';
 import { SWRConfig } from 'swr';
 
 import AppLoading from '@/components/AppLoading';
+import RedirectToAccountCenter from '@/components/RedirectToAccountCenter';
 import { isCloud, isDevFeaturesEnabled, isProduction } from '@/consts/env';
 import AppBoundary from '@/containers/AppBoundary';
 import AppContent, { RedirectToFirstItem } from '@/containers/AppContent';
@@ -20,8 +21,8 @@ import { dropLeadingSlash } from '@/utils/url';
 import { __Internal__ImportError } from './internal';
 
 const Welcome = safeLazy(async () => import('@/pages/Welcome'));
-const Profile = safeLazy(async () => import('@/pages/Profile'));
 const OssOnboarding = safeLazy(async () => import('@/pages/OssOnboarding'));
+const OssAcceptInvitation = safeLazy(async () => import('@/pages/OssAcceptInvitation'));
 
 function Layout() {
   const swrOptions = useSwrOptions();
@@ -48,11 +49,23 @@ export function ConsoleRoutes() {
         <Route path="/:tenantId" element={<Layout />}>
           <Route path="callback" element={<Callback />} />
           <Route path="welcome" element={<Welcome />} />
+          {/* Self-hosted plans: the invitation link of Console members and invitations, which ship
+          with the unlaunched self-hosted Pro and Enterprise plans. Removed together with the other
+          self-hosted plans guards at launch. */}
+          {!isCloud && isDevFeaturesEnabled && (
+            <Route
+              path={`${dropLeadingSlash(GlobalRoute.AcceptInvitation)}/:invitationId`}
+              element={<OssAcceptInvitation />}
+            />
+          )}
           {isDevFeaturesEnabled && (
             <Route path="__internal__/import-error" element={<__Internal__ImportError />} />
           )}
           <Route element={<ProtectedRoutes />}>
-            <Route path={dropLeadingSlash(GlobalRoute.Profile) + '/*'} element={<Profile />} />
+            <Route
+              path={dropLeadingSlash(GlobalRoute.Profile) + '/*'}
+              element={<RedirectToAccountCenter />}
+            />
             <Route element={<TenantAccess />}>
               {!isCloud && isProduction && isDevFeaturesEnabled && (
                 <Route path="onboarding" element={<OssOnboarding />} />

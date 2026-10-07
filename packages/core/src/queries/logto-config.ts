@@ -1,11 +1,16 @@
 import {
+  type actionConfigGuard,
   type jwtCustomizerConfigGuard,
   LogtoConfigs,
   LogtoTenantConfigKey,
   type AdminConsoleData,
+  type CimdConfig,
+  cimdConfigGuard,
+  defaultCimdConfig,
   type IdTokenConfig,
   type LogtoConfig,
   type LogtoConfigKey,
+  type LogtoActionKey,
   LogtoOidcConfigKey,
   type LogtoJwtTokenKey,
   type OidcPrivateKey,
@@ -14,6 +19,7 @@ import {
   type LogtoOidcConfigType,
   signingKeyRotationStateGuard,
   type SigningKeyRotationState,
+  messageRateLimitOverrideGuard,
 } from '@logto/schemas';
 import type { CommonQueryMethods } from '@silverhand/slonik';
 import { sql } from '@silverhand/slonik';
@@ -217,6 +223,23 @@ export const createLogtoConfigQueries = (
 
   const deleteJwtCustomizer = async <T extends LogtoJwtTokenKey>(key: T) => deleteRowByKey(key);
 
+  const upsertAction = async <T extends LogtoActionKey>(
+    key: T,
+    value: z.infer<(typeof actionConfigGuard)[T]>
+  ) =>
+    pool.one<{ key: T; value: z.infer<(typeof actionConfigGuard)[T]> }>(
+      sql`
+        insert into ${table} (${fields.key}, ${fields.value})
+          values (${key}, ${sql.jsonb(value)})
+          on conflict (${fields.tenantId}, ${fields.key}) do update set ${
+            fields.value
+          } = ${sql.jsonb(value)}
+          returning *
+      `
+    );
+
+  const deleteAction = async <T extends LogtoActionKey>(key: T) => deleteRowByKey(key);
+
   const getIdTokenConfig = wellKnownCache.memoize(async () => {
     const { rows } = await getRowsByKeys([LogtoTenantConfigKey.IdToken]);
 
@@ -238,6 +261,39 @@ export const createLogtoConfigQueries = (
     ['id-token-config']
   );
 
+  const getCimdConfig = async (): Promise<CimdConfig> => {
+    const { rows } = await getRowsByKeys([LogtoTenantConfigKey.Cimd]);
+
+    if (rows.length === 0) {
+      return defaultCimdConfig;
+    }
+
+    return cimdConfigGuard.parse(rows[0]?.value);
+  };
+
+  const upsertCimdConfig = async (value: CimdConfig) =>
+    pool.query(sql`
+      insert into ${table} (${fields.key}, ${fields.value})
+        values (${LogtoTenantConfigKey.Cimd}, ${sql.jsonb(value)})
+        on conflict (${fields.tenantId}, ${fields.key}) do update set ${fields.value} = ${sql.jsonb(
+          value
+        )}
+        returning *
+    `);
+
+  // Internal, ops-only per-tenant override of the system message send-rate-limit policy. There is
+  // intentionally no upsert counterpart: the key is set by direct DB write only (no API), so the
+  // cache picks it up on its next expiry (or tenant restart).
+  const getMessageRateLimitOverride = wellKnownCache.memoize(async () => {
+    const { rows } = await getRowsByKeys([LogtoTenantConfigKey.MessageRateLimitOverride]);
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    return messageRateLimitOverrideGuard.parse(rows[0]?.value);
+  }, ['message-rate-limit-override']);
+
   return {
     getAdminConsoleConfig,
     updateAdminConsoleConfig,
@@ -254,7 +310,12 @@ export const createLogtoConfigQueries = (
     setSigningKeyRotationAt,
     upsertJwtCustomizer,
     deleteJwtCustomizer,
+    upsertAction,
+    deleteAction,
     getIdTokenConfig,
     upsertIdTokenConfig,
+    getCimdConfig,
+    upsertCimdConfig,
+    getMessageRateLimitOverride,
   };
 };

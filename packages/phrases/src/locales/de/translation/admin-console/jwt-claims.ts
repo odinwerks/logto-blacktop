@@ -62,6 +62,11 @@ const jwt_claims = {
     subtitle:
       'Verwenden Sie den Eingabeparameter `context.application`, um Anwendungsinformationen bereitzustellen, die dem Token zugeordnet sind.',
   },
+  organization_data: {
+    title: 'Organisationskontext',
+    subtitle:
+      'Verwenden Sie den Eingabeparameter `context.organization`, um Informationen zur Zielorganisation bereitzustellen, die nur für Organisationstoken verfügbar sind.',
+  },
   token_data: {
     title: 'Token-Daten',
     subtitle: 'Verwenden Sie den `token` Eingabeparameter für die aktuelle Zugriffstoken-Payload.',
@@ -102,6 +107,11 @@ const jwt_claims = {
     subtitle: 'Mock-Token und Benutzerdaten für Tests anpassen.',
     run_button: 'Test ausführen',
     result_title: 'Testergebnis',
+  },
+  sandbox_warning: {
+    title: 'Skripte laufen mit Serverrechten',
+    description:
+      'Bei selbst gehostetem Logto läuft dieses Skript in derselben Umgebung wie Logto selbst: Es kann Server-Umgebungsvariablen lesen und Dienste in deinem internen Netzwerk erreichen. Es ist nicht sandboxed. Gib nur Personen Zugriff auf diese Seite, denen du auch Zugriff auf den Server anvertrauen würdest.',
   },
   form_error: {
     invalid_json: 'Ungültiges JSON-Format',

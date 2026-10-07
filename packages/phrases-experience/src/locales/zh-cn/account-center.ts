@@ -13,6 +13,8 @@ const account_center = {
     sidebar_security: '安全',
     sidebar_sessions: '会话',
     support: '支持',
+    user_menu: '用户菜单',
+    sign_out: '退出登录',
   },
   verification: {
     title: '安全验证',
@@ -114,6 +116,21 @@ const account_center = {
     email_removed: '邮箱地址已成功移除。',
     phone_removed: '手机号已成功移除。',
     username_removed: '用户名已成功移除。',
+    trusted_devices: {
+      title: 'MFA 受信任设备',
+      current_device: '当前设备',
+      expires_on: '于 {{date}} 到期',
+      unknown_location: '未知位置',
+      remove: '移除',
+      removed: '受信任设备已成功移除。',
+      loading: '加载中...',
+      empty: '暂无受信任设备。',
+      load_failed: '受信任设备加载失败，请重试。',
+      retry: '重试',
+      remove_confirmation_title: '移除受信任设备？',
+      remove_confirmation_description:
+        '下次在此设备上登录时，你需要再次完成 MFA。当前会话将保持有效。',
+    },
   },
   social: {
     linked: '已成功关联 {{connector}}。',
@@ -254,9 +271,12 @@ const account_center = {
     no_third_party_apps: '没有已授权的第三方应用。',
     third_party_apps_load_failed: '第三方应用加载失败，请重试。',
     granted_at: '授权于 {{date}}',
+    dynamic_app: '动态应用',
+    client_id: '客户端 ID: {{clientId}}',
     revoke_grant: '移除',
     revoke_grant_title: '移除第三方应用访问权限',
-    revoke_grant_description: '这将撤销授予该应用的所有访问权限。确定要继续吗？',
+    revoke_grant_description:
+      '这将撤销授予该应用的访问权限。此前已签发的访问令牌可能在过期前仍然有效。确定要继续吗？',
     revoke_grant_failed: '部分授权撤销失败，请重试。',
   },
 };

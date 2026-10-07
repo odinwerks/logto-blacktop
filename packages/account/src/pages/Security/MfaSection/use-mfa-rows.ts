@@ -23,7 +23,13 @@ import {
   passkeyManageRoute,
   phoneRoute,
 } from '@ac/constants/routes';
-import { hasVisibleMfaSection, isEditableField } from '@ac/utils/security-page';
+import {
+  hasVisibleMfaSection,
+  isEditableField,
+  isPasskeySignInEnabled,
+} from '@ac/utils/security-page';
+
+import { type SecurityRowData } from '../components/SecurityRow';
 
 const factorIcon = {
   [MfaFactor.TOTP]: TotpIcon,
@@ -33,20 +39,10 @@ const factorIcon = {
   [MfaFactor.PhoneVerificationCode]: PhoneIcon,
 };
 
-type Row = {
-  key: string;
-  icon: typeof TotpIcon;
-  label: string;
-  value?: string;
-  isPlainValue?: boolean;
-  isConfigured: boolean;
-  action?: { label: string; handler: () => void };
-};
-
 const useMfaRows = (
   mfaVerifications: UserMfaVerificationResponse | undefined,
   navigateTo: (route: string) => void
-): Row[] => {
+): SecurityRowData[] => {
   const { t } = useTranslation();
   const { accountCenterSettings, experienceSettings, userInfo } = useContext(PageContext);
 
@@ -70,8 +66,13 @@ const useMfaRows = (
       (verification) => verification.type === MfaFactor.BackupCode
     );
 
-    const buildWebAuthnRow = (): Row[] => {
-      if (!enabledFactors.includes(MfaFactor.WebAuthn)) {
+    const buildWebAuthnRow = (): SecurityRowData[] => {
+      // When passkey sign-in is enabled, WebAuthn is surfaced in its own passkey section, so it
+      // is excluded here to avoid showing it twice.
+      if (
+        !enabledFactors.includes(MfaFactor.WebAuthn) ||
+        isPasskeySignInEnabled(experienceSettings)
+      ) {
         return [];
       }
       const isConfigured = webAuthnVerifications.length > 0;
@@ -98,7 +99,7 @@ const useMfaRows = (
       ];
     };
 
-    const buildTotpRow = (): Row[] => {
+    const buildTotpRow = (): SecurityRowData[] => {
       if (!enabledFactors.includes(MfaFactor.TOTP)) {
         return [];
       }
@@ -124,7 +125,7 @@ const useMfaRows = (
       ];
     };
 
-    const buildBackupCodeRow = (): Row[] => {
+    const buildBackupCodeRow = (): SecurityRowData[] => {
       if (!enabledFactors.includes(MfaFactor.BackupCode)) {
         return [];
       }
@@ -154,7 +155,7 @@ const useMfaRows = (
       ];
     };
 
-    const buildEmailRow = (): Row[] => {
+    const buildEmailRow = (): SecurityRowData[] => {
       if (!enabledFactors.includes(MfaFactor.EmailVerificationCode) || !userInfo?.primaryEmail) {
         return [];
       }
@@ -179,7 +180,7 @@ const useMfaRows = (
       ];
     };
 
-    const buildPhoneRow = (): Row[] => {
+    const buildPhoneRow = (): SecurityRowData[] => {
       if (!enabledFactors.includes(MfaFactor.PhoneVerificationCode) || !userInfo?.primaryPhone) {
         return [];
       }

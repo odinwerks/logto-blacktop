@@ -1,9 +1,11 @@
 import { type User } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
-import type { Provider } from 'oidc-provider';
+import { type Provider } from 'oidc-provider';
 
 import { mockUser } from '#src/__mocks__/user.js';
+import { markAppLevelAccessControlChecked } from '#src/oidc/application-access-control.js';
 import type Queries from '#src/tenants/Queries.js';
+import { mockEnvSet } from '#src/test-utils/env-set.js';
 import { GrantMock, createMockProvider } from '#src/test-utils/oidc-provider.js';
 import { createContextWithRouteParameters } from '#src/utils/test-utils.js';
 
@@ -40,8 +42,25 @@ const userQueries = {
   updateUserById: jest.fn(async (..._args: unknown[]) => ({ id: 'id' })),
 };
 
-// @ts-expect-error
-const queries: Queries = { users: userQueries };
+const insertGrantOrganization = jest.fn();
+const findGrantOrganizationIds = jest.fn(async () => ['org_id']);
+const insertGrantClientSnapshot = jest.fn();
+
+const queries: Queries = {
+  // @ts-expect-error -- partial mock of the user queries
+  users: userQueries,
+  // @ts-expect-error -- partial mock of the cimd queries
+  cimd: {
+    grantOrganizations: {
+      insert: insertGrantOrganization,
+      findOrganizationIds: findGrantOrganizationIds,
+      exists: jest.fn(),
+    },
+    grantClientSnapshots: {
+      insert: insertGrantClientSnapshot,
+    },
+  },
+};
 const context = createContextWithRouteParameters();
 
 type Interaction = Awaited<ReturnType<Provider['interactionDetails']>>;
@@ -59,7 +78,13 @@ describe('consent', () => {
 
   it('should update with new grantId if not exist', async () => {
     const provider = createMockProvider(jest.fn().mockResolvedValue(baseInteractionDetails), Grant);
-    await consent({ ctx: context, provider, queries, interactionDetails: baseInteractionDetails });
+    await consent({
+      ctx: context,
+      provider,
+      envSet: mockEnvSet,
+      queries,
+      interactionDetails: baseInteractionDetails,
+    });
 
     expect(grantSave).toHaveBeenCalled();
 
@@ -85,7 +110,13 @@ describe('consent', () => {
 
     const provider = createMockProvider(jest.fn().mockResolvedValue(interactionDetails), Grant);
 
-    await consent({ ctx: context, provider, queries, interactionDetails });
+    await consent({
+      ctx: context,
+      provider,
+      envSet: mockEnvSet,
+      queries,
+      interactionDetails,
+    });
 
     expect(grantSave).toHaveBeenCalled();
 
@@ -102,6 +133,37 @@ describe('consent', () => {
     );
   });
 
+  it('should mark app-level access control checked when configured', async () => {
+    const provider = createMockProvider(jest.fn().mockResolvedValue(baseInteractionDetails), Grant);
+    await consent({
+      ctx: context,
+      provider,
+      envSet: mockEnvSet,
+      queries,
+      interactionDetails: baseInteractionDetails,
+      markAppLevelAccessControlChecked: true,
+    });
+
+    expect(provider.interactionResult).toHaveBeenCalledWith(
+      context.req,
+      context.res,
+      {
+        ...baseInteractionDetails.result,
+        ...markAppLevelAccessControlChecked(
+          {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            consent: { grantId: expect.any(String) },
+          },
+          'clientId',
+          mockUser.id
+        ),
+      },
+      {
+        mergeWithLastSubmission: true,
+      }
+    );
+  });
+
   it('should save first consented app id', async () => {
     userQueries.findUserById.mockImplementationOnce(async () => ({
       ...mockUser,
@@ -109,11 +171,31 @@ describe('consent', () => {
     }));
 
     const provider = createMockProvider(jest.fn().mockResolvedValue(baseInteractionDetails), Grant);
-    await consent({ ctx: context, provider, queries, interactionDetails: baseInteractionDetails });
+    await consent({
+      ctx: context,
+      provider,
+      envSet: mockEnvSet,
+      queries,
+      interactionDetails: baseInteractionDetails,
+    });
 
     expect(userQueries.updateUserById).toHaveBeenCalledWith(mockUser.id, {
       applicationId: baseInteractionDetails.params.client_id,
     });
+  });
+
+  it('should write neither the client snapshot nor an organization row for a registered client', async () => {
+    const provider = createMockProvider(jest.fn().mockResolvedValue(baseInteractionDetails), Grant);
+    await consent({
+      ctx: context,
+      provider,
+      envSet: mockEnvSet,
+      queries,
+      interactionDetails: baseInteractionDetails,
+    });
+
+    expect(insertGrantClientSnapshot).not.toHaveBeenCalled();
+    expect(insertGrantOrganization).not.toHaveBeenCalled();
   });
 
   it('should grant missing scopes', async () => {
@@ -121,6 +203,7 @@ describe('consent', () => {
     await consent({
       ctx: context,
       provider,
+      envSet: mockEnvSet,
       queries,
       interactionDetails: baseInteractionDetails,
       missingOIDCScopes: ['openid', 'profile'],

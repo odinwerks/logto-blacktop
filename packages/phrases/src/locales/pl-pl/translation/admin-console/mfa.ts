@@ -11,7 +11,6 @@ const mfa = {
   webauthn: 'Passkeys',
   webauthn_description:
     'Zweryfikuj za pomocą metody obsługiwanej przez przeglądarkę: biometria, skanowanie telefonem lub klucz zabezpieczeń, itp.',
-  webauthn_native_tip: 'WebAuthn nie jest obsługiwane dla aplikacji natywnych.',
   webauthn_domain_tip:
     'WebAuthn łączy klucze publiczne z konkretną domeną. Modyfikacja domeny usługi zablokuje użytkowników przed uwierzytelnianiem za pomocą istniejących kluczy przechodnich.',
   backup_code: 'Kody zapasowe',
@@ -72,6 +71,29 @@ const mfa = {
   no_sms_connector_error:
     'Nie można włączyć MFA z kodem weryfikacyjnym SMS bez łącznika SMS. Proszę najpierw skonfigurować łącznik SMS.',
   setup_link: 'Skonfiguruj',
+  trusted_device: {
+    title: 'Zaufane urządzenia',
+    description:
+      'Pozwól zaufanym przeglądarkom automatycznie ukończyć weryfikację MFA, gdy wymaga jej bieżący proces MFA.',
+    enable_title: 'Włącz zaufane urządzenia',
+    enable_description: 'Pozwól zaufać tej przeglądarce po ukończeniu odpowiedniego czynnika MFA.',
+    duration_title: 'Okres zaufania (dni)',
+    duration_error: 'Wprowadź liczbę całkowitą od {{min}} do {{max}}.',
+    duration_note: 'Zmiany okresu dotyczą tylko urządzeń uznanych za zaufane później.',
+    organization_allow_title: 'Zezwól na zaufane urządzenia',
+    organization_allow_tip:
+      'Organizacja może tylko ograniczyć zasadę tenanta i nie może jej włączyć, gdy jest globalnie wyłączona.',
+    organization_allow_description:
+      'Zezwól członkom tej organizacji na weryfikację za pomocą zaufanych urządzeń.',
+    organization_global_disabled: 'Najpierw włącz zaufane urządzenia w ustawieniach MFA tenanta.',
+    management_description:
+      'Zarządzaj przeglądarkami, którym ten użytkownik zaufał po ukończeniu MFA. Po usunięciu przeglądarka ponownie zażąda MFA przy następnym logowaniu.',
+    management_hint: 'Ostatnia lokalizacja ma charakter wyłącznie informacyjny.',
+    management_empty: 'Ten użytkownik nie ma aktywnych zaufanych urządzeń.',
+    management_deletion_confirmation:
+      'Usunąć {{name}}? Ta przeglądarka ponownie zażąda MFA przy następnym logowaniu.',
+    management_removed: 'Zaufane urządzenie zostało usunięte.',
+  },
 };
 
 export default Object.freeze(mfa);

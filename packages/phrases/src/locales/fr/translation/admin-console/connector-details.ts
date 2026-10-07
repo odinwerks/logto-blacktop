@@ -38,6 +38,19 @@ const connector_details = {
     total_email_sent: 'Total email envoyé: {{value, number}}',
     total_email_sent_tip:
       "Logto utilise SendGrid pour une livraison sécurisée et stable des emails intégrés. C'est totalement gratuit. <a>En savoir plus</a>",
+    hosted_email_usage: {
+      daily: 'Quotidien <value>{{usage, number}}</value> / {{limit, number}}',
+      daily_unlimited: 'Quotidien <value>{{usage, number}}</value>',
+      monthly: 'Mensuel <value>{{usage, number}}</value> / {{limit, number}}',
+      monthly_unlimited: 'Mensuel <value>{{usage, number}}</value>',
+      tip: "Les forfaits Free et Development incluent des limites quotidiennes et mensuelles pour le service d'e-mail intégré.",
+      banner: {
+        approaching:
+          "Vous approchez de la limite d'envoi de votre service d'e-mail intégré Logto. <provider>Connectez votre propre fournisseur d'email</provider> ou <upgrade>mettez à niveau votre forfait</upgrade> pour continuer à utiliser le service d'e-mail intégré Logto.",
+        reached:
+          "Vous avez atteint la limite d'envoi de votre service d'e-mail intégré Logto, ce qui peut interrompre les emails de connexion. <provider>Connectez votre propre fournisseur d'email</provider> ou <upgrade>mettez à niveau votre forfait</upgrade> pour continuer à utiliser le service d'e-mail intégré Logto.",
+      },
+    },
     email_template_title: 'Modèle d’email',
     template_description:
       'L’email intégré utilise des modèles par défaut pour une livraison transparente des emails de vérification. Aucune configuration n’est requise et vous pouvez personnaliser les informations de base de la marque.',
@@ -73,6 +86,20 @@ const connector_details = {
   sign_in_experience: {
     in_use: 'Activé pour la connexion',
     not_in_use: 'Désactivé pour la connexion',
+  },
+  email_logs: {
+    title: "Journaux d'e-mails",
+    time: 'Heure',
+    recipient: 'Destinataire',
+    recipient_placeholder: 'Rechercher par adresse complète du destinataire',
+    template_type: 'Type de modèle',
+    status: 'Statut',
+    status_sent: 'Envoyé',
+    status_failed: 'Échoué',
+    language_tag: 'Langue',
+    provider_message_id: 'ID du message du fournisseur',
+    previous_page: 'Précédent',
+    next_page: 'Suivant',
   },
 };
 

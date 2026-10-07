@@ -53,21 +53,47 @@ export const manualSamlConnectorConfigGuard = samlIdentityProviderMetadataGuard.
   x509Certificate: true,
 });
 
+/**
+ * XML-DSig signature algorithms offered for signing the SP `AuthnRequest`. We deliberately expose
+ * only the SHA-256 and SHA-512 variants; the legacy SAML social connector additionally allows the
+ * weak RSA-SHA1, which we intentionally omit for this feature.
+ */
+export enum SamlAuthnRequestSignatureAlgorithm {
+  RsaSha256 = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256',
+  RsaSha512 = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha512',
+}
+
+/**
+ * Optional signed-`AuthnRequest` settings, shared across all SAML config shapes. Both fields are
+ * optional so existing connector configs remain valid; enabling `signAuthnRequest` is validated at
+ * the route layer (an active signing key must exist), not here.
+ */
+const samlSigningConfigGuard = z.object({
+  signAuthnRequest: z.boolean().optional(),
+  requestSignatureAlgorithm: z.nativeEnum(SamlAuthnRequestSignatureAlgorithm).optional(),
+});
+
 export const samlConnectorConfigGuard = z.union([
   // Config using Metadata URL
-  z.object({
-    metadataUrl: z.string(),
-    attributeMapping: customizableAttributeMapGuard.optional(),
-  }),
+  z
+    .object({
+      metadataUrl: z.string(),
+      attributeMapping: customizableAttributeMapGuard.optional(),
+    })
+    .merge(samlSigningConfigGuard),
   // Config using Metadata XML
-  z.object({
-    metadata: z.string(),
-    attributeMapping: customizableAttributeMapGuard.optional(),
-  }),
+  z
+    .object({
+      metadata: z.string(),
+      attributeMapping: customizableAttributeMapGuard.optional(),
+    })
+    .merge(samlSigningConfigGuard),
   // Config using Metadata detail
-  manualSamlConnectorConfigGuard.extend({
-    attributeMapping: customizableAttributeMapGuard.optional(),
-  }),
+  manualSamlConnectorConfigGuard
+    .extend({
+      attributeMapping: customizableAttributeMapGuard.optional(),
+    })
+    .merge(samlSigningConfigGuard),
 ]);
 export type SamlConnectorConfig = z.infer<typeof samlConnectorConfigGuard>;
 

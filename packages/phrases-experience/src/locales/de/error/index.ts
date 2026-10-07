@@ -35,9 +35,16 @@ const error = {
   invalid_link_description:
     'Dein einmaliger Token ist möglicherweise abgelaufen oder nicht mehr gültig.',
   captcha_verification_failed: 'Fehler beim Captcha-Verifizierung.',
+  send_verification_code_failed:
+    'Bestätigungscode konnte nicht gesendet werden. Bitte versuche es später noch einmal.',
+  send_verification_code_failed_use_password:
+    'Bestätigungscode konnte nicht gesendet werden. Bitte melde dich stattdessen mit deinem Passwort an.',
   terms_acceptance_required: 'Zustimmung zu den Bedingungen erforderlich',
   terms_acceptance_required_description: 'Du musst den Bedingungen zustimmen, um fortzufahren.',
   something_went_wrong: 'Etwas ist schiefgegangen',
+  account_suspended: 'Konto gesperrt',
+  account_suspended_description:
+    'Dieses Konto wurde gesperrt. Bitte wende dich an den Administrator.',
   access_denied: 'Zugriff verweigert',
   application_access_denied:
     'Sie haben keine Berechtigung, auf diese Anwendung zuzugreifen.\nBitte kontaktieren Sie Ihren Administrator um Hilfe.',

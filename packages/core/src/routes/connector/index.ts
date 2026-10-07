@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { type ConnectorFactory } from '@logto/cli/lib/connector/index.js';
 import type router from '@logto/cloud/routes';
 import { demoConnectorIds, validateConfig } from '@logto/connector-kit';
@@ -16,6 +17,7 @@ import { string, object } from 'zod';
 import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { type QuotaLibrary } from '#src/libraries/quota.js';
+import { getForgotPasswordAvailability } from '#src/libraries/sign-in-experience/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import assertThat from '#src/utils/assert-that.js';
 import { buildExtraInfo } from '#src/utils/connectors/extra-information.js';
@@ -53,6 +55,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
     deleteConnectorById,
     deleteConnectorByIds,
     insertConnector,
+    replaceConnectorsByType,
     updateConnector,
   } = tenant.queries.connectors;
   const { getLogtoConnectorById, getLogtoConnectors, getLogtoConnectorByTargetAndPlatform } =
@@ -61,6 +64,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
     quota,
     signInExperiences: { removeUnavailableSocialConnectorTargets },
   } = tenant.libraries;
+  const { findDefaultSignInExperience } = tenant.queries.signInExperiences;
 
   router.post(
     '/connectors',
@@ -171,31 +175,25 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
 
       const insertConnectorId = proposedId ?? generateStandardShortId();
 
-      await insertConnector({
-        id: insertConnectorId,
-        connectorId,
-        ...cleanDeep({ syncProfile, metadata, enableTokenStorage }),
-        // eslint-disable-next-line no-restricted-syntax
-        ...conditional(config !== undefined && { config: cleanedConfig as JsonObject }),
-      });
-
       /**
        * We can have only one working email/sms connector:
        * once we insert a new one, old connectors with same type should be deleted.
-       * TODO: should using transaction to ensure the atomicity of the operation. LOG-7260
        */
       if (passwordlessConnector.has(connectorFactory.type)) {
-        const logtoConnectors = await getLogtoConnectors();
-        const conflictingConnectorIds = logtoConnectors
-          .filter(
-            ({ dbEntry: { id }, type }) =>
-              type === connectorFactory.type && id !== insertConnectorId
-          )
-          .map(({ dbEntry: { id } }) => id);
+        const connectorIdsOfSameType = connectorFactories
+          .filter(({ type }) => type === connectorFactory.type)
+          .map(({ metadata: { id } }) => id);
 
-        if (conflictingConnectorIds.length > 0) {
-          await deleteConnectorByIds(conflictingConnectorIds);
-        }
+        await replaceConnectorsByType(
+          {
+            id: insertConnectorId,
+            connectorId,
+            ...cleanDeep({ syncProfile, metadata, enableTokenStorage }),
+            // eslint-disable-next-line no-restricted-syntax
+            ...conditional(config !== undefined && { config: cleanedConfig as JsonObject }),
+          },
+          connectorIdsOfSameType
+        );
 
         captureEvent(
           { tenantId: tenant.id, request: ctx.req },
@@ -203,6 +201,14 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
           pickFactoryProperties(connectorFactory)
         );
       } else {
+        await insertConnector({
+          id: insertConnectorId,
+          connectorId,
+          ...cleanDeep({ syncProfile, metadata, enableTokenStorage }),
+          // eslint-disable-next-line no-restricted-syntax
+          ...conditional(config !== undefined && { config: cleanedConfig as JsonObject }),
+        });
+
         captureEvent(
           { tenantId: tenant.id, request: ctx.req },
           ProductEvent.SocialConnectorCreated,
@@ -378,7 +384,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
 
   router.delete(
     '/connectors/:id',
-    koaGuard({ params: object({ id: string().min(1) }), status: [204, 404] }),
+    koaGuard({ params: object({ id: string().min(1) }), status: [204, 404, 422] }),
     async (ctx, next) => {
       const {
         params: { id },
@@ -390,6 +396,27 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
       const connectorFactory = connectorFactories.find(
         ({ metadata }) => metadata.id === connectorId
       );
+
+      if (connectorFactory && passwordlessConnector.has(connectorFactory.type)) {
+        const { passwordExpiration, forgotPasswordMethods } = await findDefaultSignInExperience();
+
+        if (passwordExpiration.enabled) {
+          const logtoConnectors = await getLogtoConnectors();
+          const remainingConnectors = logtoConnectors.filter(({ dbEntry }) => dbEntry.id !== id);
+          const forgotPasswordAvailability = getForgotPasswordAvailability(
+            remainingConnectors,
+            forgotPasswordMethods
+          );
+
+          assertThat(
+            forgotPasswordAvailability.email || forgotPasswordAvailability.phone,
+            new RequestError({
+              code: 'sign_in_experiences.password_expiration_requires_forgot_password',
+              status: 422,
+            })
+          );
+        }
+      }
 
       await deleteConnectorById(id);
 
@@ -412,3 +439,4 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
   connectorAuthorizationUriRoutes(router, tenant);
   connectorFactoryRoutes(router, tenant);
 }
+/* eslint-enable max-lines */

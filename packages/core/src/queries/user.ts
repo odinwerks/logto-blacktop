@@ -1,13 +1,12 @@
 /* eslint-disable max-lines */
 import type { User, CreateUser } from '@logto/schemas';
-import { MfaFactor, Users } from '@logto/schemas';
+import { MfaFactor, Users, UserSsoIdentities } from '@logto/schemas';
 import { PhoneNumberParser } from '@logto/shared';
 import { cond, conditionalArray, type Nullable, pick } from '@silverhand/essentials';
 import type { CommonQueryMethods } from '@silverhand/slonik';
 import { sql } from '@silverhand/slonik';
 
 import { buildUpdateWhereWithPool } from '#src/database/update-where.js';
-import { EnvSet } from '#src/env-set/index.js';
 import { DeletionError } from '#src/errors/SlonikError/index.js';
 import type { Search } from '#src/utils/search.js';
 import { buildConditionsFromSearch } from '#src/utils/search.js';
@@ -28,6 +27,8 @@ const { table, fields } = convertToIdentifiers(Users);
  * - `relation`: The relation conditions. It can be used to find users that have or don't
  * have a relation with another table. Note that the relation field is the raw field name
  * in the database, not the camel case one.
+ * - `identity`: The exact external identity condition. Social identities are matched by connector
+ * target and social user ID; enterprise SSO identities are matched by issuer and identity ID.
  *
  * @example
  * ```ts
@@ -38,6 +39,11 @@ const { table, fields } = convertToIdentifiers(Users);
  */
 export type UserConditions = {
   search?: Search;
+  identity?: {
+    type: 'social' | 'sso';
+    provider: string;
+    identityId: string;
+  };
   relation?: {
     table: string;
     field: string;
@@ -65,12 +71,12 @@ export const userSearchKeys = Object.freeze([
 export const userSearchFields = Object.freeze(Object.values(pick(Users.fields, ...userSearchKeys)));
 
 export const createUserQueries = (pool: CommonQueryMethods) => {
-  const findUserByUsername = async (username: string) =>
+  const findUserByUsername = async (username: string, caseSensitive: boolean) =>
     pool.maybeOne<User>(sql`
       select ${sql.join(Object.values(fields), sql`,`)}
       from ${table}
       ${
-        EnvSet.values.isCaseSensitiveUsername
+        caseSensitive
           ? sql`where ${fields.username}=${username}`
           : sql`where lower(${fields.username})=lower(${username})`
       }
@@ -174,16 +180,45 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
       `
     );
 
-  const hasUser = async (username: string, excludeUserId?: string) =>
+  const hasUser = async (username: string, caseSensitive: boolean, excludeUserId?: string) =>
     pool.exists(sql`
       select ${fields.id}
       from ${table}
       ${
-        EnvSet.values.isCaseSensitiveUsername
+        caseSensitive
           ? sql`where ${fields.username}=${username}`
           : sql`where lower(${fields.username})=lower(${username})`
       }
       ${conditionalSql(excludeUserId, (id) => sql`and ${fields.id}<>${id}`)}
+    `);
+
+  /**
+   * Groups of usernames that collide once compared case-insensitively (i.e. would clash under a
+   * case-insensitive policy). Each row is one `lower(username)` value shared by more than one user,
+   * with the colliding user ids. Ordered oldest-group-first and capped by `limit` for sampling.
+   */
+  const findUsernameCaseConflicts = async (limit: number) =>
+    pool.any<{ usernameLower: string; userIds: string[] }>(sql`
+      select lower(${fields.username}) as "usernameLower",
+             array_agg(${fields.id}) as "userIds"
+      from ${table}
+      where ${fields.username} is not null
+      group by lower(${fields.username})
+      having count(*) > 1
+      order by min(${fields.createdAt})
+      limit ${limit}
+    `);
+
+  /** Total number of case-insensitive username collision groups (see {@link findUsernameCaseConflicts}). */
+  const countUsernameCaseConflicts = async () =>
+    pool.oneFirst<number>(sql`
+      select count(*)::int from (
+        select 1
+        from ${table}
+        where ${fields.username} is not null
+        group by lower(${fields.username})
+        having count(*) > 1
+      ) as conflicts
     `);
 
   const hasUserWithId = async (id: string) =>
@@ -272,9 +307,34 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
    *
    * @see {@link UserConditions} for more information about the conditions.
    */
-  const buildUserConditions = ({ search, relation }: UserConditions) => {
+  const buildUserConditions = ({ search, identity, relation }: UserConditions) => {
     const hasSearch = search?.matches.length;
     const id = sql.identifier;
+    const buildIdentityCondition = () => {
+      if (!identity) {
+        return;
+      }
+
+      if (identity.type === 'social') {
+        return sql`${fields.identities}::json#>>array[${identity.provider}, 'userId'] = ${identity.identityId}`;
+      }
+
+      return sql`exists (
+        select 1
+        from ${id([UserSsoIdentities.table])}
+        where ${id([UserSsoIdentities.table, UserSsoIdentities.fields.issuer])} = ${
+          identity.provider
+        }
+        and ${id([UserSsoIdentities.table, UserSsoIdentities.fields.identityId])} = ${
+          identity.identityId
+        }
+        and ${id([UserSsoIdentities.table, UserSsoIdentities.fields.userId])} = ${id([
+          Users.table,
+          Users.fields.id,
+        ])}
+      )`;
+    };
+
     const buildRelationCondition = () => {
       if (!relation) {
         return;
@@ -293,6 +353,7 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
     };
 
     const conditions = conditionalArray(
+      buildIdentityCondition(),
       buildRelationCondition(),
       hasSearch && sql`(${buildConditionsFromSearch(search, userSearchFields)})`
     );
@@ -377,6 +438,46 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
     });
   };
 
+  const updateUserTotpMfaVerificationLastUsed = async (
+    id: string,
+    mfaVerificationId: string,
+    usedTimeStep: number,
+    lastUsedAt = new Date().toISOString()
+  ) =>
+    pool.maybeOne<User>(sql`
+      update ${table}
+      set ${fields.mfaVerifications} = (
+        select jsonb_agg(
+          case
+            when item->>'id' = ${mfaVerificationId} and item->>'type' = ${MfaFactor.TOTP}
+              then item || jsonb_build_object(
+                'lastUsedAt', ${lastUsedAt}::text,
+                'lastUsedTimeStep', ${usedTimeStep}::integer
+              )
+            else item
+          end
+          order by ordinal
+        )
+        from jsonb_array_elements(${fields.mfaVerifications}::jsonb) with ordinality as mfa(item, ordinal)
+      )
+      where ${fields.id} = ${id}
+        and exists (
+          select 1
+          from jsonb_array_elements(${fields.mfaVerifications}::jsonb) as mfa(item)
+          where item->>'id' = ${mfaVerificationId}
+            and item->>'type' = ${MfaFactor.TOTP}
+            and (
+              not (item ? 'lastUsedTimeStep')
+              or case
+                when jsonb_typeof(item->'lastUsedTimeStep') = 'number'
+                  then (item->>'lastUsedTimeStep')::integer < ${usedTimeStep}::integer
+                else false
+              end
+            )
+        )
+      returning *
+    `);
+
   const insertUserQuery = buildInsertIntoWithPool(pool)(Users, {
     returning: true,
   });
@@ -444,6 +545,8 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
     findUserByWebAuthnCredential,
     findUserByIdentity,
     hasUser,
+    findUsernameCaseConflicts,
+    countUsernameCaseConflicts,
     hasUserWithId,
     hasUserWithEmail,
     hasUserWithPhone,
@@ -453,6 +556,7 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
     findUsers,
     findUsersByIds,
     updateUserById,
+    updateUserTotpMfaVerificationLastUsed,
     insertUser,
     deleteUserById,
     deleteUserIdentity,

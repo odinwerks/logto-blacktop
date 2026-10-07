@@ -12,6 +12,7 @@ import {
   userLogtoConfigResponseGuard,
 } from '#src/libraries/user-logto-config.js';
 import koaGuard from '#src/middleware/koa-guard.js';
+import { assertFirstPartyClient } from '#src/utils/assert-first-party-client.js';
 
 import RequestError from '../../errors/RequestError/index.js';
 import assertThat from '../../utils/assert-that.js';
@@ -40,11 +41,10 @@ export default function logtoConfigRoutes<T extends UserRouter>(...args: RouterI
       );
 
       const { fields } = ctx.accountCenter;
-      // MFA and passkey sign-in data are both exposed in logto_config.
-      // Passkey is a WebAuthn MFA factor, so it reuses the MFA field access control.
+      const passkeyControl = fields.passkey ?? fields.mfa;
       assertThat(
-        fields.mfa === AccountCenterControlValue.Edit ||
-          fields.mfa === AccountCenterControlValue.ReadOnly,
+        passkeyControl === AccountCenterControlValue.Edit ||
+          passkeyControl === AccountCenterControlValue.ReadOnly,
         new RequestError({ code: 'account_center.field_not_enabled', status: 400 })
       );
 
@@ -63,19 +63,25 @@ export default function logtoConfigRoutes<T extends UserRouter>(...args: RouterI
         passkeySignIn: userPasskeySignInDataGuard.optional(),
       }),
       response: userLogtoConfigResponseGuard,
-      status: [200, 400, 401],
+      status: [200, 400, 401, 403],
     }),
     async (ctx, next) => {
-      const { id: userId, scopes } = ctx.auth;
+      const { id: userId, identityVerified, scopes, clientId } = ctx.auth;
+
+      assertThat(
+        identityVerified,
+        new RequestError({ code: 'verification_record.permission_denied', status: 401 })
+      );
       assertThat(
         scopes.has(UserScope.Identities),
         new RequestError({ code: 'auth.unauthorized', status: 401 })
       );
+      await assertFirstPartyClient(queries, clientId);
+
       const { fields } = ctx.accountCenter;
-      // MFA and passkey sign-in data are both exposed in logto_config.
-      // Passkey is a WebAuthn MFA factor, so it reuses the MFA field access control.
+      const passkeyControl = fields.passkey ?? fields.mfa;
       assertThat(
-        fields.mfa === AccountCenterControlValue.Edit,
+        passkeyControl === AccountCenterControlValue.Edit,
         new RequestError({ code: 'account_center.field_not_editable', status: 400 })
       );
 

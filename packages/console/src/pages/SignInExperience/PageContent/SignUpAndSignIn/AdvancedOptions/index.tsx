@@ -1,3 +1,4 @@
+import { type SignInExperience } from '@logto/schemas';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -10,10 +11,15 @@ import { uriValidator } from '@/utils/validator';
 
 import type { SignInExperienceForm } from '../../../types';
 import FormSectionTitle from '../../components/FormSectionTitle';
+import UsernamePolicy from '../UsernamePolicy';
 
 import styles from './index.module.scss';
 
-function AdvancedOptions() {
+type Props = {
+  readonly signInExperience: SignInExperience;
+};
+
+function AdvancedOptions({ signInExperience }: Props) {
   const { t } = useTranslation(undefined, {
     keyPrefix: 'admin_console',
   });
@@ -48,6 +54,7 @@ function AdvancedOptions() {
           )}
         />
       </FormField>
+      <UsernamePolicy signInExperience={signInExperience} />
       <FormField
         title="sign_in_exp.sign_up_and_sign_in.advanced_options.unknown_session_redirect_url"
         tip={t('sign_in_exp.sign_up_and_sign_in.advanced_options.unknown_session_redirect_url_tip')}

@@ -194,10 +194,13 @@ async function handleSubmitRegister(
 
   // JIT provisioning for email domain
   if (user.primaryEmail) {
-    const provisionedOrganizations = await libraries.users.provisionOrganizations({
-      userId: id,
-      email: user.primaryEmail,
-    });
+    // `primaryEmail` is not necessarily verified here: social registration copies it from the
+    // IdP profile without requiring an `emailVerified` identifier. See the TODO on
+    // `provisionOrganizationsByEmailDomain`.
+    const provisionedOrganizations = await libraries.users.provisionOrganizationsByEmailDomain(
+      id,
+      user.primaryEmail
+    );
 
     for (const { organizationId } of provisionedOrganizations) {
       ctx.appendDataHookContext('Organization.Membership.Updated', {
@@ -286,7 +289,6 @@ export default async function submitInteraction(
   const { passwordEncrypted, passwordEncryptionMethod } = await encryptUserPassword(
     profile.password
   );
-
   const user = await updateUserById(accountId, {
     passwordEncrypted,
     passwordEncryptionMethod,

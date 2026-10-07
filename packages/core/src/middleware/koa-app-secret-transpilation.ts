@@ -3,6 +3,7 @@ import type { Context, MiddlewareType } from 'koa';
 import { errors } from 'oidc-provider';
 
 import type Queries from '#src/tenants/Queries.js';
+import { isRecord } from '#src/utils/type.js';
 
 const noVSCHAR = /[^\u0020-\u007E]/;
 
@@ -130,7 +131,14 @@ export default function koaAppSecretTranspilation<StateT, ContextT, ResponseBody
         `${clientId}:${result.originalSecret}`
       ).toString('base64')}`;
     } else if (ctx.method === 'POST') {
-      ctx.request.body.client_secret = result.originalSecret;
+      /**
+       * The body is guaranteed to be an object here — this branch is only reachable when
+       * `getCredentialsFromParams()` extracted a string `client_secret` from it. The check
+       * exists solely to narrow the JSON body type from koa-body.
+       */
+      if (isRecord(ctx.request.body)) {
+        ctx.request.body.client_secret = result.originalSecret;
+      }
     } else {
       ctx.query.client_secret = result.originalSecret;
     }

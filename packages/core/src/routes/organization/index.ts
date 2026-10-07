@@ -20,6 +20,7 @@ import organizationScopeRoutes from '../organization-scope/index.js';
 import { type ManagementApiRouter, type RouterInitArgs } from '../types.js';
 
 import applicationRoutes from './application/index.js';
+import { organizationResponseGuard } from './guards.js';
 import jitRoutes from './jit/index.js';
 import userRoutes from './user/index.js';
 import { errorHandler } from './utils.js';
@@ -58,6 +59,7 @@ export default function organizationRoutes<T extends ManagementApiRouter>(
     searchFields: ['name'],
     disabled: { get: true },
     idLength: 12,
+    entityGuard: organizationResponseGuard,
     hooks: {
       afterInsert: async (ctx) => {
         captureEvent({ tenantId, request: ctx.req }, ProductEvent.OrganizationCreated);
@@ -74,7 +76,7 @@ export default function organizationRoutes<T extends ManagementApiRouter>(
     koaGuard({
       query: z.object({ q: z.string().optional(), showFeatured: z.string().optional() }),
       response: (
-        Organizations.guard.merge(
+        organizationResponseGuard.merge(
           // For `showFeatured` query
           z
             .object({

@@ -1,44 +1,123 @@
 /* eslint-disable max-lines */
+import { appInsights } from '@logto/app-insights/node';
 import { TemplateType } from '@logto/connector-kit';
 import {
+  AuthenticationContextMode,
+  ConnectorType,
   InteractionEvent,
+  LogtoAcr,
   MfaFactor,
   MfaPolicy,
   SignInIdentifier,
   VerificationType,
   type Mfa,
+  type TrustedDevice,
+  type User,
 } from '@logto/schemas';
 import { pickDefault } from '@logto/shared/esm';
+import { conditional } from '@silverhand/essentials';
 import type { Middleware } from 'koa';
 import type { IRouterParamContext } from 'koa-router';
 
 import { mockSignInExperience } from '#src/__mocks__/sign-in-experience.js';
-import { mockUser, mockUserTotpMfaVerification } from '#src/__mocks__/user.js';
+import { createMockTrustedDevice } from '#src/__mocks__/trusted-device.js';
+import {
+  mockUser,
+  mockUserBackupCodeMfaVerification,
+  mockUserTotpMfaVerification,
+  mockUserWebAuthnMfaVerification,
+} from '#src/__mocks__/user.js';
 import { EnvSet } from '#src/env-set/index.js';
+import RequestError from '#src/errors/RequestError/index.js';
+import koaErrorHandler from '#src/middleware/koa-error-handler.js';
+import koaI18next from '#src/middleware/koa-i18next.js';
 import { createMockLogContext } from '#src/test-utils/koa-audit-log.js';
 import { createMockProvider } from '#src/test-utils/oidc-provider.js';
 import { MockTenant } from '#src/test-utils/tenant.js';
 import { createRequester } from '#src/utils/test-utils.js';
 
+import { MfaValidator } from './classes/libraries/mfa-validator.js';
+
 const { jest } = import.meta;
 
 const experienceRoutes = await pickDefault(import('./index.js'));
 
+const eligibleTrustedDeviceVerificationCases: Array<{
+  name: string;
+  factor: MfaFactor;
+  mfaVerification?: User['mfaVerifications'][number];
+  verificationRecord: Record<string, unknown>;
+}> = [
+  {
+    name: 'TOTP',
+    factor: MfaFactor.TOTP,
+    mfaVerification: mockUserTotpMfaVerification,
+    verificationRecord: {
+      id: 'totp-verification-id',
+      type: VerificationType.TOTP,
+      userId: mockUser.id,
+      verified: true,
+    },
+  },
+  {
+    name: 'WebAuthn',
+    factor: MfaFactor.WebAuthn,
+    mfaVerification: mockUserWebAuthnMfaVerification,
+    verificationRecord: {
+      id: 'webauthn-verification-id',
+      type: VerificationType.WebAuthn,
+      userId: mockUser.id,
+      verified: true,
+    },
+  },
+  {
+    name: 'email OTP',
+    factor: MfaFactor.EmailVerificationCode,
+    verificationRecord: {
+      id: 'email-mfa-verification-id',
+      type: VerificationType.MfaEmailVerificationCode,
+      identifier: { type: SignInIdentifier.Email, value: mockUser.primaryEmail },
+      templateType: TemplateType.MfaVerification,
+      verified: true,
+    },
+  },
+  {
+    name: 'SMS OTP',
+    factor: MfaFactor.PhoneVerificationCode,
+    verificationRecord: {
+      id: 'phone-mfa-verification-id',
+      type: VerificationType.MfaPhoneVerificationCode,
+      identifier: { type: SignInIdentifier.Phone, value: mockUser.primaryPhone },
+      templateType: TemplateType.MfaVerification,
+      verified: true,
+    },
+  },
+];
+
+const buildTrustedDevice = (userId: string): TrustedDevice =>
+  createMockTrustedDevice({ tenantId: 'tenant-id', userId });
+
 const createLogMiddleware = (): {
   middleware: Middleware<unknown, IRouterParamContext>;
+  createLog: jest.Mock;
   mockAppend: jest.Mock;
 } => {
-  const { createLog, prependAllLogEntries, mockAppend } = createMockLogContext();
+  const logContext = createMockLogContext();
 
   const middleware: Middleware<unknown, IRouterParamContext> = async (ctx, next) => {
     // @ts-expect-error -- mock log context
-    ctx.createLog = createLog;
+    ctx.createLog = logContext.createLog;
     // @ts-expect-error -- mock log context
-    ctx.prependAllLogEntries = prependAllLogEntries;
+    ctx.prependAllLogEntries = logContext.prependAllLogEntries;
     return next();
   };
 
-  return { middleware, mockAppend };
+  // `createMockLogContext` types `createLog` as the context member, while it really is a jest mock.
+  return {
+    middleware,
+    createLog: jest.mocked(logContext.createLog),
+    mockAppend: logContext.mockAppend,
+  };
 };
 
 const createRequesterWithMocks = ({
@@ -50,15 +129,24 @@ const createRequesterWithMocks = ({
   passwordExpiration = { enabled: false },
   interactionResult = {},
   persistInteractionResult = false,
+  trustedDevicePolicy = { enabled: false, durationDays: 30 },
+  trustedDeviceOptedOut = false,
+  interactionDetailsOverrides = {},
+  connectors = [],
 }: {
   interactionEvent?: InteractionEvent;
   adaptiveMfaEnabled?: boolean;
   user?: typeof mockUser;
   mfa?: Mfa;
   singleSignOnEnabled?: boolean;
-  passwordExpiration?: { enabled: boolean; validPeriodDays?: number; reminderPeriodDays?: number };
+  passwordExpiration?: { enabled: boolean; validPeriodDays?: number };
   interactionResult?: Record<string, unknown>;
   persistInteractionResult?: boolean;
+  trustedDevicePolicy?: { enabled: boolean; durationDays: number };
+  trustedDeviceOptedOut?: boolean;
+  /** Extra provider interaction fields, e.g. the login `prompt` and the `session`. */
+  interactionDetailsOverrides?: Record<string, unknown>;
+  connectors?: Array<{ type: ConnectorType }>;
 } = {}) => {
   const mockedInteractionDetails: {
     params: { client_id: string };
@@ -72,6 +160,7 @@ const createRequesterWithMocks = ({
       userId: user.id,
       ...interactionResult,
     },
+    ...interactionDetailsOverrides,
   };
   const interactionDetails = jest.fn().mockImplementation(async () => mockedInteractionDetails);
   const provider = createMockProvider(interactionDetails);
@@ -117,22 +206,60 @@ const createRequesterWithMocks = ({
       passwordExpiration,
     }),
   };
+  const getEffectivePolicy = jest.fn().mockResolvedValue(trustedDevicePolicy);
+  const hasCredential = jest.fn().mockReturnValue(true);
+  const hasOptOut = jest.fn().mockReturnValue(trustedDeviceOptedOut);
+  const validateCredential = jest.fn();
+  const createCredential = jest.fn();
+  const updateMetadata = jest.fn();
+  const writeOptOut = jest.fn();
 
-  const tenant = new MockTenant(provider, {
-    users,
-    signInExperiences,
-    userGeoLocations,
-    userSignInCountries,
-  });
+  const tenant = new MockTenant(
+    provider,
+    {
+      users,
+      signInExperiences,
+      userGeoLocations,
+      userSignInCountries,
+    },
+    { getLogtoConnectors: jest.fn().mockResolvedValue(connectors) },
+    {
+      trustedDevicePolicy: {
+        getEffectivePolicy,
+      },
+      trustedDevices: {
+        hasCredential,
+        hasOptOut,
+        validateCredential,
+        createCredential,
+        updateMetadata,
+        writeOptOut,
+      },
+    }
+  );
 
-  const { middleware: logMiddleware, mockAppend } = createLogMiddleware();
+  const { middleware: logMiddleware, createLog, mockAppend } = createLogMiddleware();
   const requester = createRequester({
     anonymousRoutes: experienceRoutes,
     tenantContext: tenant,
-    middlewares: [logMiddleware],
+    middlewares: [koaI18next(), koaErrorHandler(), logMiddleware],
   });
 
-  return { requester, userGeoLocations, userSignInCountries, mockAppend, users };
+  return {
+    requester,
+    userGeoLocations,
+    userSignInCountries,
+    createLog,
+    mockAppend,
+    users,
+    provider,
+    getEffectivePolicy,
+    validateCredential,
+    createCredential,
+    hasOptOut,
+    writeOptOut,
+    updateMetadata,
+  };
 };
 
 const createMfaRequiredRequester = () => {
@@ -149,6 +276,299 @@ const createMfaRequiredRequester = () => {
     },
   }).requester;
 };
+
+/** A requester whose provider interaction already stores the given authentication context. */
+const createStoredContextRequester = (authenticationContext: Record<string, unknown>) =>
+  createRequesterWithMocks({ interactionResult: { authenticationContext } });
+
+describe('PUT /experience', () => {
+  const stepUpContext = {
+    requestedAcrValues: [LogtoAcr.Mfa],
+    selectedAcr: LogtoAcr.Mfa,
+    mode: AuthenticationContextMode.StepUp,
+  };
+  const totpUser = { ...mockUser, mfaVerifications: [mockUserTotpMfaVerification] };
+  const totpMfa: Mfa = { policy: MfaPolicy.UserControlled, factors: [MfaFactor.TOTP] };
+
+  const createStepUpRequester = ({
+    user = totpUser,
+    withoutSession = false,
+    details = { authenticationContext: stepUpContext },
+  }: {
+    user?: User;
+    /** Create the interaction without an authenticated session. */
+    withoutSession?: boolean;
+    details?: Record<string, unknown>;
+  } = {}) =>
+    createRequesterWithMocks({
+      user,
+      mfa: totpMfa,
+      persistInteractionResult: true,
+      // A fresh provider interaction: nothing has been stored yet.
+      interactionResult: { interactionEvent: undefined, userId: undefined },
+      interactionDetailsOverrides: {
+        prompt: { name: 'login', reasons: ['acr_unmet'], details },
+        ...conditional(
+          !withoutSession && {
+            session: { accountId: user.id, acr: LogtoAcr.FirstFactor, amr: ['pwd'] },
+          }
+        ),
+      },
+      connectors: [{ type: ConnectorType.Email }],
+    });
+
+  it('should create a plain sign-in interaction', async () => {
+    const { requester, provider } = createRequesterWithMocks({
+      persistInteractionResult: true,
+      interactionResult: { interactionEvent: undefined, userId: undefined },
+      interactionDetailsOverrides: {
+        prompt: { name: 'login', reasons: ['no_session'], details: {} },
+      },
+    });
+
+    const response = await requester
+      .put('/experience')
+      .send({ interactionEvent: InteractionEvent.SignIn });
+
+    expect(response.status).toBe(204);
+    expect(provider.interactionResult).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ interactionEvent: InteractionEvent.SignIn }),
+      { mergeWithLastSubmission: true }
+    );
+    expect(jest.mocked(provider.interactionResult).mock.calls[0]?.[2]).not.toHaveProperty(
+      'authenticationContext'
+    );
+
+    const interaction = await requester.get('/experience/interaction');
+
+    expect(interaction.status).toBe(200);
+    expect(interaction.body).not.toHaveProperty('userId');
+    expect(interaction.body).not.toHaveProperty('authenticationContext');
+  });
+
+  it('should pin the subject of a step-up and expose the context', async () => {
+    const { requester, provider } = createStepUpRequester();
+
+    const response = await requester
+      .put('/experience')
+      .send({ interactionEvent: InteractionEvent.SignIn });
+
+    expect(response.status).toBe(204);
+    expect(provider.interactionResult).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ authenticationContext: stepUpContext }),
+      { mergeWithLastSubmission: true }
+    );
+    // The subject is not written into storage: nothing has verified it yet.
+    expect(jest.mocked(provider.interactionResult).mock.calls[0]?.[2]).toMatchObject({
+      userId: undefined,
+    });
+
+    const interaction = await requester.get('/experience/interaction');
+
+    expect(interaction.status).toBe(200);
+    expect(interaction.body).not.toHaveProperty('userId');
+    expect(interaction.body).toMatchObject({
+      interactionEvent: InteractionEvent.SignIn,
+      authenticationContext: {
+        ...stepUpContext,
+        availableMethods: [VerificationType.TOTP],
+        establishableMethods: [],
+        enrollableFactors: [],
+        subjectProofConnectors: [],
+        maskedIdentifiers: { email: '****@logto.io' },
+      },
+    });
+  });
+
+  it('should finish a step-up the pinned user cannot reach with unmet_authentication_requirements', async () => {
+    const { requester, provider } = createStepUpRequester({ user: mockUser });
+
+    const response = await requester
+      .put('/experience')
+      .send({ interactionEvent: InteractionEvent.SignIn });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ redirectTo: 'redirectTo' });
+    expect(provider.interactionResult).toHaveBeenCalledTimes(1);
+    expect(provider.interactionResult).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ error: 'unmet_authentication_requirements' })
+    );
+  });
+
+  it('should reject a step-up with a non-sign-in event', async () => {
+    const { requester, provider } = createStepUpRequester();
+
+    const response = await requester
+      .put('/experience')
+      .send({ interactionEvent: InteractionEvent.Register });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ code: 'session.step_up.invalid_interaction_event' });
+    expect(provider.interactionResult).not.toHaveBeenCalled();
+  });
+
+  it('should reject a step-up without a session subject', async () => {
+    const { requester, provider } = createStepUpRequester({ withoutSession: true });
+
+    const response = await requester
+      .put('/experience')
+      .send({ interactionEvent: InteractionEvent.SignIn });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ code: 'session.step_up.subject_not_found' });
+    expect(provider.interactionResult).not.toHaveBeenCalled();
+  });
+
+  describe('when the pinned subject no longer exists', () => {
+    // `findUserById` uses `pool.one`, whose `NotFoundError` is mapped to this error by
+    // `koaSlonikErrorHandler` when the user row has been deleted.
+    const subjectNotFound = new RequestError({ code: 'entity.not_found', status: 404 });
+
+    it('should respond 404 on creation', async () => {
+      const { requester, provider, users } = createStepUpRequester();
+      users.findUserById.mockRejectedValueOnce(subjectNotFound);
+
+      const response = await requester
+        .put('/experience')
+        .send({ interactionEvent: InteractionEvent.SignIn });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toMatchObject({ code: 'entity.not_found' });
+      expect(provider.interactionResult).not.toHaveBeenCalled();
+    });
+
+    it('should respond 404 on fetching the interaction', async () => {
+      const { requester, users } = createStepUpRequester();
+
+      const created = await requester
+        .put('/experience')
+        .send({ interactionEvent: InteractionEvent.SignIn });
+      expect(created.status).toBe(204);
+
+      users.findUserById.mockRejectedValueOnce(subjectNotFound);
+
+      const response = await requester.get('/experience/interaction');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toMatchObject({ code: 'entity.not_found' });
+    });
+  });
+});
+
+describe('step-up route allow-list', () => {
+  const stepUpContext = {
+    requestedAcrValues: [LogtoAcr.FirstFactor],
+    selectedAcr: LogtoAcr.FirstFactor,
+    mode: AuthenticationContextMode.StepUp,
+  };
+
+  const forbiddenPostRoutes = [
+    '/experience/verification/totp/secret',
+    '/experience/verification/backup-code/generate',
+    '/experience/verification/web-authn/registration',
+    '/experience/verification/one-time-token/verify',
+    '/experience/verification/new-password-identity',
+    '/experience/verification/sign-in-passkey/authentication',
+    '/experience/verification/social/connector-id/authorization-uri',
+    '/experience/verification/sso/connector-id/authorization-uri',
+    '/experience/profile',
+    '/experience/profile/mfa/mfa-skipped',
+    '/experience/profile/mfa/mfa-enabled',
+    '/experience/profile/trusted-device',
+    '/experience/user-assets/avatar',
+  ];
+
+  it.each(forbiddenPostRoutes)('should return 403 for %s in pure step-up', async (path) => {
+    const { requester } = createStoredContextRequester(stepUpContext);
+    const response = await requester.post(path).send();
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ code: 'session.step_up.forbidden_route' });
+  });
+
+  it('should return 403 for interaction-event switching in pure step-up', async () => {
+    const { requester } = createStoredContextRequester(stepUpContext);
+    const response = await requester
+      .put('/experience/interaction-event')
+      .send({ interactionEvent: InteractionEvent.Register });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ code: 'session.step_up.forbidden_route' });
+  });
+
+  it('should return 403 for a raw identifier on the password route in pure step-up', async () => {
+    const { requester } = createStoredContextRequester(stepUpContext);
+    const response = await requester.post('/experience/verification/password').send({
+      identifier: { type: SignInIdentifier.Email, value: mockUser.primaryEmail },
+      password: 'Password123',
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ code: 'session.step_up.forbidden_identifier' });
+  });
+
+  it('should return 403 for raw identifier payloads on the verification code routes in pure step-up', async () => {
+    const { requester } = createStoredContextRequester(stepUpContext);
+
+    const sendResponse = await requester.post('/experience/verification/verification-code').send({
+      identifier: { type: SignInIdentifier.Email, value: mockUser.primaryEmail },
+      interactionEvent: InteractionEvent.SignIn,
+    });
+
+    expect(sendResponse.status).toBe(403);
+    expect(sendResponse.body).toMatchObject({ code: 'session.step_up.forbidden_identifier' });
+
+    const verifyResponse = await requester
+      .post('/experience/verification/verification-code/verify')
+      .send({
+        identifier: { type: SignInIdentifier.Email, value: mockUser.primaryEmail },
+        verificationId: 'verification-id',
+        code: '000000',
+      });
+
+    expect(verifyResponse.status).toBe(403);
+    expect(verifyResponse.body).toMatchObject({ code: 'session.step_up.forbidden_identifier' });
+  });
+
+  it('should allow reading the interaction in pure step-up', async () => {
+    const { requester } = createStoredContextRequester(stepUpContext);
+    const response = await requester.get('/experience/interaction');
+
+    expect(response.status).toBe(200);
+  });
+
+  it('should not forbid submitting in pure step-up', async () => {
+    const { requester } = createStoredContextRequester(stepUpContext);
+    const response = await requester.post('/experience/submit');
+
+    // The route stays reachable; the submission itself fails the ACR assertion, not the allow-list.
+    expect(response.body).not.toMatchObject({ code: 'session.step_up.forbidden_route' });
+  });
+
+  it('should not restrict a SignIn with a requested ACR', async () => {
+    const { requester } = createStoredContextRequester({ requestedAcrValues: [LogtoAcr.Mfa] });
+    const response = await requester
+      .put('/experience/interaction-event')
+      .send({ interactionEvent: InteractionEvent.SignIn });
+
+    expect(response.status).toBe(204);
+  });
+
+  it('should not restrict a plain interaction', async () => {
+    const { requester } = createRequesterWithMocks();
+    const response = await requester
+      .put('/experience/interaction-event')
+      .send({ interactionEvent: InteractionEvent.SignIn });
+
+    expect(response.status).toBe(204);
+  });
+});
 
 describe('POST /experience/profile', () => {
   it('should keep MFA guard for non-social profile updates during sign-in', async () => {
@@ -184,13 +604,41 @@ describe('POST /experience/profile', () => {
 describe('POST /experience/submit', () => {
   const originalIsDevFeaturesEnabled = EnvSet.values.isDevFeaturesEnabled;
   const setDevFeaturesEnabled = (enabled: boolean) => {
-    // eslint-disable-next-line @silverhand/fp/no-mutation
+    // eslint-disable-next-line @silverhand/fp/no-mutation -- Exercise route behavior in the selected feature environment.
     (EnvSet.values as { isDevFeaturesEnabled: boolean }).isDevFeaturesEnabled = enabled;
   };
 
   afterEach(() => {
     setDevFeaturesEnabled(originalIsDevFeaturesEnabled);
     jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('should submit a pure step-up under the step-up audit key and reject an unmet context', async () => {
+    const { requester, createLog } = createRequesterWithMocks({
+      interactionResult: {
+        authenticationContext: {
+          requestedAcrValues: [LogtoAcr.Mfa],
+          selectedAcr: LogtoAcr.Mfa,
+          mode: AuthenticationContextMode.StepUp,
+        },
+      },
+    });
+
+    const response = await requester.post('/experience/submit');
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ code: 'session.step_up.acr_not_satisfied' });
+    expect(createLog).toHaveBeenCalledWith('Interaction.SignIn.StepUp.Submit');
+  });
+
+  it('should keep the sign-in submit path and audit key for a non-step-up interaction', async () => {
+    const { requester, createLog } = createRequesterWithMocks();
+
+    const response = await requester.post('/experience/submit');
+
+    expect(response.status).toBe(200);
+    expect(createLog).toHaveBeenCalledWith('Interaction.SignIn.Submit');
   });
 
   it('should record geo context when dev features are disabled', async () => {
@@ -468,6 +916,673 @@ describe('POST /experience/submit', () => {
     expect(userSignInCountries.upsertUserSignInCountry).toHaveBeenCalledWith(mockUser.id, 'JP');
   });
 
+  it.each(eligibleTrustedDeviceVerificationCases)(
+    'should create a trusted device after eligible $name verification and explicit opt-in',
+    async ({ factor, mfaVerification, verificationRecord }) => {
+      setDevFeaturesEnabled(false);
+      const user = {
+        ...mockUser,
+        mfaVerifications: mfaVerification ? [mfaVerification] : [],
+      };
+      const { requester, createCredential } = createRequesterWithMocks({
+        user,
+        mfa: { policy: MfaPolicy.Mandatory, factors: [factor] },
+        interactionResult: { verificationRecords: [verificationRecord] },
+        persistInteractionResult: true,
+        trustedDevicePolicy: { enabled: true, durationDays: 30 },
+      });
+
+      const optInResponse = await requester
+        .post('/experience/profile/trusted-device')
+        .send({ trusted: true });
+      const response = await requester
+        .post('/experience/submit')
+        .set('User-Agent', 'Trusted device test browser')
+        .set('x-logto-cf-country', 'us')
+        .set('x-logto-cf-city', 'Portland');
+
+      expect(optInResponse.status).toBe(204);
+      expect(response.status).toBe(200);
+      const payload = createCredential.mock.calls[0]?.[0] as
+        | {
+            ctx?: unknown;
+            deviceId?: string;
+            userId?: string;
+            userAgent?: string;
+            ip?: string;
+            country?: string;
+            city?: string;
+          }
+        | undefined;
+      expect(payload).toMatchObject({
+        userId: user.id,
+        userAgent: 'Trusted device test browser',
+        country: 'US',
+        city: 'Portland',
+      });
+      expect(typeof payload?.deviceId).toBe('string');
+      expect(payload?.ctx).toBeDefined();
+      expect(typeof payload?.ip).toBe('string');
+    }
+  );
+
+  it('should consume the trusted-device opt-in decision after a successful submit', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, provider, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      interactionResult: {
+        verificationRecords: [
+          {
+            id: 'totp-verification-id',
+            type: VerificationType.TOTP,
+            userId: user.id,
+            verified: true,
+          },
+        ],
+      },
+      persistInteractionResult: true,
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const optInResponse = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: true });
+    const repeatedOptInResponse = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: true });
+    const firstSubmitResponse = await requester.post('/experience/submit');
+
+    expect(optInResponse.status).toBe(204);
+    expect(repeatedOptInResponse.status).toBe(204);
+    expect(firstSubmitResponse.status).toBe(200);
+    const interactionResultCalls = (provider.interactionResult as jest.Mock).mock.calls;
+    const firstOptInResult = interactionResultCalls[0]?.[2] as Record<string, unknown> | undefined;
+    const repeatedOptInResult = interactionResultCalls[1]?.[2] as
+      | Record<string, unknown>
+      | undefined;
+    const firstSubmitResult = interactionResultCalls[2]?.[2] as Record<string, unknown> | undefined;
+    expect(firstOptInResult?.trustedDeviceOptIn).toEqual(repeatedOptInResult?.trustedDeviceOptIn);
+    expect(firstSubmitResult).not.toHaveProperty('trustedDeviceOptIn');
+    expect(createCredential).toHaveBeenCalledTimes(1);
+    expect(createCredential).toHaveBeenCalledWith(expect.objectContaining({ userId: user.id }));
+    const creationPayload = createCredential.mock.calls[0]?.[0] as
+      | { deviceId?: unknown }
+      | undefined;
+    expect(typeof creationPayload?.deviceId).toBe('string');
+  });
+
+  it('should use one idempotency key for concurrent submits restored from the same interaction', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      interactionResult: {
+        trustedDeviceOptIn: { trusted: true, deviceId: 'trusted-device-id' },
+        verificationRecords: [
+          {
+            id: 'totp-verification-id',
+            type: VerificationType.TOTP,
+            userId: user.id,
+            verified: true,
+          },
+        ],
+      },
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const responses = await Promise.all([
+      requester.post('/experience/submit'),
+      requester.post('/experience/submit'),
+    ]);
+
+    expect(responses.map(({ status }) => status)).toEqual([200, 200]);
+    expect(createCredential).toHaveBeenCalledTimes(2);
+    expect(createCredential.mock.calls.map(([{ deviceId }]) => deviceId)).toEqual([
+      'trusted-device-id',
+      'trusted-device-id',
+    ]);
+  });
+
+  it('should suggest a trusted-device opt-in decision before completing an eligible sign-in', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      interactionResult: {
+        verificationRecords: [
+          {
+            id: 'totp-verification-id',
+            type: VerificationType.TOTP,
+            userId: user.id,
+            verified: true,
+          },
+        ],
+      },
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const response = await requester.post('/experience/submit');
+
+    expect(response.status).toBe(422);
+    expect(response.body).toMatchObject({
+      code: 'session.trusted_device_suggest_opt_in',
+      data: { durationDays: 30 },
+    });
+    expect(createCredential).not.toHaveBeenCalled();
+  });
+
+  it('should complete an eligible sign-in without creating a trusted device after opt-in is skipped', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, createCredential, writeOptOut } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      interactionResult: {
+        verificationRecords: [
+          {
+            id: 'totp-verification-id',
+            type: VerificationType.TOTP,
+            userId: user.id,
+            verified: true,
+          },
+        ],
+      },
+      persistInteractionResult: true,
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const optInResponse = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: false });
+    const response = await requester.post('/experience/submit');
+
+    expect(optInResponse.status).toBe(204);
+    expect(response.status).toBe(200);
+    expect(writeOptOut).toHaveBeenCalledWith(expect.anything(), user.id, 30);
+    expect(createCredential).not.toHaveBeenCalled();
+  });
+
+  it('should persist an opt-out decision before eligible MFA proof is available', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, writeOptOut } = createRequesterWithMocks({
+      interactionEvent: InteractionEvent.Register,
+      user,
+      mfa: { policy: MfaPolicy.NoPrompt, factors: [MfaFactor.TOTP] },
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const response = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: false });
+
+    expect(response.status).toBe(204);
+    expect(writeOptOut).toHaveBeenCalledWith(expect.anything(), user.id, 30);
+  });
+
+  it('should skip the opt-in suggestion when the browser has a persisted opt-out marker', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, createCredential, hasOptOut } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      interactionResult: {
+        verificationRecords: [
+          {
+            id: 'totp-verification-id',
+            type: VerificationType.TOTP,
+            userId: user.id,
+            verified: true,
+          },
+        ],
+      },
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+      trustedDeviceOptedOut: true,
+    });
+
+    const response = await requester.post('/experience/submit');
+
+    expect(response.status).toBe(200);
+    expect(hasOptOut).toHaveBeenCalledWith(expect.anything(), user.id);
+    expect(createCredential).not.toHaveBeenCalled();
+  });
+
+  it.each([{}, { trusted: 'true' }])(
+    'should reject an invalid trusted-device decision payload %#',
+    async (payload) => {
+      setDevFeaturesEnabled(false);
+      const response = await createMfaRequiredRequester()
+        .post('/experience/profile/trusted-device')
+        .send(payload);
+
+      expect(response.status).toBe(400);
+    }
+  );
+
+  it('should remove the MFA-nested trusted-device endpoint', async () => {
+    setDevFeaturesEnabled(false);
+    const response = await createMfaRequiredRequester()
+      .post('/experience/profile/mfa/trusted-device')
+      .send({ trusted: true });
+
+    expect(response.status).toBe(404);
+  });
+
+  it('should not treat trusted-device intent as MFA proof', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const response = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: true });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ code: 'session.mfa.require_mfa_verification' });
+    expect(createCredential).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: 'TOTP',
+      mfaData: {
+        mfaEnabled: true,
+        totp: { type: MfaFactor.TOTP, secret: 'totp-secret' },
+      },
+      factor: MfaFactor.TOTP,
+    },
+    {
+      name: 'WebAuthn',
+      mfaData: {
+        mfaEnabled: true,
+        webAuthn: [
+          {
+            type: MfaFactor.WebAuthn,
+            rpId: 'logto.test',
+            credentialId: 'credential-id',
+            publicKey: 'public-key',
+            counter: 0,
+            agent: 'test-agent',
+            transports: [],
+          },
+        ],
+      },
+      factor: MfaFactor.WebAuthn,
+    },
+  ])(
+    'should create a trusted device after eligible $name binding and explicit opt-in',
+    async ({ mfaData, factor }) => {
+      setDevFeaturesEnabled(false);
+      const { requester, createCredential } = createRequesterWithMocks({
+        interactionEvent: InteractionEvent.Register,
+        mfa: { policy: MfaPolicy.Mandatory, factors: [factor] },
+        interactionResult: { mfa: mfaData },
+        persistInteractionResult: true,
+        trustedDevicePolicy: { enabled: true, durationDays: 30 },
+      });
+
+      const optInResponse = await requester
+        .post('/experience/profile/trusted-device')
+        .send({ trusted: true });
+      const response = await requester.post('/experience/submit');
+
+      expect(optInResponse.status).toBe(204);
+      expect(response.status).toBe(200);
+      expect(createCredential).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: mockUser.id })
+      );
+    }
+  );
+
+  it('should exclude backup-code verification from trusted-device creation', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification, mockUserBackupCodeMfaVerification],
+    };
+    const { requester, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: {
+        policy: MfaPolicy.Mandatory,
+        factors: [MfaFactor.TOTP, MfaFactor.BackupCode],
+      },
+      interactionResult: {
+        verificationRecords: [
+          {
+            id: 'backup-code-verification-id',
+            type: VerificationType.BackupCode,
+            userId: user.id,
+            code: 'code',
+          },
+        ],
+      },
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const response = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: true });
+
+    expect(response.status).toBe(403);
+    expect(createCredential).not.toHaveBeenCalled();
+  });
+
+  it('should exclude a verified MFA factor that is disabled in the sign-in experience', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [] },
+      interactionResult: {
+        verificationRecords: [
+          {
+            id: 'totp-verification-id',
+            type: VerificationType.TOTP,
+            userId: user.id,
+            verified: true,
+          },
+        ],
+      },
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const response = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: true });
+
+    expect(response.status).toBe(403);
+    expect(createCredential).not.toHaveBeenCalled();
+  });
+
+  it('should not treat a BindMfa-templated profile identifier as an MFA binding', async () => {
+    setDevFeaturesEnabled(false);
+    const primaryEmail = 'profile-only@logto.dev';
+    const user = {
+      ...mockUser,
+      primaryEmail: null,
+      mfaVerifications: [],
+    };
+    const { requester, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [] },
+      interactionResult: {
+        profile: { primaryEmail },
+        verificationRecords: [
+          {
+            id: 'email-verification-id',
+            type: VerificationType.EmailVerificationCode,
+            identifier: { type: SignInIdentifier.Email, value: primaryEmail },
+            templateType: TemplateType.BindMfa,
+            verified: true,
+          },
+        ],
+      },
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const response = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: true });
+
+    expect(response.status).toBe(403);
+    expect(createCredential).not.toHaveBeenCalled();
+  });
+
+  it('should update a verifying trusted device best effort without creating a duplicate', async () => {
+    setDevFeaturesEnabled(false);
+    const metadataError = new Error('trusted-device metadata update failed');
+    const trackException = jest.spyOn(appInsights, 'trackException').mockResolvedValue();
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, createCredential, updateMetadata, validateCredential } =
+      createRequesterWithMocks({
+        user,
+        mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+        trustedDevicePolicy: { enabled: true, durationDays: 30 },
+      });
+    validateCredential.mockResolvedValueOnce(buildTrustedDevice(user.id));
+    updateMetadata.mockRejectedValueOnce(metadataError);
+
+    const response = await requester.post('/experience/submit').set('x-logto-cf-country', 'US');
+
+    expect(response.status).toBe(200);
+    expect(updateMetadata).toHaveBeenCalledWith(
+      'trusted-device-id',
+      user.id,
+      expect.objectContaining({ country: 'US' })
+    );
+    expect(createCredential).not.toHaveBeenCalled();
+    expect(trackException).toHaveBeenCalledWith(metadataError, expect.any(Object));
+  });
+
+  it('should revalidate the trusted-device credential on each Experience request', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const trustedDevice = buildTrustedDevice(user.id);
+    const { requester, getEffectivePolicy, validateCredential, updateMetadata } =
+      createRequesterWithMocks({
+        user,
+        mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+        persistInteractionResult: true,
+        trustedDevicePolicy: { enabled: true, durationDays: 30 },
+      });
+    validateCredential.mockResolvedValue(trustedDevice);
+    updateMetadata.mockResolvedValue(trustedDevice);
+
+    const intermediateResponse = await requester.post(
+      '/experience/profile/mfa/mfa-suggestion-skipped'
+    );
+    const submitResponse = await requester.post('/experience/submit');
+
+    expect(intermediateResponse.status).toBe(204);
+    expect(submitResponse.status).toBe(200);
+    expect(getEffectivePolicy).toHaveBeenCalledTimes(2);
+    expect(validateCredential).toHaveBeenCalledTimes(2);
+    expect(updateMetadata).toHaveBeenCalledWith('trusted-device-id', user.id, expect.any(Object));
+  });
+
+  it('should require MFA when the trusted device becomes inactive between requests', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, validateCredential, updateMetadata } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      persistInteractionResult: true,
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+    validateCredential
+      .mockResolvedValueOnce(buildTrustedDevice(user.id))
+      .mockResolvedValueOnce(null);
+
+    const intermediateResponse = await requester.post(
+      '/experience/profile/mfa/mfa-suggestion-skipped'
+    );
+    const submitResponse = await requester.post('/experience/submit');
+
+    expect(intermediateResponse.status).toBe(204);
+    expect(submitResponse.status).toBe(403);
+    expect(validateCredential).toHaveBeenCalledTimes(2);
+    expect(updateMetadata).not.toHaveBeenCalled();
+  });
+
+  it('should omit trusted-device location when the current context has none', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, updateMetadata, validateCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+    validateCredential.mockResolvedValueOnce(buildTrustedDevice(user.id));
+
+    const response = await requester.post('/experience/submit');
+    const metadata = updateMetadata.mock.calls[0]?.[2] as Record<string, unknown> | undefined;
+
+    expect(response.status).toBe(200);
+    expect(updateMetadata).toHaveBeenCalledWith('trusted-device-id', user.id, expect.any(Object));
+    expect(metadata).not.toHaveProperty('country');
+    expect(metadata).not.toHaveProperty('city');
+  });
+
+  it('should keep submit successful when trusted-device creation fails', async () => {
+    setDevFeaturesEnabled(false);
+    const creationError = new Error('trusted-device creation failed');
+    const trackException = jest.spyOn(appInsights, 'trackException').mockResolvedValue();
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      interactionResult: {
+        verificationRecords: [
+          {
+            id: 'totp-verification-id',
+            type: VerificationType.TOTP,
+            userId: user.id,
+            verified: true,
+          },
+        ],
+      },
+      persistInteractionResult: true,
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+    createCredential.mockRejectedValueOnce(creationError);
+
+    const optInResponse = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: true });
+    const response = await requester.post('/experience/submit');
+
+    expect(optInResponse.status).toBe(204);
+    expect(response.status).toBe(200);
+    expect(createCredential).toHaveBeenCalledTimes(1);
+    expect(trackException).toHaveBeenCalledWith(creationError, expect.any(Object));
+  });
+
+  it('should keep submit successful when trusted-device proof eligibility fails', async () => {
+    setDevFeaturesEnabled(false);
+    const eligibilityError = new Error('trusted-device proof eligibility failed');
+    const trackException = jest.spyOn(appInsights, 'trackException').mockResolvedValue();
+    const hasEligibleTrustedDeviceVerification = jest
+      .spyOn(MfaValidator.prototype, 'hasEligibleTrustedDeviceVerification')
+      .mockReturnValueOnce(true)
+      .mockImplementationOnce(() => {
+        throw eligibilityError;
+      });
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      interactionResult: {
+        verificationRecords: [
+          {
+            id: 'totp-verification-id',
+            type: VerificationType.TOTP,
+            userId: user.id,
+            verified: true,
+          },
+        ],
+      },
+      persistInteractionResult: true,
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+
+    const optInResponse = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: true });
+    const submitResponse = await requester.post('/experience/submit');
+
+    expect(optInResponse.status).toBe(204);
+    expect(submitResponse.status).toBe(200);
+    expect(hasEligibleTrustedDeviceVerification).toHaveBeenCalledTimes(2);
+    expect(createCredential).not.toHaveBeenCalled();
+    expect(trackException).toHaveBeenCalledWith(eligibilityError, expect.any(Object));
+  });
+
+  it('should not create a trusted device when the complete interaction fails', async () => {
+    setDevFeaturesEnabled(false);
+    const user = {
+      ...mockUser,
+      mfaVerifications: [mockUserTotpMfaVerification],
+    };
+    const { requester, provider, createCredential } = createRequesterWithMocks({
+      user,
+      mfa: { policy: MfaPolicy.Mandatory, factors: [MfaFactor.TOTP] },
+      interactionResult: {
+        verificationRecords: [
+          {
+            id: 'totp-verification-id',
+            type: VerificationType.TOTP,
+            userId: user.id,
+            verified: true,
+          },
+        ],
+      },
+      persistInteractionResult: true,
+      trustedDevicePolicy: { enabled: true, durationDays: 30 },
+    });
+    const optInResponse = await requester
+      .post('/experience/profile/trusted-device')
+      .send({ trusted: true });
+    (provider.interactionResult as jest.Mock).mockRejectedValueOnce(
+      new Error('interaction submission failed')
+    );
+
+    const response = await requester.post('/experience/submit');
+
+    expect(optInResponse.status).toBe(204);
+    expect(response.status).toBe(500);
+    expect(createCredential).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       name: 'email',
@@ -497,7 +1612,7 @@ describe('POST /experience/submit', () => {
         mfaVerifications: [],
       };
 
-      const { requester, users, mockAppend } = createRequesterWithMocks({
+      const { requester, users, mockAppend, createCredential } = createRequesterWithMocks({
         adaptiveMfaEnabled: true,
         user,
         mfa: {
@@ -520,6 +1635,7 @@ describe('POST /experience/submit', () => {
           ],
         },
         persistInteractionResult: true,
+        trustedDevicePolicy: { enabled: true, durationDays: 30 },
       });
 
       const bindResponse = await requester.post('/experience/profile/mfa').send({
@@ -528,9 +1644,13 @@ describe('POST /experience/submit', () => {
       });
       expect(bindResponse.status).toBe(204);
 
+      const optInResponse = await requester
+        .post('/experience/profile/trusted-device')
+        .send({ trusted: true });
       const submitResponse = await requester
         .post('/experience/submit')
         .set('x-logto-cf-bot-score', '10');
+      expect(optInResponse.status).toBe(204);
       expect(submitResponse.status).toBe(200);
 
       expect(users.updateUserById).toHaveBeenCalledWith(
@@ -544,6 +1664,7 @@ describe('POST /experience/submit', () => {
         )
         .find(Boolean);
       expect(adaptiveMfaResult?.requiresMfa).toBe(true);
+      expect(createCredential).toHaveBeenCalledWith(expect.objectContaining({ userId: user.id }));
     }
   );
 });

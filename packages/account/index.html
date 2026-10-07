@@ -26,18 +26,13 @@
 
       try {
         var ssr = window.logtoSsr;
-        // In local development or if SSR is not evaluated, we still want to default isDarkModeEnabled to true so system preference works
-        var isDarkModeEnabled = true;
-        if (typeof ssr === 'object' && ssr !== null
+        var darkOk = typeof ssr === 'object' && ssr !== null
           && ssr.signInExperience && ssr.signInExperience.data
-          && ssr.signInExperience.data.color) {
-          isDarkModeEnabled = ssr.signInExperience.data.color.isDarkModeEnabled;
-        }
+          && ssr.signInExperience.data.color.isDarkModeEnabled;
         var prefersDark = typeof window.matchMedia === 'function'
           && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        theme = (isDarkModeEnabled && prefersDark) ? 'dark' : 'light';
+        theme = (darkOk && prefersDark) ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', theme);
-
         if (typeof ssr === 'object' && ssr !== null && ssr.signInExperience
           && ssr.signInExperience.data && ssr.signInExperience.data.color) {
           var color = ssr.signInExperience.data.color;

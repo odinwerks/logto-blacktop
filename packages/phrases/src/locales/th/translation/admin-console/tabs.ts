@@ -1,4 +1,5 @@
 const tabs = {
+  actions: 'Actions',
   get_started: 'เริ่มต้นใช้งาน',
   dashboard: 'แดชบอร์ด',
   applications: 'แอปพลิเคชัน',

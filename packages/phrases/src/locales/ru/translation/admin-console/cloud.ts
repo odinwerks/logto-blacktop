@@ -1,4 +1,36 @@
 const cloud = {
+  console_sso: {
+    back_to_list: 'Вернуться к SSO консоли',
+    create: 'Добавить коннектор',
+    title: 'SSO консоли',
+    description:
+      'Настройте своего поставщика удостоверений для входа в Logto Console с помощью единого входа.',
+    domain_bound: 'Привязан',
+    domain_pending: 'Проверяется',
+    domain_verify_step: 'Подтвердите домен',
+    domain_bind_step: 'Привязать почтовый домен',
+    domain_add_placeholder: 'Добавить домен электронной почты',
+    domain_bound_description:
+      'Этот домен активен для Console SSO. Его TXT-запись для проверки удалена.',
+    domain_dns_instructions:
+      'Добавьте эту TXT-запись у поставщика DNS, чтобы подтвердить владение доменом.',
+    domain_waiting_for_dns: 'Ожидание TXT-записи. Повторная проверка каждые 10 секунд.',
+    domain_proven_unbound: 'Владение доменом подтверждено, но привязка не завершена.',
+    domain_verified: 'Владение доменом подтверждено.',
+    domain_binding_pending: 'Привязка начнётся автоматически после подтверждения.',
+    domain_remove_description:
+      'Удалить {{domain}} из Console SSO? После удаления привязанного домена обнаружение SSO для его адресов электронной почты прекратится.',
+    domain_invalid: 'Введите допустимый домен электронной почты.',
+    domain_conflict: 'Этот домен уже привязан к другому коннектору Console SSO.',
+    domain_invalid_provider: 'Завершите настройку подключения перед привязкой этого домена.',
+    domain_dns_timeout: 'Проверка DNS не удалась. Мы повторим попытку автоматически.',
+    domain_recovery: 'Изменение домена не завершено.',
+    start_over: 'Начать заново',
+    start_over_confirmation:
+      'Если начать заново, незавершённая конфигурация SSO может быть удалена. Хотите продолжить?',
+    resume_creation:
+      'Обнаружено незавершённое создание. Продолжите с тем же поставщиком, чтобы восстановить этот коннектор.',
+  },
   general: {
     onboarding: 'Вводный курс',
   },
@@ -8,6 +40,19 @@ const cloud = {
     description:
       'Арендатор – это изолированная среда, где вы можете управлять пользовательскими идентификаторами, приложениями и всеми другими ресурсами Logto.',
     invite_collaborators: 'Пригласите ваших сотрудников по электронной почте',
+    hear_about_us: {
+      title: 'Как вы впервые узнали о Logto?',
+      detail_placeholder: 'Расскажите подробнее (необязательно)',
+      options: {
+        search_engine: 'Поисковая система (Google, Bing...)',
+        ai_assistant: 'ИИ-ассистент (ChatGPT, Claude, Gemini...)',
+        github_oss: 'GitHub или каталоги open source',
+        friend_colleague: 'Друг или коллега',
+        powered_by: 'Страница входа приложения, использующего Logto',
+        content_social: 'Социальные сети, статья или видео (YouTube, X, Reddit...)',
+        other: 'Другое',
+      },
+    },
   },
   social_callback: {
     title: 'Вход выполнен успешно',

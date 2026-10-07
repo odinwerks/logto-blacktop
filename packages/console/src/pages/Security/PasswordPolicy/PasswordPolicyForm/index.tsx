@@ -78,7 +78,7 @@ function PasswordPolicyForm({ data }: Props) {
     })
   );
 
-  const { hasAvailableForgotPasswordMethod } = data;
+  const { hasAvailableForgotPasswordMethod, hasContactSignUpIdentifier } = data;
 
   return (
     <>
@@ -211,6 +211,7 @@ function PasswordPolicyForm({ data }: Props) {
           </FormCard>
           <PasswordExpirationCard
             hasAvailableForgotPasswordMethod={hasAvailableForgotPasswordMethod}
+            hasContactSignUpIdentifier={hasContactSignUpIdentifier}
           />
         </DetailsForm>
       </FormProvider>

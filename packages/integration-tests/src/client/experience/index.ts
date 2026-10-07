@@ -5,17 +5,24 @@ import {
   type IdentificationApiPayload,
   type InteractionEvent,
   type MfaFactor,
-  type PasswordVerificationPayload,
+  type PasswordVerificationRequestBody,
   type UpdateProfileApiPayload,
-  type VerificationCodeIdentifier,
+  type VerificationCodeIdentifierPayload,
   type WebAuthnAuthenticationOptions,
   type WebAuthnVerificationPayload,
 } from '@logto/schemas';
+import { assert } from '@silverhand/essentials';
 
 import MockClient from '#src/client/index.js';
 
 import { experienceRoutes } from './const.js';
 import type { SanitizedInteractionStorageData, RedirectResponse } from './types.js';
+
+const isRedirectResponse = (data: unknown): data is RedirectResponse =>
+  typeof data === 'object' &&
+  data !== null &&
+  'redirectTo' in data &&
+  typeof data.redirectTo === 'string';
 
 export class ExperienceClient extends MockClient {
   public extraHeaders: Record<string, string> = {};
@@ -40,22 +47,50 @@ export class ExperienceClient extends MockClient {
       .json();
   }
 
-  public async initInteraction(payload: CreateExperienceApiPayload) {
-    return this.api
-      .put(experienceRoutes.prefix, {
-        headers: this.headers,
-        json: payload,
-      })
-      .json();
+  /**
+   * Init the interaction. Resolves with the redirect response when a step-up interaction was
+   * finished at creation because the pinned user cannot reach the requested authentication
+   * context, and with `undefined` otherwise.
+   */
+  public async initInteraction(
+    payload: CreateExperienceApiPayload
+  ): Promise<RedirectResponse | undefined> {
+    const response = await this.api.put(experienceRoutes.prefix, {
+      headers: this.headers,
+      json: payload,
+    });
+
+    this.mergeRawCookies(response.headers.getSetCookie());
+
+    if (response.status === 204) {
+      return;
+    }
+
+    const data: unknown = await response.json();
+
+    return isRedirectResponse(data) ? data : undefined;
   }
 
   public override async submitInteraction(): Promise<RedirectResponse> {
-    return this.api
-      .post(`${experienceRoutes.prefix}/submit`, { headers: this.headers })
-      .json<RedirectResponse>();
+    const response = await this.api.post(`${experienceRoutes.prefix}/submit`, {
+      headers: this.headers,
+    });
+
+    this.mergeRawCookies(response.headers.getSetCookie());
+
+    const body = await response.text();
+
+    if (!body) {
+      return { redirectTo: '' };
+    }
+
+    const data: unknown = JSON.parse(body);
+    assert(isRedirectResponse(data), new Error('Invalid submit interaction response'));
+
+    return data;
   }
 
-  public async verifyPassword(payload: PasswordVerificationPayload) {
+  public async verifyPassword(payload: PasswordVerificationRequestBody) {
     return this.api
       .post(`${experienceRoutes.verification}/password`, {
         headers: this.headers,
@@ -65,7 +100,7 @@ export class ExperienceClient extends MockClient {
   }
 
   public async sendVerificationCode(payload: {
-    identifier: VerificationCodeIdentifier;
+    identifier: VerificationCodeIdentifierPayload;
     interactionEvent: InteractionEvent;
   }) {
     return this.api
@@ -77,7 +112,7 @@ export class ExperienceClient extends MockClient {
   }
 
   public async verifyVerificationCode(payload: {
-    identifier: VerificationCodeIdentifier;
+    identifier: VerificationCodeIdentifierPayload;
     verificationId: string;
     code: string;
   }) {
@@ -216,9 +251,10 @@ export class ExperienceClient extends MockClient {
       .json<{ verificationId: string }>();
   }
 
-  public async createNewPasswordIdentityVerification(
-    payload: Pick<PasswordVerificationPayload, 'identifier'> & { password?: string }
-  ) {
+  public async createNewPasswordIdentityVerification(payload: {
+    identifier: InteractionIdentifier;
+    password?: string;
+  }) {
     return this.api
       .post(`${experienceRoutes.verification}/new-password-identity`, {
         headers: this.headers,

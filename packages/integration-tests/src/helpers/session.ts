@@ -4,7 +4,7 @@ import { ApplicationType, SignInIdentifier, type GetUserSessionsResponse } from 
 import { assert } from '@silverhand/essentials';
 
 import { assignUserConsentScopes } from '#src/api/application-user-consent-scope.js';
-import { createApplication } from '#src/api/application.js';
+import { createApplication, createApplicationWithSecret } from '#src/api/application.js';
 import { consent } from '#src/api/interaction.js';
 import { defaultConfig } from '#src/client/index.js';
 import { demoAppRedirectUri } from '#src/constants.js';
@@ -60,11 +60,9 @@ export const assertRefreshTokenInvalidGrant = async (options: {
   );
 };
 
-export const assertRefreshTokenValid = async (options: {
-  clientId: string;
-  refreshToken: string;
-}): Promise<void> => {
-  await fetchTokenByRefreshToken(
+/** Exchange a refresh token at the token endpoint and return the parsed token response. */
+export const refreshTokens = async (options: { clientId: string; refreshToken: string }) =>
+  fetchTokenByRefreshToken(
     {
       clientId: options.clientId,
       tokenEndpoint,
@@ -73,12 +71,18 @@ export const assertRefreshTokenValid = async (options: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async (...args: Parameters<typeof fetch>): Promise<any> => {
       const response = await fetch(...args);
-      assert(response.ok, new Error('Refresh token exchange failed'));
+      assert(response.ok, new Error(`Refresh token exchange failed with ${response.status}`));
 
-      // Response body is not needed for the assertion.
-      return {};
+      const body: unknown = await response.json();
+      return body;
     }
   );
+
+export const assertRefreshTokenValid = async (options: {
+  clientId: string;
+  refreshToken: string;
+}): Promise<void> => {
+  await refreshTokens(options);
 };
 
 export const createAppAndSignInWithPassword = async ({
@@ -90,7 +94,9 @@ export const createAppAndSignInWithPassword = async ({
   appName = generateTestName(),
   redirectUri = demoAppRedirectUri,
 }: CreateAppAndSignInOptions) => {
-  const app = await createApplication(appName, appType, {
+  const createApp =
+    appType === ApplicationType.Traditional ? createApplicationWithSecret : createApplication;
+  const app = await createApp(appName, appType, {
     isThirdParty,
     oidcClientMetadata: {
       redirectUris: [redirectUri],

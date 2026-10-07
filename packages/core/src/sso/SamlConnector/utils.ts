@@ -4,11 +4,12 @@ import * as validator from '@authenio/samlify-node-xmllint';
 import { ssoSamlAssertionContentGuard, type SsoSamlAssertionContent } from '@logto/schemas';
 import { type Optional, appendPath, tryThat } from '@silverhand/essentials';
 import { conditional } from '@silverhand/essentials';
-import { HTTPError, got } from 'got';
+import { HTTPError } from 'got';
 import * as saml from 'samlify';
 import { z, ZodError } from 'zod';
 
 import { ssoPath } from '#src/constants/index.js';
+import { ssrfProtectedGot } from '#src/utils/outbound-request.js';
 
 import {
   SsoConnectorConfigErrorCodes,
@@ -57,11 +58,14 @@ export const parseXmlMetadata = (
     signInEndpoint: singleSignOnService,
   };
 
-  // The type inference of the return type of `getX509Certificate` is any, will be guarded by later zod parser if it is not string-typed.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const rawX509Certificate: string = idP.entityMeta.getX509Certificate(
+  // The `samlify` type models `getX509Certificate` as `string | string[]`; the signing use has a
+  // single cert. A missing value falls through to `getPemCertificate`, which rejects it below.
+  const rawX509CertificateValue = idP.entityMeta.getX509Certificate(
     saml.Constants.wording.certUse.signing
   );
+  const rawX509Certificate = Array.isArray(rawX509CertificateValue)
+    ? (rawX509CertificateValue[0] ?? '')
+    : rawX509CertificateValue;
 
   const certificate = tryThat(
     () => getPemCertificate(rawX509Certificate),
@@ -103,7 +107,7 @@ export const parseXmlMetadata = (
  */
 export const fetchSamlMetadataXml = async (metadataUrl: string): Promise<Optional<string>> => {
   try {
-    const { body } = await got.get(metadataUrl);
+    const { body } = await ssrfProtectedGot.get(metadataUrl);
 
     const result = z.string().safeParse(body);
 

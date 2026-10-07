@@ -3,6 +3,7 @@ import {
   InteractionHookEvent,
   LogResult,
   hook,
+  hookEvents,
   type CreateHook,
   type Hook,
   type HookConfig,
@@ -11,6 +12,7 @@ import {
 } from '@logto/schemas';
 import { pickDefault } from '@logto/shared/esm';
 import { subDays } from 'date-fns';
+import Router from 'koa-router';
 
 import {
   mockCreatedAtForHook,
@@ -23,22 +25,28 @@ import { createMockQuotaLibrary } from '#src/test-utils/quota.js';
 import { MockTenant } from '#src/test-utils/tenant.js';
 import { createRequester } from '#src/utils/test-utils.js';
 
+import { buildRouterObjects } from './swagger/utils/operation.js';
+import { type ManagementApiRouter } from './types.js';
+
 const { jest } = import.meta;
+
+const findAllHooks = jest.fn(async (): Promise<Hook[]> => mockHookList);
+const findHookById = jest.fn(async (id: string): Promise<Hook> => {
+  const hook = mockHookList.find((hook) => hook.id === id);
+  if (!hook) {
+    throw new Error('Not found');
+  }
+  return hook;
+});
 
 const hooks = {
   getTotalNumberOfHooks: async (): Promise<{ count: number }> => ({ count: mockHookList.length }),
-  findAllHooks: async (): Promise<Hook[]> => mockHookList,
+  findAllHooks,
   insertHook: async (data: CreateHook): Promise<Hook> => ({
     ...mockHook,
     ...data,
   }),
-  findHookById: async (id: string): Promise<Hook> => {
-    const hook = mockHookList.find((hook) => hook.id === id);
-    if (!hook) {
-      throw new Error('Not found');
-    }
-    return hook;
-  },
+  findHookById,
   updateHookById: async (id: string, data: Partial<CreateHook>): Promise<Hook> => {
     const targetHook = mockHookList.find((hook) => hook.id === id) ?? mockHook;
     return {
@@ -254,11 +262,18 @@ describe('hook routes', () => {
       );
     });
 
-    it('returns 400 when start_time >= end_time', async () => {
+    it('returns 400 when start_time > end_time', async () => {
       const response = await hookRequest.get(
         `/hooks/foo/recent-logs?start_time=2000&end_time=1000`
       );
       expect(response.status).toEqual(400);
+    });
+
+    it('succeeds when start_time equals end_time (inclusive bounds)', async () => {
+      const response = await hookRequest.get(
+        `/hooks/foo/recent-logs?start_time=1000&end_time=1000`
+      );
+      expect(response.status).toEqual(200);
     });
 
     it('returns 400 when start_time is not a finite number', async () => {
@@ -328,6 +343,104 @@ describe('hook routes', () => {
       events: payload.events,
       config: payload.config,
     });
+  });
+
+  it('allows trusted-device webhook events', async () => {
+    const response = await hookRequest.post('/hooks').send({
+      name: 'trustedDeviceHook',
+      events: ['TrustedDevice.Created', 'TrustedDevice.Deleted'],
+      config: { url: 'https://example.com' },
+    });
+
+    expect(response.status).toEqual(201);
+    expect(response.body.events).toEqual(['TrustedDevice.Created', 'TrustedDevice.Deleted']);
+  });
+
+  it('describes all hook events in OpenAPI request and response schemas', () => {
+    const router: ManagementApiRouter = new Router();
+
+    hookRoutes(router, tenantContext);
+
+    const routeObjects = buildRouterObjects([router]);
+    const getRequestBody = (method: string, path: string) =>
+      routeObjects.find((route) => route.method === method && route.path === path)?.operation
+        .requestBody;
+    const getResponses = (method: string, path: string) =>
+      routeObjects.find((route) => route.method === method && route.path === path)?.operation
+        .responses;
+    const expectedEventSchema = {
+      type: 'string',
+      enum: hookEvents,
+    };
+    const expectedEventsSchema = {
+      type: 'array',
+      items: expectedEventSchema,
+    };
+    const expectedResponseProperties = {
+      event: { ...expectedEventSchema, nullable: true },
+      events: expectedEventsSchema,
+    };
+
+    expect(getRequestBody('post', '/api/hooks')).toMatchObject({
+      content: {
+        'application/json': {
+          schema: {
+            properties: {
+              event: expectedEventSchema,
+              events: expectedEventsSchema,
+            },
+          },
+        },
+      },
+    });
+    expect(getRequestBody('post', '/api/hooks/{id}/test')).toMatchObject({
+      content: {
+        'application/json': {
+          schema: { properties: { events: expectedEventsSchema } },
+        },
+      },
+    });
+    expect(getRequestBody('patch', '/api/hooks/{id}')).toMatchObject({
+      content: {
+        'application/json': {
+          schema: {
+            properties: {
+              event: { ...expectedEventSchema, nullable: true },
+              events: expectedEventsSchema,
+            },
+          },
+        },
+      },
+    });
+
+    expect(getResponses('get', '/api/hooks')).toMatchObject({
+      200: {
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: { properties: expectedResponseProperties },
+            },
+          },
+        },
+      },
+    });
+    for (const [method, path, status] of [
+      ['get', '/api/hooks/{id}', 200],
+      ['post', '/api/hooks', 201],
+      ['patch', '/api/hooks/{id}', 200],
+      ['patch', '/api/hooks/{id}/signing-key', 200],
+    ] as const) {
+      expect(getResponses(method, path)).toMatchObject({
+        [status]: {
+          content: {
+            'application/json': {
+              schema: { properties: expectedResponseProperties },
+            },
+          },
+        },
+      });
+    }
   });
 
   it('POST /hooks should fail when no events are provided', async () => {

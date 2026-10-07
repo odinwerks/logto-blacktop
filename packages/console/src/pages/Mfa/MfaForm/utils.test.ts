@@ -20,6 +20,8 @@ const baseForm: MfaConfigForm = {
   phoneVerificationCodeEnabled: false,
   organizationRequiredMfaPolicy: undefined,
   adaptiveMfaEnabled: false,
+  trustedDeviceEnabled: false,
+  trustedDeviceDurationDays: 30,
 };
 
 test('maps adaptive MFA enablement into form state', () => {
@@ -39,6 +41,19 @@ test('defaults adaptive MFA to false when missing', () => {
   });
 
   expect(formState.adaptiveMfaEnabled).toBe(false);
+  expect(formState.trustedDeviceEnabled).toBe(false);
+  expect(formState.trustedDeviceDurationDays).toBe(30);
+});
+
+test('maps trusted-device policy into form state', () => {
+  const formState = convertMfaConfigToForm(
+    { policy: MfaPolicy.NoPrompt, factors: [MfaFactor.TOTP] },
+    undefined,
+    { enabled: true, durationDays: 90 }
+  );
+
+  expect(formState.trustedDeviceEnabled).toBe(true);
+  expect(formState.trustedDeviceDurationDays).toBe(90);
 });
 
 test('normalizes setup prompt to adaptive policy when adaptive MFA is enabled', () => {
@@ -50,7 +65,7 @@ test('normalizes setup prompt to adaptive policy when adaptive MFA is enabled', 
   expect(formState.setUpPrompt).toBe(MfaPolicy.PromptAtSignInAndSignUpMandatory);
 });
 
-test('builds payload with adaptive MFA regardless of dev feature flag', () => {
+test('builds payload with adaptive MFA and trusted-device policy', () => {
   const payload = buildMfaPatchPayload({ ...baseForm, adaptiveMfaEnabled: true });
 
   expect(payload).toEqual({
@@ -59,6 +74,19 @@ test('builds payload with adaptive MFA regardless of dev feature flag', () => {
       factors: [MfaFactor.TOTP],
     },
     adaptiveMfa: { enabled: true },
+    trustedDevice: { enabled: false, durationDays: 30 },
+  });
+});
+
+test('includes configured trusted-device policy', () => {
+  expect(
+    buildMfaPatchPayload({
+      ...baseForm,
+      trustedDeviceEnabled: true,
+      trustedDeviceDurationDays: 365,
+    })
+  ).toMatchObject({
+    trustedDevice: { enabled: true, durationDays: 365 },
   });
 });
 
@@ -75,6 +103,7 @@ test('filters organization-required MFA policy when adaptive MFA is enabled', ()
       factors: [MfaFactor.TOTP],
     },
     adaptiveMfa: { enabled: true },
+    trustedDevice: { enabled: false, durationDays: 30 },
   });
 });
 
@@ -92,6 +121,7 @@ test('filters hidden prompt policies when mandatory MFA is selected', () => {
       factors: [MfaFactor.TOTP],
     },
     adaptiveMfa: { enabled: false },
+    trustedDevice: { enabled: false, durationDays: 30 },
   });
 });
 
@@ -170,5 +200,6 @@ test.each([
     adaptiveMfa: {
       enabled: expectedAdaptiveMfaEnabled,
     },
+    trustedDevice: { enabled: false, durationDays: 30 },
   });
 });

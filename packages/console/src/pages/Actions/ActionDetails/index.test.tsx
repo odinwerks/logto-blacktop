@@ -1,0 +1,230 @@
+import { LogtoActionKey } from '@logto/schemas';
+import { render, screen } from '@testing-library/react';
+import { useParams } from 'react-router-dom';
+
+import { type RequestError } from '@/hooks/use-api';
+
+import { ActionPageMode } from '../types';
+
+import ActionDetails from '.';
+import useDataFetch from './use-data-fetch';
+
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useParams: jest.fn(),
+}));
+
+jest.mock('./use-data-fetch', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
+
+const mockIsCloud = jest.fn(() => false);
+
+jest.mock('@/consts/env', () => ({
+  get isCloud() {
+    return mockIsCloud();
+  },
+}));
+
+jest.mock('@/components/PageMeta', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
+jest.mock('@/components/DetailsPage', () => ({
+  __esModule: true,
+  default: ({
+    children,
+    isLoading,
+    error,
+  }: {
+    readonly children: React.ReactNode;
+    readonly isLoading?: boolean;
+    readonly error?: Error;
+  }) => (
+    <div>
+      {isLoading && <div>loading</div>}
+      {error && <div>{error.message}</div>}
+      {children}
+    </div>
+  ),
+}));
+
+jest.mock('@/components/EmptyDataPlaceholder', () => ({
+  __esModule: true,
+  default: () => <div>empty</div>,
+}));
+
+jest.mock('@/ds-components/InlineNotification', () => ({
+  __esModule: true,
+  default: ({ children }: { readonly children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+jest.mock('./MainContent', () => ({
+  __esModule: true,
+  default: () => <div>main-content</div>,
+}));
+
+jest.mock('./PageLoadingSkeleton', () => ({
+  __esModule: true,
+  default: () => <div>skeleton</div>,
+}));
+
+jest.mock('./CodeEditorLoadingContext', () => ({
+  CodeEditorLoadingContext: {
+    Provider: ({ children }: { readonly children: React.ReactNode }) => children,
+  },
+}));
+
+const mockedUseParams = jest.mocked(useParams);
+const mockedUseDataFetch = jest.mocked(useDataFetch);
+const mockMutate = jest.fn();
+
+describe('ActionDetails', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockIsCloud.mockReturnValue(false);
+  });
+
+  it('renders empty placeholder for invalid route params', () => {
+    mockedUseParams.mockReturnValue({ actionType: 'unknown', mode: 'edit' });
+    mockedUseDataFetch.mockReturnValue({
+      isLoading: false,
+      data: undefined,
+      mutate: mockMutate,
+      error: undefined,
+    });
+
+    render(<ActionDetails />);
+
+    expect(screen.getByText('empty')).toBeTruthy();
+  });
+
+  it('shows a combined sandbox and security warning for PostFirstFactorVerification on OSS', () => {
+    mockedUseParams.mockReturnValue({
+      actionType: LogtoActionKey.PostFirstFactorVerification,
+      mode: ActionPageMode.Create,
+    });
+    mockedUseDataFetch.mockReturnValue({
+      isLoading: false,
+      data: undefined,
+      mutate: mockMutate,
+      error: undefined,
+    });
+
+    render(<ActionDetails />);
+
+    expect(
+      screen.getByText('admin_console.actions.sandbox_and_security_warning.title')
+    ).toBeTruthy();
+    expect(
+      screen.getByText('admin_console.actions.sandbox_and_security_warning.description')
+    ).toBeTruthy();
+    expect(screen.queryByText('admin_console.actions.sandbox_warning.description')).toBeNull();
+    expect(screen.queryByText('admin_console.actions.security_warning.description')).toBeNull();
+    expect(screen.getByText('main-content')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'general.delete' })).toBeNull();
+  });
+
+  it('shows only the security warning for PostFirstFactorVerification on Cloud', () => {
+    mockIsCloud.mockReturnValue(true);
+    mockedUseParams.mockReturnValue({
+      actionType: LogtoActionKey.PostFirstFactorVerification,
+      mode: ActionPageMode.Create,
+    });
+    mockedUseDataFetch.mockReturnValue({
+      isLoading: false,
+      data: undefined,
+      mutate: mockMutate,
+      error: undefined,
+    });
+
+    render(<ActionDetails />);
+
+    expect(screen.getByText('admin_console.actions.security_warning.title')).toBeTruthy();
+    expect(screen.getByText('admin_console.actions.security_warning.description')).toBeTruthy();
+    expect(
+      screen.queryByText('admin_console.actions.sandbox_and_security_warning.description')
+    ).toBeNull();
+  });
+
+  it('does not show the security warning on PostSignIn', () => {
+    mockedUseParams.mockReturnValue({
+      actionType: LogtoActionKey.PostSignIn,
+      mode: ActionPageMode.Create,
+    });
+    mockedUseDataFetch.mockReturnValue({
+      isLoading: false,
+      data: undefined,
+      mutate: mockMutate,
+      error: undefined,
+    });
+
+    render(<ActionDetails />);
+
+    expect(screen.queryByText('admin_console.actions.security_warning.title')).toBeNull();
+    expect(
+      screen.queryByText('admin_console.actions.sandbox_and_security_warning.description')
+    ).toBeNull();
+    expect(screen.getByText('main-content')).toBeTruthy();
+  });
+
+  it('shows the sandbox warning for self-hosted tenants', () => {
+    mockedUseParams.mockReturnValue({
+      actionType: LogtoActionKey.PostSignIn,
+      mode: ActionPageMode.Create,
+    });
+    mockedUseDataFetch.mockReturnValue({
+      isLoading: false,
+      data: undefined,
+      mutate: mockMutate,
+      error: undefined,
+    });
+
+    render(<ActionDetails />);
+
+    expect(screen.getByText('admin_console.actions.sandbox_warning.title')).toBeTruthy();
+    expect(screen.getByText('admin_console.actions.sandbox_warning.description')).toBeTruthy();
+    expect(
+      screen.queryByText('admin_console.actions.sandbox_and_security_warning.description')
+    ).toBeNull();
+  });
+
+  it('hides the sandbox warning for Cloud tenants', () => {
+    mockIsCloud.mockReturnValue(true);
+    mockedUseParams.mockReturnValue({
+      actionType: LogtoActionKey.PostSignIn,
+      mode: ActionPageMode.Create,
+    });
+    mockedUseDataFetch.mockReturnValue({
+      isLoading: false,
+      data: undefined,
+      mutate: mockMutate,
+      error: undefined,
+    });
+
+    render(<ActionDetails />);
+
+    expect(screen.queryByText('admin_console.actions.sandbox_warning.title')).toBeNull();
+    expect(screen.getByText('main-content')).toBeTruthy();
+  });
+
+  it('shows empty state when editing a missing action', () => {
+    mockedUseParams.mockReturnValue({
+      actionType: LogtoActionKey.PostSignIn,
+      mode: ActionPageMode.Edit,
+    });
+    const notFoundError: RequestError = { status: 404, message: 'not found', name: 'RequestError' };
+    mockedUseDataFetch.mockReturnValue({
+      isLoading: false,
+      data: undefined,
+      mutate: mockMutate,
+      error: notFoundError,
+    });
+
+    render(<ActionDetails />);
+
+    expect(screen.getByText('empty')).toBeTruthy();
+  });
+});

@@ -2,8 +2,10 @@ import { UserScope, ReservedScope } from '@logto/core-kit';
 import { NameIdFormat } from '@logto/schemas';
 import nock from 'nock';
 
-import { EnvSet, getTenantEndpoint } from '#src/env-set/index.js';
-
+import {
+  createMockSamlApplicationDetails,
+  createMockSamlEnvSet,
+} from './__mocks__/saml-application.js';
 import { SamlApplication } from './index.js';
 
 const { jest } = import.meta;
@@ -20,31 +22,17 @@ class TestSamlApplication extends SamlApplication {
 }
 
 describe('SamlApplication', () => {
-  const mockDetails = {
-    entityId: 'sp-entity-id',
-    acsUrl: {
-      binding: 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
-      url: 'https://sp.example.com/acs',
-    },
-    oidcClientMetadata: {
-      redirectUris: ['https://logto.test/callback'],
-    },
-    privateKey: 'mock-private-key',
-    certificate: 'mock-certificate',
-    secret: 'mock-secret',
-    nameIdFormat: NameIdFormat.Persistent,
-    attributeMapping: {},
-  };
+  const mockDetails = createMockSamlApplicationDetails();
 
   const mockUser = {
     sub: 'user123',
+    auth_time: 1_700_000_000,
     email: 'user@example.com',
     name: 'Test User',
     phone: '+1234567890',
     phone_verified: true,
   };
 
-  const mockTenantId = 'tenant-id';
   const mockSamlApplicationId = 'saml-app-id';
   const mockIssuer = 'https://issuer.example.com';
 
@@ -58,12 +46,12 @@ describe('SamlApplication', () => {
   let samlApp: TestSamlApplication;
 
   beforeEach(() => {
-    // @ts-expect-error
     // eslint-disable-next-line @silverhand/fp/no-mutation
-    samlApp = new TestSamlApplication(mockDetails, mockSamlApplicationId, {
-      oidc: { issuer: mockIssuer },
-      endpoint: getTenantEndpoint(mockTenantId, EnvSet.values),
-    });
+    samlApp = new TestSamlApplication(
+      mockDetails,
+      mockSamlApplicationId,
+      createMockSamlEnvSet({ issuer: mockIssuer })
+    );
 
     nock(mockIssuer).get('/.well-known/openid-configuration').reply(200, {
       token_endpoint: mockTokenEndpoint,
@@ -75,6 +63,18 @@ describe('SamlApplication', () => {
   });
 
   describe('createSamlTemplateCallback', () => {
+    it('preserves the authentication time of a reused session', () => {
+      const { context } = samlApp.exposedCreateSamlTemplateCallback({
+        userInfo: mockUser,
+        samlRequestId: null,
+        sessionId: undefined,
+        sessionExpiresAt: undefined,
+      })(samlApp.exposedBuildLoginResponseTemplate().context);
+
+      expect(context).toContain('AuthnInstant="2023-11-14T22:13:20.000Z"');
+      expect(context).not.toContain('IssueInstant="2023-11-14T22:13:20.000Z"');
+    });
+
     it('should create SAML template callback with correct values', () => {
       const result = samlApp.exposedCreateSamlTemplateCallback({
         userInfo: mockUser,
@@ -86,6 +86,45 @@ describe('SamlApplication', () => {
 
       expect(result.id).toBe('ID_' + generatedId);
       expect(typeof result.context).toBe('string');
+    });
+
+    it('XML-escapes markup in attribute values', () => {
+      // A value containing XML markup must be emitted as escaped text in the generated assertion,
+      // not as raw markup that adds elements or changes the structure.
+      const valueWithMarkup =
+        'x</saml:AttributeValue></saml:Attribute>' +
+        '<saml:Attribute Name="role"><saml:AttributeValue>admin';
+      const template =
+        '<saml:Attribute Name="name"><saml:AttributeValue>{attrName}</saml:AttributeValue></saml:Attribute>';
+
+      const { context } = samlApp.exposedCreateSamlTemplateCallback({
+        userInfo: { ...mockUser, name: valueWithMarkup },
+        samlRequestId: null,
+        sessionId: undefined,
+        sessionExpiresAt: undefined,
+      })(template);
+
+      // The markup must not create a new element, and its angle brackets must be escaped.
+      expect(context).not.toMatch(/<saml:Attribute\s+Name="role"/);
+      expect(context).toContain('&lt;/saml:AttributeValue&gt;');
+    });
+
+    it('should leave a legitimate attribute value intact (backward compatibility)', () => {
+      // A normal value containing XML metacharacters must round-trip as a single escaped value,
+      // not be mangled or double-escaped.
+      const template =
+        '<saml:Attribute Name="name"><saml:AttributeValue>{attrName}</saml:AttributeValue></saml:Attribute>';
+
+      const { context } = samlApp.exposedCreateSamlTemplateCallback({
+        userInfo: { ...mockUser, name: 'Tom & Jerry <co>' },
+        samlRequestId: null,
+        sessionId: undefined,
+        sessionExpiresAt: undefined,
+      })(template);
+
+      expect(context).toContain(
+        '<saml:AttributeValue>Tom &amp; Jerry &lt;co&gt;</saml:AttributeValue>'
+      );
     });
   });
 
@@ -186,17 +225,13 @@ describe('SamlApplication', () => {
   describe('getScopesFromAttributeMapping', () => {
     it('should include default scopes and email scope when nameIdFormat is EmailAddress', () => {
       const app = new TestSamlApplication(
-        // @ts-expect-error
         {
           ...mockDetails,
           nameIdFormat: NameIdFormat.EmailAddress,
           attributeMapping: {},
         },
         mockSamlApplicationId,
-        {
-          oidc: { issuer: mockIssuer },
-          endpoint: getTenantEndpoint(mockTenantId, EnvSet.values),
-        }
+        createMockSamlEnvSet({ issuer: mockIssuer })
       );
 
       const scopes = app.exposedGetScopesFromAttributeMapping();
@@ -208,16 +243,12 @@ describe('SamlApplication', () => {
 
     it('should include default scopes when attributeMapping is empty', () => {
       const app = new TestSamlApplication(
-        // @ts-expect-error
         {
           ...mockDetails,
           attributeMapping: {},
         },
         mockSamlApplicationId,
-        {
-          oidc: { issuer: mockIssuer },
-          endpoint: getTenantEndpoint(mockTenantId, EnvSet.values),
-        }
+        createMockSamlEnvSet({ issuer: mockIssuer })
       );
 
       const scopes = app.exposedGetScopesFromAttributeMapping();
@@ -228,7 +259,6 @@ describe('SamlApplication', () => {
 
     it('should return correct scopes based on attributeMapping', () => {
       const app = new TestSamlApplication(
-        // @ts-expect-error
         {
           ...mockDetails,
           attributeMapping: {
@@ -237,10 +267,7 @@ describe('SamlApplication', () => {
           },
         },
         mockSamlApplicationId,
-        {
-          oidc: { issuer: mockIssuer },
-          endpoint: getTenantEndpoint(mockTenantId, EnvSet.values),
-        }
+        createMockSamlEnvSet({ issuer: mockIssuer })
       );
 
       const scopes = app.exposedGetScopesFromAttributeMapping();
@@ -252,7 +279,6 @@ describe('SamlApplication', () => {
 
     it('should ignore id claim in attributeMapping', () => {
       const app = new TestSamlApplication(
-        // @ts-expect-error
         {
           ...mockDetails,
           attributeMapping: {
@@ -261,10 +287,7 @@ describe('SamlApplication', () => {
           },
         },
         mockSamlApplicationId,
-        {
-          oidc: { issuer: mockIssuer },
-          endpoint: getTenantEndpoint(mockTenantId, EnvSet.values),
-        }
+        createMockSamlEnvSet({ issuer: mockIssuer })
       );
 
       const scopes = app.exposedGetScopesFromAttributeMapping();
@@ -275,7 +298,6 @@ describe('SamlApplication', () => {
 
     it('should deduplicate scopes when multiple claims map to the same scope', () => {
       const app = new TestSamlApplication(
-        // @ts-expect-error
         {
           ...mockDetails,
           attributeMapping: {
@@ -290,10 +312,7 @@ describe('SamlApplication', () => {
           },
         },
         mockSamlApplicationId,
-        {
-          oidc: { issuer: mockIssuer },
-          endpoint: getTenantEndpoint(mockTenantId, EnvSet.values),
-        }
+        createMockSamlEnvSet({ issuer: mockIssuer })
       );
 
       const scopes = app.exposedGetScopesFromAttributeMapping();
@@ -305,6 +324,30 @@ describe('SamlApplication', () => {
       expect(scopes).toContain(UserScope.Phone);
       expect(scopes).toContain(UserScope.Roles);
       expect(scopes).toHaveLength(7);
+    });
+  });
+
+  describe('getSignInUrl', () => {
+    afterEach(() => {
+      nock.cleanAll();
+    });
+
+    it('should force re-authentication by default', async () => {
+      const url = await samlApp.getSignInUrl({ state: 'state-value' });
+
+      expect(`${url.origin}${url.pathname}`).toBe(mockAuthEndpoint);
+      expect(url.searchParams.get('client_id')).toBe(mockSamlApplicationId);
+      expect(url.searchParams.get('redirect_uri')).toBe(samlApp.config.redirectUri);
+      expect(url.searchParams.get('response_type')).toBe('code');
+      expect(url.searchParams.get('state')).toBe('state-value');
+      expect(url.searchParams.get('prompt')).toBe('login');
+    });
+
+    it('should force re-authentication when the service provider requested it', async () => {
+      const url = await samlApp.getSignInUrl({ state: 'state-value', forceAuthn: true });
+
+      expect(url.searchParams.get('prompt')).toBe('login');
+      expect(url.searchParams.get('max_age')).toBe('0');
     });
   });
 
@@ -320,13 +363,9 @@ describe('SamlApplication', () => {
       };
 
       const samlApp = new TestSamlApplication(
-        // @ts-expect-error
         mockDetailsWithMapping,
         mockSamlApplicationId,
-        {
-          oidc: { issuer: mockIssuer },
-          endpoint: getTenantEndpoint(mockTenantId, EnvSet.values),
-        }
+        createMockSamlEnvSet({ issuer: mockIssuer })
       );
 
       const template = samlApp.exposedBuildLoginResponseTemplate();
@@ -367,13 +406,9 @@ describe('SamlApplication', () => {
       };
 
       const samlApp = new TestSamlApplication(
-        // @ts-expect-error
         mockDetailsWithMapping,
         mockSamlApplicationId,
-        {
-          oidc: { issuer: mockIssuer },
-          endpoint: getTenantEndpoint(mockTenantId, EnvSet.values),
-        }
+        createMockSamlEnvSet({ issuer: mockIssuer })
       );
 
       const tagValues = samlApp.exposedBuildSamlAttributesTagValues(mockUser);
@@ -398,13 +433,9 @@ describe('SamlApplication', () => {
       };
 
       const samlApp = new TestSamlApplication(
-        // @ts-expect-error
         mockDetailsWithMapping,
         mockSamlApplicationId,
-        {
-          oidc: { issuer: mockIssuer },
-          endpoint: getTenantEndpoint(mockTenantId, EnvSet.values),
-        }
+        createMockSamlEnvSet({ issuer: mockIssuer })
       );
 
       const tagValues = samlApp.exposedBuildSamlAttributesTagValues(mockUser);

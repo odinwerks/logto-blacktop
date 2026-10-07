@@ -1,12 +1,14 @@
 import {
   type LogtoConfigKey,
   LogtoConfigs,
+  LogtoActionKey,
   LogtoOidcConfigKey,
   LogtoTenantConfigKey,
   OidcSigningKeyStatus,
 } from '@logto/schemas';
 import { createMockPool, createMockQueryResult, sql } from '@silverhand/slonik';
 
+import { DeletionError } from '#src/errors/SlonikError/index.js';
 import { createMockCommonQueryMethods, expectSqlString } from '#src/test-utils/query.js';
 import { MockWellKnownCache } from '#src/test-utils/tenant.js';
 import { convertToIdentifiers } from '#src/utils/sql.js';
@@ -31,9 +33,11 @@ const {
   getSigningKeyRotationState,
   setSigningKeyRotationAt,
   setTenantCacheExpiresAt,
+  upsertAction,
   upsertSigningKeyRotationState,
   updateAdminConsoleConfig,
   updateOidcConfigsByKey,
+  deleteAction,
 } = createLogtoConfigQueries(pool, new MockWellKnownCache());
 
 describe('connector queries', () => {
@@ -150,6 +154,75 @@ describe('connector queries', () => {
     });
 
     void updateOidcConfigsByKey(LogtoOidcConfigKey.Session, targetValue);
+  });
+
+  test('upsertAction', async () => {
+    const targetValue = {
+      script: 'export default async () => ({ action: "updateUser" });',
+      environmentVariables: {
+        API_KEY: '<api-key>',
+      },
+      enabled: true,
+      onExecutionError: 'allow' as const,
+    };
+    const targetRowData = [{ key: LogtoActionKey.PostSignIn, value: targetValue }];
+    const expectSql = sql`
+      insert into ${table} (${fields.key}, ${fields.value})
+        values (${LogtoActionKey.PostSignIn}, ${sql.jsonb(targetValue)})
+        on conflict (${fields.tenantId}, ${fields.key}) do update set ${fields.value} = ${sql.jsonb(
+          targetValue
+        )}
+        returning *
+    `;
+
+    mockQuery.mockImplementationOnce(async (sql, values) => {
+      expectSqlAssert(sql, expectSql.sql);
+      expect(values).toMatchObject([
+        LogtoActionKey.PostSignIn,
+        JSON.stringify(targetValue),
+        JSON.stringify(targetValue),
+      ]);
+
+      return createMockQueryResult(targetRowData as never);
+    });
+
+    await expect(upsertAction(LogtoActionKey.PostSignIn, targetValue)).resolves.toEqual(
+      targetRowData[0]
+    );
+  });
+
+  test('deleteAction', async () => {
+    const expectSql = sql`
+      delete from ${table}
+      where ${fields.key}=${LogtoActionKey.PostFirstFactorVerification}
+    `;
+
+    mockQuery.mockImplementationOnce(async (sql, values) => {
+      expectSqlAssert(sql, expectSql.sql);
+      expect(values).toEqual([LogtoActionKey.PostFirstFactorVerification]);
+
+      return { ...createMockQueryResult([]), rowCount: 1 };
+    });
+
+    await expect(deleteAction(LogtoActionKey.PostFirstFactorVerification)).resolves.toBeUndefined();
+  });
+
+  test('deleteAction throws DeletionError when row is not found', async () => {
+    const expectSql = sql`
+      delete from ${table}
+      where ${fields.key}=${LogtoActionKey.PostFirstFactorVerification}
+    `;
+
+    mockQuery.mockImplementationOnce(async (sql, values) => {
+      expectSqlAssert(sql, expectSql.sql);
+      expect(values).toEqual([LogtoActionKey.PostFirstFactorVerification]);
+
+      return { ...createMockQueryResult([]), rowCount: 0 };
+    });
+
+    await expect(deleteAction(LogtoActionKey.PostFirstFactorVerification)).rejects.toMatchError(
+      new DeletionError(LogtoConfigs.table, LogtoActionKey.PostFirstFactorVerification)
+    );
   });
 
   test('getSigningKeyRotationState', async () => {

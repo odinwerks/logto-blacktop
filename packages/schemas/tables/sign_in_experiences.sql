@@ -25,6 +25,7 @@ create table sign_in_experiences (
   password_policy jsonb /* @use PartialPasswordPolicy */ not null default '{}'::jsonb,
   mfa jsonb /* @use Mfa */ not null default '{}'::jsonb,
   adaptive_mfa jsonb /* @use AdaptiveMfa */ not null default '{}'::jsonb,
+  trusted_device jsonb /* @use TrustedDevicePolicy */ not null default '{}'::jsonb,
   single_sign_on_enabled boolean not null default false,
   support_email text,
   support_website_url text,
@@ -32,10 +33,22 @@ create table sign_in_experiences (
   captcha_policy jsonb /* @use CaptchaPolicy */ not null default '{}'::jsonb,
   sentinel_policy jsonb /* @use SentinelPolicy */ not null default '{}'::jsonb,
   email_blocklist_policy jsonb /* @use EmailBlocklistPolicy */ not null default '{}'::jsonb,
+  verification_code_policy jsonb /* @use VerificationCodePolicy */ not null default '{}'::jsonb,
   forgot_password_methods jsonb /* @use ForgotPasswordMethods */ default '[]'::jsonb,
   passkey_sign_in jsonb /* @use PasskeySignIn */ not null default '{}'::jsonb,
-  /** Nullable by design: null keeps legacy full-catalog behavior and [] collects no custom profile fields. */
-  sign_up_profile_fields jsonb /* @use SignUpProfileFields */,
+  /** Nullable by design: null keeps legacy full-catalog behavior, and new rows default to [] to collect no custom profile fields. */
+  sign_up_profile_fields jsonb /* @use SignUpProfileFields */ default '[]'::jsonb,
   password_expiration jsonb /* @use PasswordExpirationPolicy */ not null default '{}'::jsonb,
+  username_policy jsonb /* @use UsernamePolicy */ not null default ('{
+    "caseSensitive": true,
+    "minLength": 1,
+    "maxLength": 128,
+    "allowedChars": {
+      "lowercase": true,
+      "uppercase": true,
+      "numbers": true,
+      "underscore": true
+    }
+  }'::jsonb),
   primary key (tenant_id, id)
 );

@@ -27,14 +27,6 @@ create index oidc_model_instances__model_name_payload_uid
     (payload->>'uid')
   );
 
-/* TODO: Consider dropping this full data index if the partial index proves to be effective and safe. */
-create index oidc_model_instances__model_name_payload_grant_id
-  on oidc_model_instances (
-    tenant_id,
-    model_name,
-    (payload->>'grantId')
-  );
-
 create index oidc_model_instances__model_name_payload_grant_id_partial
   on oidc_model_instances (tenant_id, model_name, (payload->>'grantId'))
   where payload ? 'grantId';
@@ -49,6 +41,11 @@ create index oidc_model_instances__session_payload_account_id_expires_at
 create index oidc_model_instances__grant_payload_account_id_expires_at
   on oidc_model_instances (tenant_id, (payload->>'accountId'), expires_at)
   WHERE model_name = 'Grant';
+
+/* Partial on payload key existence so rows without accountId (e.g. client credentials tokens) stay out of the index. The parameter-free predicate stays provable under generic query plans, but matching queries must include the payload ? 'accountId' clause. */
+create index oidc_model_instances__model_name_payload_account_id_partial
+  on oidc_model_instances (tenant_id, model_name, (payload->>'accountId'))
+  where payload ? 'accountId';
 
 alter table oidc_model_instances set (
   autovacuum_vacuum_scale_factor = 0.05,

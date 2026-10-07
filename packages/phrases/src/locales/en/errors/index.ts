@@ -1,4 +1,5 @@
 import account_center from './account-center.js';
+import action from './action.js';
 import application from './application.js';
 import auth from './auth.js';
 import connector from './connector.js';
@@ -8,6 +9,7 @@ import entity from './entity.js';
 import guard from './guard.js';
 import hook from './hook.js';
 import jwt_customizer from './jwt-customizer.js';
+import license from './license.js';
 import localization from './localization.js';
 import log from './log.js';
 import oidc from './oidc.js';
@@ -41,6 +43,7 @@ const errors = {
   connector,
   verification_code,
   sign_in_experiences,
+  action,
   jwt_customizer,
   localization,
   swagger,
@@ -62,6 +65,7 @@ const errors = {
   one_time_token,
   custom_profile_fields,
   secrets,
+  license,
 };
 
 export default Object.freeze(errors);

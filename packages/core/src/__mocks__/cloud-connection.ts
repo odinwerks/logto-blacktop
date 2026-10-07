@@ -35,6 +35,8 @@ export const mockGetCloudConnectionData: CloudConnectionLibrary['getCloudConnect
 export const mockQuota = {
   mauLimit: 50_000,
   tokenLimit: 10_000,
+  hostedEmailLimit: 30_000,
+  hostedEmailDailyLimit: 1000,
   applicationsLimit: 3,
   machineToMachineLimit: 1,
   resourcesLimit: 1,
@@ -53,6 +55,7 @@ export const mockQuota = {
   thirdPartyApplicationsLimit: 0,
   tenantMembersLimit: 1,
   customJwtEnabled: false,
+  actionsEnabled: false,
   subjectTokenEnabled: false,
   bringYourUiEnabled: false,
   collectUserProfileEnabled: false,

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Página não encontrada',
@@ -13,6 +14,8 @@ const account_center = {
     sidebar_security: 'Segurança',
     sidebar_sessions: 'Sessões',
     support: 'Suporte',
+    user_menu: 'Menu do utilizador',
+    sign_out: 'Terminar sessão',
   },
   verification: {
     title: 'Verificação de segurança',
@@ -123,6 +126,21 @@ const account_center = {
     email_removed: 'Endereço de e-mail removido com sucesso.',
     phone_removed: 'Número de telefone removido com sucesso.',
     username_removed: 'Nome de utilizador removido com sucesso.',
+    trusted_devices: {
+      title: 'Dispositivos fidedignos de MFA',
+      current_device: 'Dispositivo atual',
+      expires_on: 'Expira em {{date}}',
+      unknown_location: 'Localização desconhecida',
+      remove: 'Remover',
+      removed: 'Dispositivo fidedigno removido com sucesso.',
+      loading: 'A carregar...',
+      empty: 'Nenhum dispositivo fidedigno.',
+      load_failed: 'Falha ao carregar dispositivos fidedignos. Tente novamente.',
+      retry: 'Tentar novamente',
+      remove_confirmation_title: 'Remover dispositivo fidedigno?',
+      remove_confirmation_description:
+        'Terá de concluir novamente a MFA neste dispositivo da próxima vez que iniciar sessão. A sua sessão atual permanecerá ativa.',
+    },
   },
   social: {
     linked: '{{connector}} associada com sucesso.',
@@ -276,12 +294,15 @@ const account_center = {
     no_third_party_apps: 'Nenhuma aplicação de terceiros autorizada.',
     third_party_apps_load_failed: 'Falha ao carregar aplicações de terceiros. Tente novamente.',
     granted_at: 'Autorizado em {{date}}',
+    dynamic_app: 'Aplicação dinâmica',
+    client_id: 'ID de cliente: {{clientId}}',
     revoke_grant: 'Remover',
     revoke_grant_title: 'Remover acesso da aplicação de terceiros',
     revoke_grant_description:
-      'Isto revogará todos os acessos concedidos a esta aplicação. Tem a certeza de que pretende continuar?',
+      'Isto revogará o acesso concedido a esta aplicação. Os tokens de acesso emitidos anteriormente podem permanecer válidos até expirarem. Tem a certeza de que pretende continuar?',
     revoke_grant_failed: 'Falha ao revogar algumas permissões. Tente novamente.',
   },
 };
 
 export default Object.freeze(account_center);
+/* eslint-enable max-lines */

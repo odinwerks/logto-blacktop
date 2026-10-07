@@ -17,8 +17,6 @@ import type {
   AccountCenterFieldKey,
   SignInExperienceForm,
 } from '../../types';
-import { collectUserProfilePathname } from '../CollectUserProfile/consts';
-import ProfileFieldsEditBox from '../components/ProfileFieldsEditBox';
 import SignInExperienceTabWrapper from '../components/SignInExperienceTabWrapper';
 
 import AccountCenterField from './AccountCenterField';
@@ -67,6 +65,10 @@ function AccountCenter({ isActive, data }: Props) {
   const isMfaEnabled = useMemo(() => {
     return data.mfa.factors.length > 0;
   }, [data.mfa]);
+
+  // When passkey sign-in is enabled, passkey can serve as a verification method, so the
+  // "no MFA factor configured" warning on the MFA field is no longer relevant.
+  const isPasskeySignInEnabled = Boolean(data.passkeySignIn.enabled);
 
   const handleToggle = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -149,7 +151,7 @@ function AccountCenter({ isActive, data }: Props) {
           </FormField>
         </div>
       </FormCard>
-      <IntegratePrebuiltUi />
+      <IntegratePrebuiltUi getProfileFieldDisabledReason={getProfileFieldDisabledReason} />
       {accountCenterSections.map((section) => (
         <FormCard key={section.key} title={section.title} description={section.description}>
           <div className={styles.cardContent}>
@@ -186,6 +188,7 @@ function AccountCenter({ isActive, data }: Props) {
                       item={item}
                       value={fields[item.key]}
                       isMfaEnabled={isMfaEnabled}
+                      isPasskeySignInEnabled={isPasskeySignInEnabled}
                       isGlobalDisabled={!isAccountApiEnabled}
                       fieldOptions={fieldOptions}
                       onChange={handleFieldChange}
@@ -199,27 +202,6 @@ function AccountCenter({ isActive, data }: Props) {
                 <WebauthnRelatedOriginsField isAccountApiEnabled={isAccountApiEnabled} />
                 <DeleteAccountUrlField isAccountApiEnabled={isAccountApiEnabled} />
               </>
-            )}
-            {section.key === 'userProfile' && (
-              <FormField title="sign_in_exp.account_center.profile_fields.title">
-                <ProfileFieldsEditBox<
-                  SignInExperienceForm & { accountCenter: AccountCenterFormValues },
-                  'accountCenter.profileFields'
-                >
-                  name="accountCenter.profileFields"
-                  addProfileFieldsButtonTitle="sign_in_exp.account_center.profile_fields.add_profile_fields"
-                  getFieldDisabledReason={getProfileFieldDisabledReason}
-                  hint={
-                    <>
-                      {t('sign_in_exp.account_center.profile_fields.hint.not_in_list')}
-                      <TextLink to={collectUserProfilePathname}>
-                        {t('sign_in_exp.account_center.profile_fields.hint.set_up')}
-                      </TextLink>
-                      {t('sign_in_exp.account_center.profile_fields.hint.go_to')}
-                    </>
-                  }
-                />
-              </FormField>
             )}
           </div>
         </FormCard>

@@ -36,6 +36,8 @@ const description = {
   reset_password: 'Esqueceu a senha',
   reset_password_description:
     'Insira os {{types, list(type: disjunction;)}} associados à sua conta e enviaremos o código de verificação para redefinir sua senha.',
+  reset_password_magic_link_description:
+    'Introduz o endereço de email associado à tua conta para continuares a repor a palavra-passe.',
   new_password: 'Nova Senha',
   set_password: 'Definir senha',
   password_changed: 'Senha alterada',
@@ -102,6 +104,8 @@ const description = {
     'A sua empresa ativou o Single Sign-On para a conta de email {{email}}. Pode continuar a iniciar sessão com os seguintes fornecedores de SSO.',
   single_sign_on_enabled: 'Esta conta tem o Single Sign-On ativado.',
   authorize_title: 'Autorizar {{name}}',
+  unregistered_client_notice:
+    'Esta aplicação é autodeclarada por <hostname>{{host}}</hostname>, incluindo o seu nome e logótipo. Verifique o nome do anfitrião antes de continuar.',
   request_permission: '{{name}} está solicitando acesso a:',
   grant_organization_access: 'Conceder acesso à organização:',
   authorize_personal_data_usage: 'Autorizar o uso dos seus dados pessoais:',
@@ -122,9 +126,6 @@ const description = {
   all_account_creation_options: 'Todas as opções de criação de conta',
   password_expired:
     'A sua palavra-passe expirou e deve ser redefinida antes de poder iniciar sessão.',
-  password_expiration_reminder:
-    'A sua palavra-passe expira em {{days}} dia(s). Recomendamos que a redefina agora.',
-  password_expiration_reminder_skip: 'Ignorar por agora',
   password_expiration_reset: 'Redefinir palavra-passe',
   back_to_sign_in: 'Voltar para o login',
   support_email: 'Email de suporte: <link></link>',

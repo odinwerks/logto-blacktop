@@ -2,6 +2,7 @@
  * Setup environment variables for unit test
  */
 
+import { afterAll, expect } from '@jest/globals';
 import en from '@logto/phrases/lib/locales/en/index.js';
 import { createMockUtils } from '@logto/shared/esm';
 import { init } from 'i18next';
@@ -12,31 +13,50 @@ const { mockEsm, mockEsmDefault } = createMockUtils(jest);
 process.env.DB_URL = 'postgres://mock.db.url';
 process.env.ENDPOINT = 'https://logto.test';
 process.env.NODE_ENV = 'test';
+// Suites that exercise the Cloud script runner set this themselves.
+process.env.SCRIPT_RUNNER_ENDPOINT = '';
 
 /* Mock for EnvSet */
-mockEsm('#src/libraries/logto-config.js', () => ({
-  createLogtoConfigLibrary: () => ({
-    getOidcConfigs: () => ({}),
-    promoteScheduledSigningKeyRotation: async () => Promise.resolve(),
-  }),
-}));
+// The Logto config library unit test exercises the real module; other suites keep EnvSet isolated
+// from config persistence through this lightweight mock.
+if (!expect.getState().testPath.endsWith('/libraries/logto-config.test.js')) {
+  mockEsm('#src/libraries/logto-config.js', () => ({
+    createLogtoConfigLibrary: () => ({
+      getOidcConfigs: () => ({}),
+      getAction: jest.fn(),
+      promoteScheduledSigningKeyRotation: jest.fn(),
+    }),
+  }));
+}
 
 mockEsm('#src/env-set/preconditions.js', () => ({
   checkPreconditions: () => true,
 }));
 
-// eslint-disable-next-line unicorn/consistent-function-scoping
-mockEsmDefault('#src/env-set/oidc.js', () => () => ({
-  issuer: 'https://logto.test/oidc',
-  cookieKeys: [],
-  privateJwks: [],
-  publicJwks: [],
-}));
+// The env-set oidc unit test exercises the real module; other suites keep OIDC values inert
+// through this lightweight mock.
+if (!expect.getState().testPath.endsWith('/env-set/oidc.test.js')) {
+  // eslint-disable-next-line unicorn/consistent-function-scoping -- the nested arrow is the mocked module's default export, not a hoistable helper
+  mockEsmDefault('#src/env-set/oidc.js', () => () => ({
+    issuer: 'https://logto.test/oidc',
+    cookieKeys: [],
+    privateJwks: [],
+    publicJwks: [],
+    cimdEnabled: false,
+  }));
+}
 /* End */
 
 // Logger is not considered in all test cases
 // eslint-disable-next-line unicorn/consistent-function-scoping
 mockEsm('koa-logger', () => ({ default: () => (_, next) => next() }));
+
+// Nock patches the `http` / `https` core modules, which Jest shares across test files in a worker.
+// Restore them after each file so a later file does not run behind stale interceptors.
+afterAll(async () => {
+  const { default: nock } = await import('nock');
+  nock.restore();
+});
 
 // Init i18next and load en locale only
 await init({

@@ -34,9 +34,16 @@ const error = {
   invalid_link: 'Nieprawidłowy link',
   invalid_link_description: 'Twój jednorazowy token mógł wygasnąć lub nie jest już ważny.',
   captcha_verification_failed: 'Weryfikacja captcha nie powiodła się.',
+  send_verification_code_failed:
+    'Nie udało się wysłać kodu weryfikacyjnego. Spróbuj ponownie później.',
+  send_verification_code_failed_use_password:
+    'Nie udało się wysłać kodu weryfikacyjnego. Zaloguj się zamiast tego za pomocą hasła.',
   terms_acceptance_required: 'Wymagana akceptacja warunków',
   terms_acceptance_required_description: 'Musisz zaakceptować warunki, aby kontynuować.',
   something_went_wrong: 'Coś poszło nie tak',
+  account_suspended: 'Konto zawieszone',
+  account_suspended_description:
+    'To konto zostało zawieszone. Skontaktuj się z administratorem, aby uzyskać pomoc.',
   access_denied: 'Odmowa dostępu',
   application_access_denied:
     'Nie masz uprawnień do dostępu do tej aplikacji.\nSkontaktuj się z administratorem, aby uzyskać pomoc.',

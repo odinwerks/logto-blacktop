@@ -1,8 +1,10 @@
+/* eslint-disable max-lines -- getFullSignInExperience cases share the library mocks set up in this file. */
 import type { LanguageTag } from '@logto/language-kit';
 import { builtInLanguages } from '@logto/phrases-experience';
 import {
   CaptchaType,
   ForgotPasswordMethod,
+  ossDefaultQuota,
   type CreateSignInExperience,
   type SignInExperience,
 } from '@logto/schemas';
@@ -22,7 +24,9 @@ import {
   wellConfiguredSsoConnector,
 } from '#src/__mocks__/index.js';
 import { WellKnownCache } from '#src/caches/well-known.js';
+import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
+import type { SubscriptionLibrary } from '#src/libraries/subscription.js';
 import { ssoConnectorFactories } from '#src/sso/index.js';
 import { mockSsoConnectorLibrary } from '#src/test-utils/mock-libraries.js';
 
@@ -72,6 +76,12 @@ const connectorLibrary = createConnectorLibrary(queries, {
 
 const getLogtoConnectors = jest.spyOn(connectorLibrary, 'getLogtoConnectors');
 
+const getSelfHostedSubscription = jest.fn(async () => ({
+  quota: { ...ossDefaultQuota, hideLogtoBranding: false as boolean },
+}));
+// Only the self-hosted entitlement reader is used by the sign-in experience library.
+const subscription = { getSelfHostedSubscription } as unknown as SubscriptionLibrary;
+
 const { createSignInExperienceLibrary, getForgotPasswordAvailability } = await import('./index.js');
 const {
   validateLanguageInfo,
@@ -84,8 +94,19 @@ const {
   queries,
   connectorLibrary,
   mockSsoConnectorLibrary,
-  new WellKnownCache('foo', new TtlCache())
+  new WellKnownCache('foo', new TtlCache()),
+  subscription
 );
+
+const getPublicSignInExperience = (signInExperience: SignInExperience) => {
+  const {
+    emailBlocklistPolicy: _emailBlocklistPolicy,
+    forgotPasswordMethods: _forgotPasswordMethods,
+    ...publicSignInExperience
+  } = signInExperience;
+
+  return publicSignInExperience;
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -160,6 +181,21 @@ describe('remove unavailable social connector targets', () => {
   });
 });
 
+describe('getAccountCenterSsrSignInExperience()', () => {
+  it('should return only sign-in experience color data', async () => {
+    findDefaultSignInExperience.mockResolvedValueOnce(mockSignInExperience);
+
+    await expect(getAccountCenterSsrSignInExperience()).resolves.toStrictEqual({
+      color: mockSignInExperience.color,
+    });
+    expect(findDefaultSignInExperience).toBeCalledTimes(1);
+    expect(getLogtoConnectors).not.toBeCalled();
+    expect(mockSsoConnectorLibrary.getAvailableSsoConnectors).not.toBeCalled();
+    expect(findCaptchaProvider).not.toBeCalled();
+    expect(findAllCustomProfileFields).not.toBeCalled();
+  });
+});
+
 describe('getFullSignInExperience()', () => {
   it('should return full sign-in experience', async () => {
     findDefaultSignInExperience.mockResolvedValueOnce(mockSignInExperience);
@@ -173,7 +209,7 @@ describe('getFullSignInExperience()', () => {
     const connectorFactory = ssoConnectorFactories[wellConfiguredSsoConnector.providerName];
 
     expect(fullSignInExperience).toStrictEqual({
-      ...mockSignInExperience,
+      ...getPublicSignInExperience(mockSignInExperience),
       socialConnectors: [],
       socialSignInConnectorTargets: ['github', 'facebook', 'wechat'],
       ssoConnectors: [
@@ -194,6 +230,7 @@ describe('getFullSignInExperience()', () => {
         phone: false,
       },
     });
+    expect(fullSignInExperience).not.toHaveProperty('emailBlocklistPolicy');
   });
 
   it('should return full sign-in experience with google one tap', async () => {
@@ -211,7 +248,7 @@ describe('getFullSignInExperience()', () => {
     const connectorFactory = ssoConnectorFactories[wellConfiguredSsoConnector.providerName];
 
     expect(fullSignInExperience).toStrictEqual({
-      ...mockSignInExperience,
+      ...getPublicSignInExperience(mockSignInExperience),
       socialConnectors: [
         { ...mockGithubConnector.metadata, id: mockGithubConnector.dbEntry.id },
         { ...mockGoogleConnector.metadata, id: mockGoogleConnector.dbEntry.id },
@@ -241,24 +278,51 @@ describe('getFullSignInExperience()', () => {
       },
     });
   });
+});
 
-  it('should filter custom profile fields by signUpProfileFields selection', async () => {
+const setIsCloud = (isCloud: boolean) => {
+  // eslint-disable-next-line @silverhand/fp/no-mutation -- Switch the environment under test.
+  (EnvSet.values as { isCloud: boolean }).isCloud = isCloud;
+};
+
+describe('getFullSignInExperience() hideLogtoBranding', () => {
+  const originalIsCloud = EnvSet.values.isCloud;
+
+  beforeEach(() => {
     findDefaultSignInExperience.mockResolvedValueOnce({
       ...mockSignInExperience,
-      signUpProfileFields: [{ name: 'company' }],
+      hideLogtoBranding: true,
     });
-    getLogtoConnectors.mockResolvedValueOnce(mockSocialConnectors);
-    findAllCustomProfileFields.mockResolvedValueOnce(mockCustomProfileFields);
-    mockSsoConnectorLibrary.getAvailableSsoConnectors.mockResolvedValueOnce([
-      wellConfiguredSsoConnector,
-    ]);
+    getLogtoConnectors.mockResolvedValueOnce([]);
+    findAllCustomProfileFields.mockResolvedValueOnce([]);
+    mockSsoConnectorLibrary.getAvailableSsoConnectors.mockResolvedValueOnce([]);
+  });
 
-    const fullSignInExperience = await getFullSignInExperience({ locale: 'en' });
+  afterEach(() => {
+    setIsCloud(originalIsCloud);
+  });
 
-    // 'company' is not in the catalog, so it is dropped; result is empty.
-    expect(fullSignInExperience.customProfileFields).toStrictEqual([]);
-    // The full catalog is always returned as-is.
-    expect(fullSignInExperience.customProfileFieldCatalog).toStrictEqual(mockCustomProfileFields);
+  it.each([false, true])(
+    'should mask the saved value by the license outside Cloud (granted: %s)',
+    async (granted) => {
+      setIsCloud(false);
+      getSelfHostedSubscription.mockResolvedValueOnce({
+        quota: { ...ossDefaultQuota, hideLogtoBranding: granted },
+      });
+
+      const { hideLogtoBranding } = await getFullSignInExperience({ locale: 'en' });
+
+      expect(hideLogtoBranding).toBe(granted);
+    }
+  );
+
+  it('should not read the license on Cloud', async () => {
+    setIsCloud(true);
+
+    const { hideLogtoBranding } = await getFullSignInExperience({ locale: 'en' });
+
+    expect(hideLogtoBranding).toBe(true);
+    expect(getSelfHostedSubscription).not.toHaveBeenCalled();
   });
 });
 
@@ -376,6 +440,26 @@ describe('findCaptchaPublicConfig', () => {
     });
   });
 
+  it('should return the endpoint for Cap', async () => {
+    findCaptchaProvider.mockResolvedValueOnce({
+      ...mockCaptchaProvider,
+      config: {
+        type: CaptchaType.Cap,
+        endpoint: 'https://cap.example.com',
+        siteKey: 'captcha_site_key',
+        secretKey: 'captcha_secret_key',
+      },
+    });
+
+    const captchaPublicConfig = await findCaptchaPublicConfig();
+
+    expect(captchaPublicConfig).toEqual({
+      type: CaptchaType.Cap,
+      siteKey: 'captcha_site_key',
+      endpoint: 'https://cap.example.com',
+    });
+  });
+
   it('should return undefined if captcha provider is not found', async () => {
     // eslint-disable-next-line unicorn/no-useless-undefined
     findCaptchaProvider.mockResolvedValueOnce(undefined);
@@ -419,17 +503,4 @@ describe('forgot password methods', () => {
     });
   });
 });
-
-describe('getAccountCenterSsrSignInExperience()', () => {
-  it('should return default sign-in experience color', async () => {
-    findDefaultSignInExperience.mockResolvedValueOnce({
-      ...mockSignInExperience,
-      color: { primary: '#123456', secondary: '#fedcba' },
-    });
-    const result = await getAccountCenterSsrSignInExperience();
-    expect(result).toEqual({
-      color: { primary: '#123456', secondary: '#fedcba' },
-    });
-    expect(findDefaultSignInExperience).toHaveBeenCalledTimes(1);
-  });
-});
+/* eslint-enable max-lines */

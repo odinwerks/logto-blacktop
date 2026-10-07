@@ -1,4 +1,5 @@
 const tabs = {
+  actions: 'Actions',
   get_started: '開始上手',
   dashboard: '儀表板',
   applications: '全部應用',

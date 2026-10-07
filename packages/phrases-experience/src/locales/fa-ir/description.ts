@@ -36,6 +36,8 @@ const description = {
   reset_password: 'بازنشانی رمز عبور',
   reset_password_description:
     '{{types, list(type: disjunction;)}} مرتبط با حساب خود را وارد کنید تا کد تأیید برای بازنشانی رمز عبور ارسال شود.',
+  reset_password_magic_link_description:
+    'برای ادامه بازنشانی گذرواژه، آدرس ایمیل مرتبط با حساب خود را وارد کنید.',
   new_password: 'رمز عبور جدید',
   set_password: 'تنظیم رمز عبور',
   password_changed: 'رمز عبور تغییر یافت',
@@ -101,6 +103,8 @@ const description = {
     'سازمان شما ورود یکپارچه (SSO) را برای حساب ایمیل {{email}} فعال کرده است. می‌توانید با ارائه‌دهندگان SSO زیر ادامه دهید.',
   single_sign_on_enabled: 'ورود یکپارچه برای این حساب فعال است',
   authorize_title: 'مجوز دادن به {{name}}',
+  unregistered_client_notice:
+    'این برنامه توسط <hostname>{{host}}</hostname> خوداظهاری شده است، از جمله نام و لوگوی آن. لطفاً پیش از ادامه، نام میزبان را بررسی کنید.',
   request_permission: '{{name}} درخواست دسترسی به موارد زیر را دارد:',
   grant_organization_access: 'اعطای دسترسی به سازمان:',
   authorize_personal_data_usage: 'مجوز استفاده از اطلاعات شخصی شما:',
@@ -120,9 +124,6 @@ const description = {
   all_account_creation_options: 'همه گزینه‌های ایجاد حساب',
   back_to_sign_in: 'بازگشت به ورود',
   password_expired: 'رمز عبور شما منقضی شده و باید قبل از ورود بازنشانی شود.',
-  password_expiration_reminder:
-    'Your password will expire in {{days}} day(s). We recommend resetting it now.',
-  password_expiration_reminder_skip: 'Skip for now',
   password_expiration_reset: 'بازنشانی رمز عبور',
   support_email: 'ایمیل پشتیبانی: <link></link>',
   support_website: 'وب‌سایت پشتیبانی: <link></link>',

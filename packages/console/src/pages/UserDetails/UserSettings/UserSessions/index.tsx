@@ -8,6 +8,7 @@ import Button from '@/ds-components/Button';
 import CopyToClipboard from '@/ds-components/CopyToClipboard';
 import FormField from '@/ds-components/FormField';
 import Table from '@/ds-components/Table';
+import { Tooltip } from '@/ds-components/Tip';
 import { type RequestError } from '@/hooks/use-api';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
 
@@ -54,57 +55,49 @@ function UserSessions({ userId }: Props) {
             errorMessage={error?.body?.message ?? error?.message}
             columns={[
               {
-                title: String(t('user_details.sessions.name_column')),
+                title: t('user_details.sessions.name_column'),
                 dataIndex: 'name',
-                colSpan: 4,
+                colSpan: 7,
                 render: ({ name }) => name ?? '-',
               },
               {
-                title: String(t('user_details.sessions.session_id_column')),
+                title: t('user_details.sessions.session_id_column'),
                 dataIndex: 'sessionId',
-                colSpan: 5,
+                colSpan: 6,
                 render: ({ sessionId }) => (
-                  <>
-                    {sessionId}
+                  <div className={styles.sessionId}>
+                    <Tooltip
+                      className={styles.tooltip}
+                      anchorClassName={styles.value}
+                      content={sessionId}
+                    >
+                      {sessionId}
+                    </Tooltip>
                     <CopyToClipboard variant="icon" value={sessionId} />
-                  </>
+                  </div>
                 ),
               },
               {
-                title: String(t('user_details.sessions.location_column')),
+                title: t('user_details.sessions.location_column'),
                 dataIndex: 'location',
-                colSpan: 3,
+                colSpan: 5,
                 render: ({ location }) => location ?? '-',
-              },
-              {
-                title: String(t('user_details.sessions.last_active')),
-                dataIndex: 'lastActiveAt',
-                colSpan: 4,
-                render: ({ lastActiveAt }) => {
-                  if (lastActiveAt === undefined) {
-                    return '-';
-                  }
-
-                  if (lastActiveAt === 'now') {
-                    return String(t('user_details.sessions.active_now'));
-                  }
-
-                  return new Date(lastActiveAt).toLocaleString();
-                },
               },
               {
                 title: null,
                 dataIndex: 'action',
                 colSpan: 2,
                 render: ({ sessionId }) => (
-                  <Button
-                    title="general.manage"
-                    type="text"
-                    size="small"
-                    onClick={() => {
-                      navigate(`/users/${userId}/sessions/${sessionId}`);
-                    }}
-                  />
+                  <div className={styles.action}>
+                    <Button
+                      title="general.manage"
+                      type="text"
+                      size="small"
+                      onClick={() => {
+                        navigate(`/users/${userId}/sessions/${sessionId}`);
+                      }}
+                    />
+                  </div>
                 ),
               },
             ]}

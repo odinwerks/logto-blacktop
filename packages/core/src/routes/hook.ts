@@ -5,8 +5,7 @@ import {
   type WebhookLogPrefix,
   hook,
   hookConfigGuard,
-  hookEventGuard,
-  hookEventsGuard,
+  hookEvents,
   hookResponseGuard,
   type Hook,
   type HookResponse,
@@ -27,13 +26,23 @@ import { captureEvent } from '../utils/posthog.js';
 
 import type { ManagementApiRouter, RouterInitArgs } from './types.js';
 
-const nonemptyUniqueHookEventsGuard = hookEventsGuard
-  .nonempty()
-  .transform((events) => deduplicate(events));
-
 export default function hookRoutes<T extends ManagementApiRouter>(
   ...[router, { id: tenantId, queries, libraries }]: RouterInitArgs<T>
 ) {
+  const availableHookEventGuard = z.enum(hookEvents);
+  const nonemptyUniqueHookEventsGuard = availableHookEventGuard
+    .array()
+    .nonempty()
+    .transform((events) => deduplicate(events));
+  const availableHookOpenApiGuard = Hooks.guard.extend({
+    event: availableHookEventGuard.nullable(),
+    events: availableHookEventGuard.array(),
+  });
+  const availableHookResponseOpenApiGuard = hookResponseGuard.extend({
+    event: availableHookEventGuard.nullable(),
+    events: availableHookEventGuard.array(),
+  });
+
   const {
     hooks: {
       getTotalNumberOfHooks,
@@ -62,6 +71,9 @@ export default function hookRoutes<T extends ManagementApiRouter>(
     koaGuard({
       query: z.object({ includeExecutionStats: z.string().optional() }),
       response: hookResponseGuard.partial({ executionStats: true }).array(),
+      responseForOpenApi: availableHookResponseOpenApiGuard
+        .partial({ executionStats: true })
+        .array(),
       status: 200,
     }),
     async (ctx, next) => {
@@ -101,6 +113,7 @@ export default function hookRoutes<T extends ManagementApiRouter>(
       params: z.object({ id: z.string() }),
       query: z.object({ includeExecutionStats: z.string().optional() }),
       response: hookResponseGuard.partial({ executionStats: true }),
+      responseForOpenApi: availableHookResponseOpenApiGuard.partial({ executionStats: true }),
       status: [200, 404],
     }),
     async (ctx, next) => {
@@ -184,10 +197,11 @@ export default function hookRoutes<T extends ManagementApiRouter>(
     koaQuotaGuard({ key: 'hooksLimit', quota }),
     koaGuard({
       body: Hooks.createGuard.omit({ id: true, signingKey: true }).extend({
-        event: hookEventGuard.optional(),
+        event: availableHookEventGuard.optional(),
         events: nonemptyUniqueHookEventsGuard.optional(),
       }),
       response: Hooks.guard,
+      responseForOpenApi: availableHookOpenApiGuard,
       status: [201, 400],
     }),
     koaReportSubscriptionUpdates({
@@ -243,10 +257,12 @@ export default function hookRoutes<T extends ManagementApiRouter>(
       body: Hooks.createGuard
         .omit({ id: true, signingKey: true })
         .extend({
+          event: availableHookEventGuard.nullable().optional(),
           events: nonemptyUniqueHookEventsGuard,
         })
         .partial(),
       response: Hooks.guard,
+      responseForOpenApi: availableHookOpenApiGuard,
       status: [200, 404],
     }),
     async (ctx, next) => {
@@ -266,6 +282,7 @@ export default function hookRoutes<T extends ManagementApiRouter>(
     koaGuard({
       params: z.object({ id: z.string() }),
       response: Hooks.guard,
+      responseForOpenApi: availableHookOpenApiGuard,
       status: [200, 404],
     }),
     async (ctx, next) => {

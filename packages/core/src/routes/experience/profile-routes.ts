@@ -25,7 +25,7 @@ import type TenantContext from '#src/tenants/TenantContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
 import { detectImageType } from '#src/utils/file.js';
-import { buildUploadFile } from '#src/utils/storage/index.js';
+import { buildStorage } from '#src/utils/storage/index.js';
 
 import { createNewMfaCodeVerificationRecord } from './classes/verifications/code-verification.js';
 import { experienceRoutes } from './const.js';
@@ -200,7 +200,7 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
         'storage.not_configured'
       );
 
-      const storage = buildUploadFile(storageProviderConfig);
+      const storage = buildStorage(storageProviderConfig);
 
       assertThat(
         experienceInteraction.identifiedUserId,

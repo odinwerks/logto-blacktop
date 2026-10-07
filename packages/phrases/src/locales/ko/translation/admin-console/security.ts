@@ -36,6 +36,11 @@ const security = {
       description:
         'Cloudflare의 스마트 CAPTCHA 대안으로, 시각적 퍼즐 없이 원활한 사용자 경험을 보장하면서 비침투적인 봇 보호를 제공합니다.',
     },
+    cap: {
+      name: 'Cap',
+      description:
+        '시각적 퍼즐이나 타사 서비스 없이 작업 증명을 사용하는 오픈 소스 자체 호스팅 CAPTCHA로, 다른 CAPTCHA 서비스에 접근할 수 없는 지역에 적합합니다.',
+    },
   },
   captcha_details: {
     back_to_security: '보안으로 돌아가기',
@@ -51,6 +56,10 @@ const security = {
     domain_placeholder: 'www.google.com (기본값) 또는 recaptcha.net',
     recaptcha_key_id: 'reCAPTCHA 키 ID',
     recaptcha_api_key: '프로젝트의 API 키',
+    cap_endpoint: 'Cap 엔드포인트',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      '이 엔드포인트는 HTTP를 사용하므로 로컬 개발에만 적합합니다. 브라우저는 HTTPS 로그인 페이지의 HTTP 요청을 차단하며, 시크릿 키가 암호화되지 않은 채 전송됩니다. 프로덕션에서는 HTTPS를 사용하세요.',
     deletion_description: '이 CAPTCHA 제공자를 삭제하시겠습니까?',
     captcha_deleted: 'CAPTCHA 제공자가 성공적으로 삭제되었습니다',
     setup_captcha: 'CAPTCHA 설정',
@@ -59,6 +68,10 @@ const security = {
     mode_checkbox: '체크박스',
     mode_notice:
       '인증 모드는 Google Cloud Console의 reCAPTCHA 키 설정에서 정의됩니다. 여기서 모드를 변경하려면 일치하는 키 유형이 필요합니다.',
+    score_threshold: '점수 임계값',
+    score_threshold_description:
+      '임계값보다 낮은 점수는 거부됩니다. 0.0은 모든 점수를 허용하고 1.0은 완벽한 점수만 허용합니다. 기본값은 0.5입니다.',
+    score_threshold_error: '점수 임계값은 0에서 1 사이여야 합니다.',
   },
   password_policy: {
     password_requirements: '비밀번호 요구사항',
@@ -90,17 +103,35 @@ const security = {
       '설정된 일수가 지난 후 사용자가 비밀번호를 재설정하도록 요구합니다. SSO 또는 패스키를 통해 로그인하는 사용자는 영향을 받지 않습니다.',
     enable_password_expiration: '비밀번호 만료 활성화',
     enable_password_expiration_description:
-      '사용자가 주기적으로 비밀번호를 재설정하도록 요구합니다. 비밀번호 변경 날짜가 기록되지 않은 기존 사용자는 계정 생성 날짜를 기준으로 평가됩니다.',
+      '사용자가 주기적으로 비밀번호를 재설정하도록 요구합니다. 비밀번호 변경 날짜가 기록되지 않은 기존 사용자는 이 정책이 활성화된 날짜를 기준으로 평가됩니다.',
     enable_password_expiration_tip:
       '로그인 환경에서 유효한 커넥터가 연결된 비밀번호 찾기 방법을 하나 이상 구성한 후에만 비밀번호 만료를 활성화할 수 있습니다.',
     expiration_period: '비밀번호 유효 기간 (일)',
     expiration_period_description: '비밀번호가 만료되기 전까지 유효한 일수입니다.',
-    expiration_period_error: '비밀번호 유효 기간은 최소 1일이어야 합니다.',
-    expiration_reminder: '만료 알림 (만료 며칠 전)',
-    expiration_reminder_description:
-      '만료 전에 사용자에게 경고하고 비밀번호 재설정을 유도하는 일수입니다. 사용자는 알림을 건너뛰고 로그인을 진행할 수 있습니다.',
-    expiration_reminder_error: '만료 알림 기간은 0일에서 유효 기간({{max}}일) 사이여야 합니다.',
+    expiration_period_error: '비밀번호 유효 기간은 {{min}}일에서 {{max}}일 사이여야 합니다.',
+    password_expiration_recovery_reminder:
+      '일부 사용자는 비밀번호 복구 코드를 받을 이메일 주소나 전화번호가 없어 만료된 비밀번호를 재설정하지 못할 수 있습니다. 모든 사용자가 비밀번호를 복구할 수 있도록 가입 시 이메일 주소 또는 전화번호를 필수로 요구하세요.',
   },
+  verification_code_policy: {
+    card_title: '인증 코드',
+    card_description:
+      '로그인, 가입, 비밀번호 재설정 흐름에서 사용되는 인증 코드의 만료 시간과 최대 재시도 횟수를 설정하세요.',
+    enable: {
+      title: '인증 코드 설정 사용자 지정',
+      description: '인증 코드 만료 시간과 최대 재시도 횟수를 사용자 지정할 수 있도록 허용해요.',
+    },
+    expiration_duration: {
+      title: '만료 시간(초)',
+      description: '인증 코드가 전송된 후 유효하게 유지되는 시간(초)이에요.',
+      error_message: '만료 시간은 60초에서 3600초 사이여야 해요.',
+    },
+    max_retry_attempts: {
+      title: '최대 재시도 횟수',
+      description: '코드가 무효화되기 전에 허용되는 최대 인증 실패 횟수예요.',
+      error_message: '최대 재시도 횟수는 1에서 100 사이여야 해요.',
+    },
+  },
+
   sentinel_policy: {
     card_title: '식별자 잠금',
     card_description:
@@ -138,6 +169,25 @@ const security = {
   blocklist: {
     card_title: '이메일 차단 목록',
     card_description: '높은 위험 또는 원치 않는 이메일 주소를 차단하여 사용자 기반을 제어합니다.',
+    custom_email_allowlist: {
+      title: '사용자 지정 이메일 주소 허용',
+      description:
+        '신규 가입 및 새로 연결되는 이메일에 특정 이메일 도메인, 이메일 주소 또는 와일드카드 패턴만 허용하는 규칙을 추가하세요. 예: bar@example.com, @example.com, foo*@example.com, *@example.com. gmail.com과 googlemail.com 도메인은 동일하게 처리되며 로컬 부분의 점은 무시되므로 foo.bar@gmail.com은 foobar@googlemail.com과 일치합니다.',
+      placeholder: '이메일 주소, 도메인 또는 와일드카드 패턴 입력',
+      duplicate_error: '이메일 주소, 도메인 또는 와일드카드 이메일 주소 패턴이 이미 추가되었습니다',
+      invalid_format_error:
+        '유효한 이메일 주소(bar@example.com), 도메인(@example.com) 또는 와일드카드 이메일 주소 패턴(foo*@example.com, *@example.com)이어야 합니다',
+      warnings: {
+        identical_entries:
+          '일부 허용 목록 항목이 차단 규칙에도 존재합니다. 일치하는 이메일은 계속 차단될 수 있습니다.',
+        blocked_exact_email:
+          '일부 정확한 허용 목록 이메일이 차단 규칙과 일치합니다. 일치하는 이메일은 계속 차단될 수 있습니다.',
+        blocked_subaddressing:
+          '일부 허용 목록 항목에 더하기 기호(+)가 포함되어 있지만 이메일 하위 주소 지정이 차단되어 있습니다.',
+        effectively_unusable:
+          '이 검사에 따르면 현재 허용 목록은 새 이메일을 통과시키지 못할 수 있습니다.',
+      },
+    },
     disposable_email: {
       title: '일회용 이메일 주소 차단',
       description:
@@ -151,11 +201,11 @@ const security = {
     custom_email_address: {
       title: '사용자 정의 이메일 주소 차단',
       description:
-        '등록하거나 UI를 통해 연결할 수 없는 특정 이메일 도메인 또는 이메일 주소를 추가합니다.',
-      placeholder: '차단된 이메일 주소 또는 도메인 입력 (예: bar@example.com, @example.com)',
-      duplicate_error: '이미 추가된 이메일 주소 또는 도메인입니다',
+        '특정 이메일 도메인, 이메일 주소 또는 와일드카드 패턴이 UI를 통해 등록되거나 연결되지 않도록 하는 규칙을 추가하세요. 예: bar@example.com, @example.com, foo*@example.com, *@example.com. gmail.com과 googlemail.com 도메인은 동일하게 처리되며 로컬 부분의 점은 무시되므로 foo.bar@gmail.com은 foobar@googlemail.com과 일치합니다.',
+      placeholder: '이메일 주소, 도메인 또는 와일드카드 패턴 입력',
+      duplicate_error: '이메일 주소, 도메인 또는 와일드카드 이메일 주소 패턴이 이미 추가되었습니다',
       invalid_format_error:
-        '유효한 이메일 주소(bar@example.com) 또는 도메인(@example.com)이어야 합니다',
+        '유효한 이메일 주소(bar@example.com), 도메인(@example.com) 또는 와일드카드 이메일 주소 패턴(foo*@example.com, *@example.com)이어야 합니다',
     },
   },
 };

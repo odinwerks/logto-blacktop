@@ -120,6 +120,42 @@ const application_details = {
   field_custom_data_tip:
     '사전 정의된 애플리케이션 속성에 나열되지 않은 추가 사용자 지정 애플리케이션 정보, 비즈니스 관련 설정 및 구성과 같은 항목들.',
   custom_data_invalid: '사용자 지정 데이터는 유효한 JSON 객체여야 합니다',
+  access_control: {
+    name: '규칙',
+    title: '접근 제어',
+    description: '앱 수준 접근 제어 규칙을 사용자 지정하세요.',
+    enable: '앱 수준 접근 제어 사용',
+    enable_description:
+      '세분화된 접근 제어를 사용하여 이 애플리케이션에 접근할 수 있는 사용자를 제한하세요. 사용하지 않으면 시스템의 모든 등록 사용자가 접근할 수 있습니다.',
+    enable_without_rules_notice: '접근 제어를 사용하기 전에 접근 규칙을 하나 이상 추가하세요.',
+    load_error: '접근 제어 규칙을 불러오지 못했습니다.',
+    custom_allow_rules: '사용자 지정 허용 규칙',
+    custom_allow_rules_description:
+      '특정 속성을 가진 사용자가 자동으로 접근할 수 있도록 규칙을 만드세요. 사용 설정 시 하나 이상의 규칙이 필요합니다.',
+    rules: '접근 규칙',
+    add_rules: '규칙 추가',
+    rules_description: '사용자는 구성된 규칙 중 하나와 일치하면 이 앱에 접근할 수 있습니다.',
+    empty_rules_description: '아직 구성된 규칙이 없습니다.',
+    delete_rule_confirmation: '이 규칙을 제거하시겠습니까?',
+    rule_table_rules: '규칙',
+    rule_table_description: '설명',
+    rule_table_users: '사용자',
+    rule_table_members: '구성원',
+    rule_table_user_id: '사용자 ID',
+    rule_count: '{{count}}개 규칙',
+    rule_count_other: '{{count}}개 규칙',
+    rule_users: '사용자',
+    rule_users_description: '특정 사용자가 이 앱에 접근할 수 있습니다.',
+    rule_roles: '역할',
+    rule_user_roles: '사용자 역할',
+    rule_user_roles_description: '선택한 사용자 역할에 할당된 사용자가 이 앱에 접근할 수 있습니다.',
+    rule_organizations: '조직',
+    rule_organizations_description:
+      '선택한 조직의 현재 및 향후 모든 구성원이 이 앱에 접근할 수 있습니다.',
+    rule_organization_roles: '조직 역할',
+    rule_organization_roles_description:
+      '선택한 조직에서 선택한 조직 역할을 가진 구성원이 이 앱에 접근할 수 있습니다.',
+  },
   branding: {
     name: '브랜딩',
     description: '동의 화면에서 앱의 표시 이름과 로고를 사용자 정의하세요.',
@@ -255,6 +291,13 @@ const application_details = {
     unspecified_description: 'Logto 사용자 ID 를 이름 ID 로 사용',
     email_address: '이메일 주소',
     email_address_description: '이메일 주소를 이름 ID 로 사용',
+  },
+  saml_idp_authentication: {
+    always_force_authn: '항상 인증 강제',
+    always_force_authn_description:
+      '사용자가 이 애플리케이션에 액세스할 때마다 다시 로그인하도록 요구하여, 이미 Logto 세션이 있어도 상관없습니다.',
+    always_force_authn_tip:
+      '활성화되면, Logto는 항상 이 애플리케이션에 대해 사용자가 다시 로그인하도록 요청합니다. 비활성화되면, ForceAuthn이 없는 한 기존 Logto 세션을 재사용합니다.',
   },
   saml_encryption_config: {
     encrypt_assertion: 'SAML 주장을 암호화',

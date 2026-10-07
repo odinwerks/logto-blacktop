@@ -24,6 +24,7 @@ import { type OrganizationDetailsOutletContext } from '../types';
 import { assembleData, normalizeData, type FormData } from '../utils';
 
 import JitSettings from './JitSettings';
+import TrustedDeviceSettings from './TrustedDeviceSettings';
 import styles from './index.module.scss';
 
 function Settings() {
@@ -46,6 +47,7 @@ function Settings() {
     watch,
   } = form;
   const [isMfaRequired] = watch(['isMfaRequired']);
+  const isGlobalTrustedDevicePolicyEnabled = Boolean(signInExperience?.trustedDevice.enabled);
   const api = useApi();
 
   const onSubmit = handleSubmit(
@@ -138,6 +140,11 @@ function Settings() {
             </InlineNotification>
           )}
         </FormField>
+        <TrustedDeviceSettings
+          isGlobalPolicyEnabled={isGlobalTrustedDevicePolicyEnabled}
+          isGlobalPolicyLoaded={Boolean(signInExperience)}
+          register={register}
+        />
       </FormCard>
       <JitSettings form={form} />
       <UnsavedChangesAlertModal hasUnsavedChanges={!isDeleting && isDirty} />

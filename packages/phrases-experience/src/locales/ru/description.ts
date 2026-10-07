@@ -36,6 +36,8 @@ const description = {
   reset_password: 'Забыли пароль',
   reset_password_description:
     'Введите {{types, list(type: disjunction;)}} от вашей учетной записи, и мы вышлем вам код для восстановления пароля.',
+  reset_password_magic_link_description:
+    'Введите адрес электронной почты, связанный с вашей учетной записью, чтобы продолжить сброс пароля.',
   new_password: 'Новый пароль',
   set_password: 'Задать пароль',
   password_changed: 'Пароль изменен',
@@ -105,6 +107,8 @@ const description = {
     'Ваше предприятие включило функцию единого входа для электронной почты {{email}}. Вы можете продолжить вход в систему с помощью следующих провайдеров SSO.',
   single_sign_on_enabled: 'Единый вход в систему включен для этой учетной записи',
   authorize_title: 'Авторизовать {{name}}',
+  unregistered_client_notice:
+    'Это приложение самозаявлено доменом <hostname>{{host}}</hostname>, включая его название и логотип. Проверьте имя хоста, прежде чем продолжить.',
   request_permission: '{{name}} запрашивает доступ к:',
   grant_organization_access: 'Предоставить доступ организации:',
   authorize_personal_data_usage: 'Авторизовать использование ваших личных данных:',
@@ -123,9 +127,6 @@ const description = {
     'Введите свои {{types, list(type: disjunction;)}} чтобы создать новую учётную запись.',
   all_account_creation_options: 'Все варианты создания учётной записи',
   password_expired: 'Срок действия вашего пароля истек, и его необходимо сбросить перед входом.',
-  password_expiration_reminder:
-    'Ваш пароль истечет через {{days}} дн. Мы рекомендуем сбросить его сейчас.',
-  password_expiration_reminder_skip: 'Пропустить пока',
   password_expiration_reset: 'Сбросить пароль',
   back_to_sign_in: 'Вернуться ко входу',
   support_email: 'Поддержка по электронной почте: <link></link>',

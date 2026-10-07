@@ -1,3 +1,4 @@
+import { ActionLibrary } from '#src/libraries/action.js';
 import { createApplicationAccessControlLibrary } from '#src/libraries/application-access-control.js';
 import { createApplicationLibrary } from '#src/libraries/application.js';
 import { type CloudConnectionLibrary } from '#src/libraries/cloud-connection.js';
@@ -16,12 +17,15 @@ import { createProtectedAppLibrary } from '#src/libraries/protected-app.js';
 import { QuotaLibrary } from '#src/libraries/quota.js';
 import { createRoleScopeLibrary } from '#src/libraries/role-scope.js';
 import { createSamlApplicationsLibrary } from '#src/libraries/saml-application/saml-applications.js';
+import { createSamlSsoConnectorSigningKeyLibrary } from '#src/libraries/saml-sso-connector-signing-key.js';
 import { createScopeLibrary } from '#src/libraries/scope.js';
 import { createSessionLibrary } from '#src/libraries/session/index.js';
 import { createSignInExperienceLibrary } from '#src/libraries/sign-in-experience/index.js';
 import { createSocialLibrary } from '#src/libraries/social.js';
 import { createSsoConnectorLibrary } from '#src/libraries/sso-connector.js';
 import { type SubscriptionLibrary } from '#src/libraries/subscription.js';
+import { createTrustedDevicePolicyLibrary } from '#src/libraries/trusted-device-policy.js';
+import { createTrustedDeviceLibrary } from '#src/libraries/trusted-device.js';
 import { createUserLibrary } from '#src/libraries/user.js';
 import { createVerificationStatusLibrary } from '#src/libraries/verification-status.js';
 
@@ -31,12 +35,20 @@ export default class Libraries {
   users = createUserLibrary(this.tenantId, this.queries);
   phrases = createPhraseLibrary(this.queries);
   hooks = createHookLibrary(this.queries);
+  actions = new ActionLibrary(
+    this.tenantId,
+    this.logtoConfigs,
+    this.subscription,
+    this.cloudConnection
+  );
+
   scopes = createScopeLibrary(this.queries);
   socials = createSocialLibrary(this.queries, this.connectors);
   jwtCustomizers = new JwtCustomizerLibrary(
+    this.tenantId,
     this.queries,
-    this.logtoConfigs,
     this.cloudConnection,
+    this.subscription,
     this.users,
     this.scopes
   );
@@ -46,6 +58,7 @@ export default class Libraries {
   applications = createApplicationLibrary(this.queries);
   verificationStatuses = createVerificationStatusLibrary(this.queries);
   samlApplications = createSamlApplicationsLibrary(this.queries);
+  samlSsoConnectorSigningKeys = createSamlSsoConnectorSigningKeyLibrary(this.queries);
   roleScopes = createRoleScopeLibrary(this.queries);
   domains = createDomainLibrary(this.queries);
   protectedApps = createProtectedAppLibrary(this.queries);
@@ -65,7 +78,8 @@ export default class Libraries {
     this.queries,
     this.connectors,
     this.ssoConnectors,
-    this.queries.wellKnownCache
+    this.queries.wellKnownCache,
+    this.subscription
   );
 
   organizationInvitations = new OrganizationInvitationLibrary(
@@ -77,6 +91,14 @@ export default class Libraries {
   oidcPrivateKeys = new OidcPrivateKeyLibrary(this.queries);
 
   customProfileFields = createCustomProfileFieldsLibrary(this.queries);
+
+  trustedDevicePolicy = createTrustedDevicePolicyLibrary(this.queries);
+
+  trustedDevices = createTrustedDeviceLibrary(
+    this.tenantId,
+    this.queries.trustedDevices,
+    this.trustedDevicePolicy
+  );
 
   session = createSessionLibrary(this.queries);
 

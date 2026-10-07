@@ -4,6 +4,7 @@ import { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import PageContext from '@ac/Providers/PageContextProvider/PageContext';
+import UserMenu from '@ac/components/UserMenu';
 import { layoutClassNames } from '@ac/constants/layout';
 
 import styles from './index.module.scss';
@@ -23,10 +24,15 @@ const PageHeader = () => {
   return (
     <header className={classNames(styles.header, layoutClassNames.pageHeader)}>
       <div className={styles.left}>
-        {logoUrl && <img className={styles.logo} src={logoUrl} alt="logo" />}
-        <div className={styles.divider} />
+        {logoUrl && (
+          <>
+            <img className={styles.logo} src={logoUrl} alt="logo" />
+            <div className={styles.divider} />
+          </>
+        )}
         <span className={styles.appName}>{t('account_center.page.title')}</span>
       </div>
+      <UserMenu />
     </header>
   );
 };

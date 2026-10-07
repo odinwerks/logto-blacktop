@@ -2,6 +2,7 @@ export const prefix = '/api/experience';
 
 export const experienceApiRoutes = Object.freeze({
   prefix,
+  interaction: `${prefix}/interaction`,
   identification: `${prefix}/identification`,
   submit: `${prefix}/submit`,
   verification: `${prefix}/verification`,
@@ -11,12 +12,4 @@ export const experienceApiRoutes = Object.freeze({
 
 export type VerificationResponse = {
   verificationId: string;
-};
-
-export type PasswordExpirationReminder = {
-  daysUntilExpiration: number;
-};
-
-export type PasswordVerificationResponse = VerificationResponse & {
-  reminder?: PasswordExpirationReminder;
 };

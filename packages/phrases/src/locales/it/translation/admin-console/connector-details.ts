@@ -38,6 +38,19 @@ const connector_details = {
     total_email_sent: 'Totale email inviate: {{value, number}}',
     total_email_sent_tip:
       "Logto utilizza SendGrid per l'invio sicuro ed affidabile delle email integrate. È completamente gratuito da utilizzare. <a>Scopri di più</a>",
+    hosted_email_usage: {
+      daily: 'Giornaliero <value>{{usage, number}}</value> / {{limit, number}}',
+      daily_unlimited: 'Giornaliero <value>{{usage, number}}</value>',
+      monthly: 'Mensile <value>{{usage, number}}</value> / {{limit, number}}',
+      monthly_unlimited: 'Mensile <value>{{usage, number}}</value>',
+      tip: 'I piani Free e Development includono limiti giornalieri e mensili per il servizio email integrato.',
+      banner: {
+        approaching:
+          'Stai per raggiungere il limite di invio del servizio email integrato di Logto. <provider>Collega il tuo provider email</provider> o <upgrade>aggiorna il tuo piano</upgrade> per continuare a usare il servizio email integrato di Logto.',
+        reached:
+          'Hai raggiunto il limite di invio del servizio email integrato di Logto, il che può interrompere le email di accesso. <provider>Collega il tuo provider email</provider> o <upgrade>aggiorna il tuo piano</upgrade> per continuare a usare il servizio email integrato di Logto.',
+      },
+    },
     email_template_title: 'Modello email',
     template_description:
       "L'email integrata utilizza modelli predefiniti per la consegna senza soluzione di continuità delle email di verifica. Non è richiesta alcuna configurazione e puoi personalizzare le informazioni di base del marchio.",
@@ -72,6 +85,20 @@ const connector_details = {
   sign_in_experience: {
     in_use: "Abilitato per l'accesso ",
     not_in_use: "Disabilitato per l'accesso ",
+  },
+  email_logs: {
+    title: 'Registri email',
+    time: 'Ora',
+    recipient: 'Destinatario',
+    recipient_placeholder: 'Cerca per indirizzo completo del destinatario',
+    template_type: 'Tipo di modello',
+    status: 'Stato',
+    status_sent: 'Inviata',
+    status_failed: 'Non riuscita',
+    language_tag: 'Lingua',
+    provider_message_id: 'ID messaggio del provider',
+    previous_page: 'Precedente',
+    next_page: 'Successivo',
   },
 };
 

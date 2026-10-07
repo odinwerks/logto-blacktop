@@ -37,6 +37,8 @@ const description = {
   reset_password: 'Mot de passe oublié',
   reset_password_description:
     'Entrez le {{types, list(type: disjunction;)}} associé à votre compte et nous vous enverrons le code de vérification pour réinitialiser votre mot de passe.',
+  reset_password_magic_link_description:
+    'Saisis l’adresse e-mail associée à ton compte pour continuer la réinitialisation de ton mot de passe.',
   new_password: 'Nouveau mot de passe',
   set_password: 'Définir un mot de passe',
   password_changed: 'Mot de passe modifié',
@@ -105,6 +107,8 @@ const description = {
     'Votre entreprise a activé la connexion unique (Single Sign-On) pour le compte email {{email}}. Vous pouvez continuer à vous connecter avec les fournisseurs SSO suivants.',
   single_sign_on_enabled: 'La connexion unique (Single Sign-On) est activée pour ce compte',
   authorize_title: 'Autoriser {{name}}',
+  unregistered_client_notice:
+    "Cette application est auto-déclarée par <hostname>{{host}}</hostname>, y compris son nom et son logo. Veuillez vérifier le nom d'hôte avant de continuer.",
   request_permission: "{{name}} demande l'accès à :",
   grant_organization_access: "Accorder l'accès à l'organisation :",
   authorize_personal_data_usage: "Autoriser l'utilisation de vos données personnelles :",
@@ -125,9 +129,6 @@ const description = {
   all_account_creation_options: 'Toutes les options de création de compte',
   password_expired:
     'Votre mot de passe a expiré et doit être réinitialisé avant de pouvoir vous connecter.',
-  password_expiration_reminder:
-    'Votre mot de passe expirera dans {{days}} jour(s). Nous vous recommandons de le réinitialiser maintenant.',
-  password_expiration_reminder_skip: 'Ignorer pour l’instant',
   password_expiration_reset: 'Réinitialiser le mot de passe',
   back_to_sign_in: 'Retour à la connexion',
   support_email: 'Email de support: <link></link>',

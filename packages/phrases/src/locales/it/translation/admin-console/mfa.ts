@@ -11,7 +11,6 @@ const mfa = {
   webauthn: 'Passkeys',
   webauthn_description:
     'Verifica tramite un metodo supportato dal browser: biometria, scansione del telefono o chiave di sicurezza, ecc.',
-  webauthn_native_tip: 'WebAuthn non è supportato per le applicazioni native.',
   webauthn_domain_tip:
     'WebAuthn lega le chiavi pubbliche al dominio specifico. Modificare il dominio del servizio impedirà agli utenti di autenticarsi tramite le passkey esistenti.',
   backup_code: 'Codici di backup',
@@ -72,6 +71,31 @@ const mfa = {
   no_sms_connector_error:
     'Impossibile abilitare MFA con codice di verifica SMS senza un connettore SMS. Si prega di configurare prima un connettore SMS.',
   setup_link: 'Configura',
+  trusted_device: {
+    title: 'Dispositivi attendibili',
+    description:
+      'Consenti ai browser attendibili di completare automaticamente la verifica MFA quando il flusso MFA corrente lo richiede.',
+    enable_title: 'Abilita dispositivi attendibili',
+    enable_description:
+      'Consenti di rendere attendibile questo browser dopo un fattore MFA idoneo.',
+    duration_title: 'Durata attendibilità (giorni)',
+    duration_error: 'Inserisci un numero intero compreso tra {{min}} e {{max}}.',
+    duration_note: 'Le modifiche alla durata si applicano solo ai dispositivi aggiunti in seguito.',
+    organization_allow_title: 'Consenti dispositivi attendibili',
+    organization_allow_tip:
+      "Un'organizzazione può solo restringere la policy del tenant e non può abilitarla quando è disattivata globalmente.",
+    organization_allow_description:
+      'Consenti la verifica con dispositivi attendibili ai membri di questa organizzazione.',
+    organization_global_disabled:
+      'Abilita prima i dispositivi attendibili nelle impostazioni MFA del tenant.',
+    management_description:
+      "Gestisci i browser considerati attendibili dall'utente dopo aver completato l'MFA. Dopo la rimozione, il browser richiederà nuovamente l'MFA al prossimo accesso.",
+    management_hint: "L'ultima posizione è solo informativa.",
+    management_empty: "L'utente non ha dispositivi attendibili attivi.",
+    management_deletion_confirmation:
+      "Rimuovere {{name}}? Questo browser richiederà nuovamente l'MFA al prossimo accesso.",
+    management_removed: 'Dispositivo attendibile rimosso.',
+  },
 };
 
 export default Object.freeze(mfa);

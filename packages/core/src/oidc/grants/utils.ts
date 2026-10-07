@@ -2,15 +2,12 @@ import { buildOrganizationUrn } from '@logto/core-kit';
 import { cond } from '@silverhand/essentials';
 import { errors } from 'oidc-provider';
 import type { Provider, Account, KoaContextWithOIDC } from 'oidc-provider';
-import certificateThumbprint from 'oidc-provider/lib/helpers/certificate_thumbprint.js';
-import epochTime from 'oidc-provider/lib/helpers/epoch_time.js';
-import dpopValidate from 'oidc-provider/lib/helpers/validate_dpop.js';
-import instance from 'oidc-provider/lib/helpers/weak_cache.js';
 
 import { type EnvSet } from '#src/env-set/index.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
 
+import { shouldTreatAsCimdClient } from '../cimd/index.js';
 import {
   getSharedResourceServerData,
   isOrganizationConsentedToApplication,
@@ -20,75 +17,61 @@ import {
 
 const { InvalidGrant, InvalidClient, AccessDenied } = errors;
 
-/**
- * Handle DPoP bound access tokens.
- */
-export const handleDPoP = async (
-  ctx: KoaContextWithOIDC,
-  token: InstanceType<Provider['AccessToken']> | InstanceType<Provider['ClientCredentials']>,
-  originalToken?: InstanceType<Provider['RefreshToken']>
-) => {
-  const { client } = ctx.oidc;
-  assertThat(client, new InvalidClient('client must be available'));
+/** Build the 403 denial the RFC 0001 organization access checks answer with. */
+const accessDenied = (message: string) => {
+  const error = new AccessDenied(message);
+  // eslint-disable-next-line @silverhand/fp/no-mutation -- oidc-provider errors take the HTTP status by assignment after construction
+  error.statusCode = 403;
+  return error;
+};
 
-  const dPoP = await dpopValidate(ctx);
-
-  if (dPoP) {
-    // @ts-expect-error -- code from oidc-provider
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    const unique: unknown = await ReplayDetection.unique(
-      client.clientId,
-      dPoP.jti,
-      epochTime() + 300
-    );
-
-    assertThat(unique, new InvalidGrant('DPoP proof JWT Replay detected'));
-
-    // @ts-expect-error -- code from oidc-provider
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    token.setThumbprint('jkt', dPoP.thumbprint);
-  } else if (client.dpopBoundAccessTokens) {
-    throw new InvalidGrant('DPoP proof JWT not provided');
-  }
-
-  if (originalToken?.jkt && (!dPoP || originalToken.jkt !== dPoP.thumbprint)) {
-    throw new InvalidGrant('failed jkt verification');
-  }
+type OrganizationAccessOptions = {
+  envSet: EnvSet;
+  queries: Queries;
+  account: Account;
+  isThirdParty?: boolean;
 };
 
 /**
- * Handle client certificate bound access tokens.
+ * Whether the user has granted this organization to this client.
+ *
+ * The CIMD test must come first: CIMD organization access is grant-scoped, not the
+ * application-keyed consent relation the third-party branch checks.
  */
-export const handleClientCertificate = async (
+const isOrganizationGrantedToClient = async (
   ctx: KoaContextWithOIDC,
-  token: InstanceType<Provider['AccessToken']> | InstanceType<Provider['ClientCredentials']>,
-  originalToken?: InstanceType<Provider['RefreshToken']>
-) => {
-  const { client, provider } = ctx.oidc;
-  assertThat(client, new InvalidClient('client must be available'));
+  clientId: string,
+  organizationId: string,
+  { envSet, queries, account, isThirdParty }: OrganizationAccessOptions
+): Promise<boolean> => {
+  /**
+   * CIMD organization access is grant-scoped, keyed on the grant behind the current refresh
+   * token. Caller contract: organization tokens are only obtainable through the refresh grant —
+   * CIMD `grant_types` are pinned to authorization_code + refresh_token and the fork's token
+   * endpoint gates every grant type through `grantTypeAllowed`, so the client-credentials and
+   * token-exchange callers never reach here with a CIMD client — and the refresh grant asserts
+   * `grantId` before validating the grant, so the entity is always present. Fail closed if it
+   * ever is not: at an authorization boundary a broken contract must not be distinguishable
+   * from a plain denial.
+   */
+  if (shouldTreatAsCimdClient(envSet, clientId)) {
+    const grantId = ctx.oidc.entities.RefreshToken?.grantId;
 
-  const providerInstance = instance(provider);
-  const {
-    features: {
-      mTLS: { getCertificate },
-    },
-  } = providerInstance.configuration();
-
-  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-  if (client.tlsClientCertificateBoundAccessTokens || originalToken?.['x5t#S256']) {
-    const cert = getCertificate(ctx);
-
-    if (!cert) {
-      throw new InvalidGrant('mutual TLS client certificate not provided');
-    }
-    // @ts-expect-error -- code from oidc-provider
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    token.setThumbprint('x5t', cert);
-
-    if (originalToken?.['x5t#S256'] && originalToken['x5t#S256'] !== certificateThumbprint(cert)) {
-      throw new InvalidGrant('failed x5t#S256 verification');
-    }
+    return grantId !== undefined && queries.cimd.grantOrganizations.exists(grantId, organizationId);
   }
+
+  // Registered third-party applications carry the cross-grant consent relation.
+  if (isThirdParty ?? (await isThirdPartyApplication(queries, clientId))) {
+    return isOrganizationConsentedToApplication(
+      queries,
+      clientId,
+      account.accountId,
+      organizationId
+    );
+  }
+
+  // First-party applications are implicitly granted every organization the user belongs to.
+  return true;
 };
 
 /**
@@ -96,10 +79,9 @@ export const handleClientCertificate = async (
  */
 export const checkOrganizationAccess = async (
   ctx: KoaContextWithOIDC,
-  queries: Queries,
-  account: Account,
-  isThirdParty?: boolean
+  options: OrganizationAccessOptions
 ): Promise<{ organizationId?: string }> => {
+  const { queries, account } = options;
   const { client, params } = ctx.oidc;
 
   assertThat(params, new InvalidGrant('parameters must be available'));
@@ -115,26 +97,12 @@ export const checkOrganizationAccess = async (
         userId: account.accountId,
       }))
     ) {
-      const error = new AccessDenied('user is not a member of the organization');
-      // eslint-disable-next-line @silverhand/fp/no-mutation
-      error.statusCode = 403;
-      throw error;
+      throw accessDenied('user is not a member of the organization');
     }
 
-    // Check if the organization is granted (third-party application only) by the user
-    if (
-      (isThirdParty ?? (await isThirdPartyApplication(queries, client.clientId))) &&
-      !(await isOrganizationConsentedToApplication(
-        queries,
-        client.clientId,
-        account.accountId,
-        organizationId
-      ))
-    ) {
-      const error = new AccessDenied('organization access is not granted to the application');
-      // eslint-disable-next-line @silverhand/fp/no-mutation
-      error.statusCode = 403;
-      throw error;
+    // Check if the organization is granted to the client by the user
+    if (!(await isOrganizationGrantedToClient(ctx, client.clientId, organizationId, options))) {
+      throw accessDenied('organization access is not granted to the application');
     }
 
     // Check if the organization requires MFA and the user has MFA enabled
@@ -143,10 +111,7 @@ export const checkOrganizationAccess = async (
       account.accountId
     );
     if (isMfaRequired && !hasMfaConfigured) {
-      const error = new AccessDenied('organization requires MFA but user has no MFA configured');
-      // eslint-disable-next-line @silverhand/fp/no-mutation
-      error.statusCode = 403;
-      throw error;
+      throw accessDenied('organization requires MFA but user has no MFA configured');
     }
   }
 

@@ -1,9 +1,12 @@
-import { Suspense } from 'react';
+import { Suspense, useContext } from 'react';
 import { useOutletContext, useRoutes } from 'react-router-dom';
 import { safeLazy } from 'react-safe-lazy';
 
 import DelayedSuspenseFallback from '@/components/DelayedSuspenseFallback';
+import HostedEmailCapBanner from '@/components/HostedEmailCapBanner';
+import OssTenantMfaBanner from '@/components/OssTenantMfaBanner';
 import { isDevFeaturesEnabled } from '@/consts/env';
+import { TenantsContext } from '@/contexts/TenantsProvider';
 import OverlayScrollbar from '@/ds-components/OverlayScrollbar';
 import Tag from '@/ds-components/Tag';
 import { useConsoleRoutes } from '@/hooks/use-console-routes';
@@ -19,6 +22,7 @@ const Sidebar = safeLazy(async () => import('./Sidebar'));
 
 function ConsoleContent() {
   const { scrollableContent } = useOutletContext<AppContentOutletContext>();
+  const { currentTenantId } = useContext(TenantsContext);
   const routeObjects = useConsoleRoutes();
   const routes = useRoutes(routeObjects);
 
@@ -33,6 +37,9 @@ function ConsoleContent() {
       </Suspense>
       <OverlayScrollbar className={styles.overlayScrollbarWrapper}>
         <div ref={scrollableContent} className={styles.main}>
+          {/* Key by tenant so the banner's per-session dismissal state resets on tenant switch. */}
+          <HostedEmailCapBanner key={currentTenantId} />
+          <OssTenantMfaBanner />
           <Suspense fallback={<DelayedSuspenseFallback />}>{routes}</Suspense>
         </div>
       </OverlayScrollbar>

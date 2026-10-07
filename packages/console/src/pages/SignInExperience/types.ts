@@ -10,18 +10,22 @@ import {
   type SignUpProfileFields,
   type AccountCenterFieldControl,
 } from '@logto/schemas';
+
 /**
- * Omit the `mfa`, `adaptiveMfa`, `captchaPolicy`, `passwordPolicy`, `sentinelPolicy` and `emailBlocklistPolicy` fields from the sign-in experience.
- * Since those fields are not managed by the sign-in experience page.
+ * Fields not managed by the sign-in experience page form. `usernamePolicy` is owned by its own
+ * modal (see `SignUpAndSignIn/UsernamePolicy`), mirroring how `passwordPolicy` lives on its own page.
  */
 type OmittedSignInExperienceKeys = keyof Pick<
   SignInExperience,
   | 'mfa'
   | 'adaptiveMfa'
+  | 'trustedDevice'
   | 'captchaPolicy'
   | 'sentinelPolicy'
   | 'passwordPolicy'
   | 'emailBlocklistPolicy'
+  | 'passwordExpiration'
+  | 'usernamePolicy'
 >;
 
 export enum SignInExperienceTab {
@@ -32,21 +36,38 @@ export enum SignInExperienceTab {
   Content = 'content',
 }
 
-const accountCenterFieldKeys: Array<keyof AccountCenterFieldControl> = [
+export type AccountCenterFieldKey = keyof Pick<
+  AccountCenterFieldControl,
+  | 'email'
+  | 'phone'
+  | 'social'
+  | 'password'
+  | 'mfa'
+  | 'passkey'
+  | 'username'
+  | 'name'
+  | 'avatar'
+  | 'profile'
+  | 'customData'
+  | 'session'
+  | 'trustedDevice'
+>;
+
+const accountCenterFieldKeys: AccountCenterFieldKey[] = [
   'email',
   'phone',
   'social',
   'password',
   'mfa',
+  'passkey',
   'username',
   'name',
   'avatar',
   'profile',
   'customData',
   'session',
+  'trustedDevice',
 ] as const;
-
-export type AccountCenterFieldKey = (typeof accountCenterFieldKeys)[number];
 
 export type AccountCenterFormValues = {
   enabled: boolean;
@@ -90,6 +111,24 @@ export const convertAccountCenterToForm = (
   customCss: accountCenter?.customCss ?? undefined,
   profileFields: accountCenter?.profileFields ?? [],
 });
+
+export const normalizeAccountCenterFieldsForSubmit = (
+  fields: AccountCenterFormValues['fields'],
+  originalFields?: AccountCenterConfig['fields']
+): AccountCenterFieldControl => {
+  const { passkey, trustedDevice, ...stableFields } = fields;
+
+  return {
+    ...stableFields,
+    ...(originalFields?.passkey !== undefined || passkey !== AccountCenterControlValue.Off
+      ? { passkey }
+      : {}),
+    ...(originalFields?.trustedDevice !== undefined ||
+    trustedDevice !== AccountCenterControlValue.Off
+      ? { trustedDevice }
+      : {}),
+  };
+};
 
 /**
  * @deprecated

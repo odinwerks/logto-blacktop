@@ -82,7 +82,6 @@ describe('PasswordVerification', () => {
       passwordExpiration: {
         enabled: true,
         validPeriodDays: 30,
-        reminderPeriodDays: 5,
       },
     } satisfies SignInExperience);
 
@@ -95,10 +94,10 @@ describe('PasswordVerification', () => {
     );
   });
 
-  it('should return reminder metadata when password is in reminder window', async () => {
+  it('should not throw when password is still within the valid period', async () => {
     const user = {
       ...mockUser,
-      passwordUpdatedAt: now.getTime() - 28 * dayInMs,
+      passwordUpdatedAt: now.getTime() - 20 * dayInMs,
     } satisfies User;
 
     findUserByUsername.mockResolvedValueOnce(user);
@@ -108,20 +107,13 @@ describe('PasswordVerification', () => {
       passwordExpiration: {
         enabled: true,
         validPeriodDays: 30,
-        reminderPeriodDays: 5,
       },
     } satisfies SignInExperience);
 
     const verification = createVerification();
 
     await expect(verification.verify(password)).resolves.toEqual(user);
-    await expect(verification.verifyPasswordExpiration(user)).resolves.toEqual({
-      kind: 'reminder',
-      user,
-      reminder: {
-        daysUntilExpiration: 2,
-      },
-    });
+    await expect(verification.verifyPasswordExpiration(user)).resolves.toBeUndefined();
     expect(verification.isVerified).toBe(true);
   });
 
@@ -139,7 +131,6 @@ describe('PasswordVerification', () => {
       passwordExpiration: {
         enabled: true,
         validPeriodDays: 30,
-        reminderPeriodDays: 5,
       },
     } satisfies SignInExperience);
 
@@ -151,9 +142,42 @@ describe('PasswordVerification', () => {
     );
   });
 
-  it('should throw 500 when password expiration is enabled without validPeriodDays', async () => {
+  describe('createForUser', () => {
+    it('should verify against the user and identify that user without a raw identifier', async () => {
+      const verification = PasswordVerification.createForUser(
+        tenant.libraries,
+        tenant.queries,
+        mockUser.id
+      );
+
+      expect(verification.userId).toBe(mockUser.id);
+      expect(verification.identifier).toEqual({
+        type: AdditionalIdentifier.UserId,
+        value: mockUser.id,
+      });
+
+      await expect(verification.verify(password)).resolves.toEqual(mockUser);
+      expect(findUserById).toHaveBeenCalledWith(mockUser.id);
+      expect(verifyUserPassword).toHaveBeenCalledWith(mockUser, password);
+      expect(findUserByUsername).not.toHaveBeenCalled();
+
+      await expect(verification.identifyUser()).resolves.toEqual(mockUser);
+      expect(verification.toSanitizedJson().identifier).toEqual({
+        type: AdditionalIdentifier.UserId,
+        value: mockUser.id,
+      });
+      expect(JSON.stringify(verification.toSanitizedJson())).not.toContain(mockUser.primaryEmail!);
+    });
+
+    it('should carry no user for a record created from a client-supplied identifier', () => {
+      expect(createVerification().userId).toBeUndefined();
+    });
+  });
+
+  it('should throw 422 when password expiration is enabled without validPeriodDays', async () => {
     findDefaultSignInExperience.mockResolvedValueOnce({
       ...mockSignInExperience,
+      // @ts-expect-error intentionally testing a persisted malformed policy.
       passwordExpiration: {
         enabled: true,
       },
@@ -168,7 +192,7 @@ describe('PasswordVerification', () => {
     await expect(verification.verifyPasswordExpiration(mockUser)).rejects.toMatchError(
       new RequestError({
         code: 'sign_in_experiences.password_expiration_invalid_period_days',
-        status: 500,
+        status: 422,
       })
     );
     expect(findUserById).toHaveBeenCalledWith(mockUser.id);

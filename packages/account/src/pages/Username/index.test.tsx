@@ -1,4 +1,4 @@
-import { AccountCenterControlValue, type AccountCenter } from '@logto/schemas';
+import { AccountCenterControlValue, type AccountCenter, type UsernamePolicy } from '@logto/schemas';
 import { fireEvent, waitFor } from '@testing-library/react';
 import { HTTPError, type NormalizedOptions } from 'ky';
 import { Route, Routes } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { Route, Routes } from 'react-router-dom';
 import type { PageContextType } from '@ac/Providers/PageContextProvider/PageContext';
 import renderWithPageContext, {
   mockAccountCenterSettings,
+  mockSignInExperienceSettings,
 } from '@ac/__mocks__/RenderWithPageContext';
 
 import { updateUsername } from '../../apis/account';
@@ -25,6 +26,14 @@ jest.mock('../../apis/account', () => ({
 }));
 
 jest.mock('@ac/components/VerificationMethodList', () => () => <div>Verification methods</div>);
+
+// Lowercase-only, length 4–8: violations here are policy-only (not caught by the hard floor).
+const restrictivePolicy: UsernamePolicy = {
+  caseSensitive: true,
+  minLength: 4,
+  maxLength: 8,
+  allowedChars: { lowercase: true, uppercase: false, numbers: false, underscore: false },
+};
 
 const createHttpError = (code: string, status: number) =>
   new HTTPError(
@@ -75,6 +84,13 @@ const renderUsername = ({ pageContext }: UsernameRenderOptions = {}) =>
       },
     }
   );
+
+const renderWithPolicy = () =>
+  renderUsername({
+    pageContext: {
+      experienceSettings: { ...mockSignInExperienceSettings, usernamePolicy: restrictivePolicy },
+    },
+  });
 
 describe('<Username />', () => {
   beforeEach(() => {
@@ -198,6 +214,61 @@ describe('<Username />', () => {
     await waitFor(() => {
       expect(setVerificationId).toHaveBeenCalledWith(undefined);
       expect(setToast).toHaveBeenCalledWith('account_center.verification.verification_required');
+    });
+  });
+
+  describe('username policy', () => {
+    it('blocks a too-short username with an inline policy error', async () => {
+      const { getByText, container } = renderWithPolicy();
+
+      const usernameInput = container.querySelector('input[name="username"]');
+      fireEvent.change(usernameInput!, { target: { value: 'abc' } });
+      fireEvent.click(getByText('action.save'));
+
+      await waitFor(() => {
+        expect(getByText('error.username_too_short')).toBeTruthy();
+      });
+      expect(updateUsername).not.toHaveBeenCalled();
+    });
+
+    it('blocks a username with a disallowed character class', async () => {
+      const { getByText, container } = renderWithPolicy();
+
+      const usernameInput = container.querySelector('input[name="username"]');
+      fireEvent.change(usernameInput!, { target: { value: 'abcD' } });
+      fireEvent.click(getByText('action.save'));
+
+      await waitFor(() => {
+        expect(getByText('error.username_uppercase_not_allowed')).toBeTruthy();
+      });
+      expect(updateUsername).not.toHaveBeenCalled();
+    });
+
+    it('submits a policy-compliant username', async () => {
+      const { getByText, container } = renderWithPolicy();
+
+      const usernameInput = container.querySelector('input[name="username"]');
+      fireEvent.change(usernameInput!, { target: { value: 'abcd' } });
+      fireEvent.click(getByText('action.save'));
+
+      await waitFor(() => {
+        expect(updateUsername).toHaveBeenCalledWith('access-token', 'verification-record-id', {
+          username: 'abcd',
+        });
+      });
+    });
+
+    // The test i18n returns the key, so the rendered description surfaces as its phrase key.
+    it('swaps the page description to the policy requirements for a restrictive policy', () => {
+      const { getByText, queryByText } = renderWithPolicy();
+      expect(getByText('account_center.username.policy_description')).toBeTruthy();
+      expect(queryByText('account_center.username.description')).toBeNull();
+    });
+
+    it('keeps the static page description for the permissive default policy', () => {
+      const { getByText, queryByText } = renderUsername();
+      expect(getByText('account_center.username.description')).toBeTruthy();
+      expect(queryByText('account_center.username.policy_description')).toBeNull();
     });
   });
 });

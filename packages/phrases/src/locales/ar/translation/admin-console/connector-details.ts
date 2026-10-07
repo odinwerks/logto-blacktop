@@ -38,6 +38,19 @@ const connector_details = {
     total_email_sent: 'إجمالي البريد الإلكتروني المرسل: {{value, number}}',
     total_email_sent_tip:
       'يستخدم Logto SendGrid للبريد الإلكتروني المدمج الآمن والمستقر. إنه مجاني تمامًا للاستخدام. <a>تعرف على المزيد</a>',
+    hosted_email_usage: {
+      daily: 'يومي <value>{{usage, number}}</value> / {{limit, number}}',
+      daily_unlimited: 'يومي <value>{{usage, number}}</value>',
+      monthly: 'شهري <value>{{usage, number}}</value> / {{limit, number}}',
+      monthly_unlimited: 'شهري <value>{{usage, number}}</value>',
+      tip: 'تتضمن خطتا Free و Development حدودًا يومية وشهرية لخدمة البريد الإلكتروني المدمجة.',
+      banner: {
+        approaching:
+          'أنت تقترب من حد إرسال خدمة البريد الإلكتروني المدمجة من Logto. <provider>قم بتوصيل مزود البريد الإلكتروني الخاص بك</provider> أو <upgrade>قم بترقية خطتك</upgrade> لمواصلة استخدام خدمة البريد الإلكتروني المدمجة من Logto.',
+        reached:
+          'لقد وصلت إلى حد إرسال خدمة البريد الإلكتروني المدمجة من Logto، مما قد يعطل رسائل تسجيل الدخول. <provider>قم بتوصيل مزود البريد الإلكتروني الخاص بك</provider> أو <upgrade>قم بترقية خطتك</upgrade> لمواصلة استخدام خدمة البريد الإلكتروني المدمجة من Logto.',
+      },
+    },
     email_template_title: 'قالب البريد الإلكتروني',
     template_description:
       'يستخدم البريد الإلكتروني المدمج قوالب افتراضية لتسليم سلس لرسائل التحقق. لا يلزم أي تكوين ، ويمكنك تخصيص معلومات العلامة التجارية الأساسية.',
@@ -73,6 +86,20 @@ const connector_details = {
   sign_in_experience: {
     in_use: 'ممكّن لتسجيل الدخول',
     not_in_use: 'معطّل لتسجيل الدخول',
+  },
+  email_logs: {
+    title: 'سجلات البريد الإلكتروني',
+    time: 'الوقت',
+    recipient: 'المستلم',
+    recipient_placeholder: 'البحث بعنوان المستلم الكامل',
+    template_type: 'نوع القالب',
+    status: 'الحالة',
+    status_sent: 'تم الإرسال',
+    status_failed: 'فشل',
+    language_tag: 'اللغة',
+    provider_message_id: 'معرّف الرسالة لدى المزوّد',
+    previous_page: 'السابق',
+    next_page: 'التالي',
   },
 };
 

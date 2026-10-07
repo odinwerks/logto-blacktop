@@ -39,9 +39,16 @@ const error = {
   invalid_link: 'Lien invalide',
   invalid_link_description: "Votre jeton à usage unique a peut-être expiré ou n'est plus valide.",
   captcha_verification_failed: 'Erreur lors de la vérification du captcha.',
+  send_verification_code_failed:
+    "Échec de l'envoi du code de vérification. Veuillez réessayer plus tard.",
+  send_verification_code_failed_use_password:
+    "Échec de l'envoi du code de vérification. Veuillez plutôt vous connecter avec votre mot de passe.",
   terms_acceptance_required: 'Acceptation des conditions requise',
   terms_acceptance_required_description: 'Vous devez accepter les conditions pour continuer.',
   something_went_wrong: 'Quelque chose a mal tourné',
+  account_suspended: 'Compte suspendu',
+  account_suspended_description:
+    "Ce compte a été suspendu. Veuillez contacter l'administrateur pour obtenir de l'aide.",
   access_denied: 'Accès refusé',
   application_access_denied:
     "Vous n'avez pas la permission d'accéder à cette application.\nVeuillez contacter votre administrateur pour obtenir de l'aide.",

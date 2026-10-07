@@ -3,6 +3,7 @@ import type {
   AdminConsoleData,
   Application,
   ApplicationsRole,
+  LogtoAction,
   LogtoConfig,
   OidcConfigKey,
   Passcode,
@@ -14,6 +15,7 @@ import type {
 import {
   ApplicationType,
   DomainStatus,
+  LogtoActionKey,
   internalPrefix,
   LogtoJwtTokenKey,
   LogtoOidcConfigKey,
@@ -29,6 +31,7 @@ export * from './domain.js';
 export * from './protected-app.js';
 export * from './sign-in-experience.js';
 export * from './sso.js';
+export * from './trusted-device.js';
 export * from './user.js';
 export * from './captcha.js';
 export * from './custom-profile-fields.js';
@@ -229,7 +232,7 @@ export const mockJwtCustomizerConfigForAccessToken = {
   tenantId: 'fake_tenant',
   key: LogtoJwtTokenKey.AccessToken,
   value: {
-    script: 'console.log("hello world");',
+    script: 'const getCustomJwtClaims = () => ({});',
     environmentVariables: {
       API_KEY: '<api-key>',
     },
@@ -245,9 +248,38 @@ export const mockJwtCustomizerConfigForClientCredentials = {
   tenantId: 'fake_tenant',
   key: LogtoJwtTokenKey.ClientCredentials,
   value: {
-    script: 'console.log("hello world");',
+    script: 'const getCustomJwtClaims = () => ({});',
     environmentVariables: {
       API_KEY: '<api-key>',
     },
   },
+};
+
+export const mockActionConfigForPostSignIn = {
+  tenantId: 'fake_tenant',
+  key: LogtoActionKey.PostSignIn,
+  value: {
+    script: 'const runAction = ({ event }) => ({ action: "updateUser", user: event.user });',
+    environmentVariables: {
+      API_KEY: '<api-key>',
+    },
+    contextSample: {
+      user: {
+        username: 'user',
+      },
+    },
+    enabled: true,
+    onExecutionError: 'block',
+  } satisfies LogtoAction,
+};
+
+export const mockActionConfigForPostFirstFactorVerification = {
+  tenantId: 'fake_tenant',
+  key: LogtoActionKey.PostFirstFactorVerification,
+  value: {
+    script:
+      'const runAction = ({ event }) => ({ action: "updateUser", user: {}, passwordVerified: true });',
+    enabled: false,
+    onExecutionError: 'allow',
+  } satisfies LogtoAction,
 };

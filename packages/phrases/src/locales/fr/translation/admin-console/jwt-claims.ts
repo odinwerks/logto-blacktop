@@ -61,6 +61,11 @@ const jwt_claims = {
     subtitle:
       "Utilisez le paramètre d'entrée `context.application` pour fournir les informations d'application associées au jeton.",
   },
+  organization_data: {
+    title: "Contexte de l'organisation",
+    subtitle:
+      "Utilisez le paramètre d'entrée `context.organization` pour fournir les informations de l'organisation cible, disponible uniquement pour les jetons d'organisation.",
+  },
   token_data: {
     title: 'Données du jeton',
     subtitle: "Utilisez le paramètre d'entrée `token` pour le payload du jeton d'accès actuel. ",
@@ -101,6 +106,11 @@ const jwt_claims = {
     subtitle: 'Ajustez le jeton et les données utilisateur simulés pour les tests.',
     run_button: 'Exécuter le test',
     result_title: 'Résultat du test',
+  },
+  sandbox_warning: {
+    title: 'Les scripts s’exécutent avec les privilèges du serveur',
+    description:
+      'Sur Logto auto-hébergé, ce script s’exécute dans le même environnement que Logto lui-même : il peut lire les variables d’environnement du serveur et atteindre les services de votre réseau interne. Il n’est pas isolé dans un bac à sable. N’accordez l’accès à cette page qu’aux personnes auxquelles vous feriez confiance pour accéder au serveur.',
   },
   form_error: {
     invalid_json: 'Format JSON invalide',

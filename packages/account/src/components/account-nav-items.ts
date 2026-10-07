@@ -15,13 +15,13 @@ export type AccountNavItem = {
 type BuildAccountNavItemsOptions = {
   readonly hasProfile: boolean;
   readonly hasSecurity: boolean;
-  readonly hasSessions?: boolean;
+  readonly hasSessions: boolean;
 };
 
 export const buildAccountNavItems = ({
   hasProfile,
   hasSecurity,
-  hasSessions = false,
+  hasSessions,
 }: BuildAccountNavItemsOptions): AccountNavItem[] => [
   ...(hasProfile
     ? [

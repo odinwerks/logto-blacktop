@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import {
+  type SamlAuthnRequestConfig,
   type SamlApplicationResponse,
   type Application,
   type SamlApplicationConfig,
@@ -8,7 +9,7 @@ import {
   BindingType,
   type CertificateFingerprints,
 } from '@logto/schemas';
-import { appendPath } from '@silverhand/essentials';
+import { appendPath, trySafe, type Nullable } from '@silverhand/essentials';
 import { addYears } from 'date-fns';
 import forge from 'node-forge';
 import { z } from 'zod';
@@ -46,14 +47,7 @@ const createCertificate = (keypair: forge.pki.KeyPair, lifeSpanInYears: number) 
   /* eslint-enable @silverhand/fp/no-mutation */
 
   // TODO: read from tenant config or let user customize before downloading
-  const subjectAttributes: forge.pki.CertificateField[] = [
-    {
-      name: 'commonName',
-      value: 'example.com',
-    },
-  ];
-
-  const issuerAttributes: forge.pki.CertificateField[] = [
+  const identityAttributes: forge.pki.CertificateField[] = [
     {
       name: 'commonName',
       value: 'logto.io',
@@ -68,8 +62,8 @@ const createCertificate = (keypair: forge.pki.KeyPair, lifeSpanInYears: number) 
     },
   ];
 
-  cert.setSubject(subjectAttributes);
-  cert.setIssuer(issuerAttributes);
+  cert.setSubject(identityAttributes);
+  cert.setIssuer(identityAttributes);
   cert.sign(keypair.privateKey);
 
   return {
@@ -130,7 +124,12 @@ export const assembleSamlApplication = ({
   application: Application;
   samlConfig: Pick<
     SamlApplicationConfig,
-    'attributeMapping' | 'entityId' | 'acsUrl' | 'encryption' | 'nameIdFormat'
+    | 'attributeMapping'
+    | 'entityId'
+    | 'acsUrl'
+    | 'encryption'
+    | 'nameIdFormat'
+    | 'authnRequestConfig'
   >;
 }): SamlApplicationResponse => {
   return {
@@ -158,3 +157,17 @@ export const buildSingleSignOnUrl = (baseUrl: URL, samlApplicationId: string) =>
 
 export const buildSamlIdentityProviderEntityId = (baseUrl: URL, samlApplicationId: string) =>
   appendPath(baseUrl, `saml/${samlApplicationId}`).toString();
+
+/** Validate the SP trust certificate before persisting request-signature policy. */
+export const validateSamlAuthnRequestConfig = (config?: Nullable<SamlAuthnRequestConfig>) => {
+  const signingCertificate = config?.signingCertificate;
+  if (!signingCertificate) {
+    return;
+  }
+
+  const certificate = trySafe(() => new crypto.X509Certificate(signingCertificate));
+  assertThat(
+    certificate?.publicKey.asymmetricKeyType === 'rsa',
+    'application.saml.invalid_certificate_pem_format'
+  );
+};

@@ -3,8 +3,10 @@ import type { CreateUser, Role, SignInExperience, User } from '@logto/schemas';
 import { RoleType, UsersPasswordEncryptionMethod } from '@logto/schemas';
 import { createMockUtils, pickDefault } from '@logto/shared/esm';
 import { removeUndefinedKeys } from '@silverhand/essentials';
+import { StatementTimeoutError } from '@silverhand/slonik';
 
 import { mockSignInExperience, mockUser, mockUserResponse } from '#src/__mocks__/index.js';
+import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { type InsertUserResult } from '#src/libraries/user.js';
 import { koaManagementApiHooks } from '#src/middleware/koa-management-api-hooks.js';
@@ -34,6 +36,7 @@ const mockedQueries = {
   users: {
     findUserById: jest.fn(async (id: string) => mockUser),
     hasUser: jest.fn(async () => mockHasUser()),
+    hasUserWithId: jest.fn(async (): Promise<boolean> => false),
     hasUserWithEmail: jest.fn(async () => mockHasUserWithEmail()),
     hasUserWithNormalizedPhone: jest.fn(async () => mockHasUserWithPhone()),
     updateUserById: jest.fn(
@@ -68,7 +71,7 @@ const mockHasUser = jest.fn(async () => false);
 const mockHasUserWithEmail = jest.fn(async () => false);
 const mockHasUserWithPhone = jest.fn(async () => false);
 
-const { hasUser, findUserById, updateUserById, deleteUserIdentity, deleteUserById } =
+const { hasUser, hasUserWithId, findUserById, updateUserById, deleteUserIdentity, deleteUserById } =
   mockedQueries.users;
 
 const { encryptUserPassword } = await mockEsmWithActual('#src/libraries/user.utils.js', () => ({
@@ -174,6 +177,119 @@ describe('adminUserRoutes', () => {
         passwordAlgorithm: UsersPasswordEncryptionMethod.MD5,
       })
     ).resolves.toHaveProperty('status', 200);
+  });
+
+  describe('POST /users with custom id', () => {
+    const originalIsCloud = EnvSet.values.isCloud;
+
+    afterEach(() => {
+      // eslint-disable-next-line @silverhand/fp/no-mutation
+      (EnvSet.values as { isCloud: boolean }).isCloud = originalIsCloud;
+    });
+
+    it('should create user with the given id in OSS', async () => {
+      // eslint-disable-next-line @silverhand/fp/no-mutation
+      (EnvSet.values as { isCloud: boolean }).isCloud = false;
+
+      const response = await userRequest
+        .post('/users')
+        .send({ id: 'legacy_id-01', username: 'MJAtLogto', name: 'Michael' });
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('id', 'legacy_id-01');
+      expect(hasUserWithId).toHaveBeenCalledWith('legacy_id-01');
+      expect(usersLibraries.generateUserId).not.toHaveBeenCalled();
+      expect(usersLibraries.insertUser).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'legacy_id-01' })
+      );
+    });
+
+    it('should generate an id when not provided', async () => {
+      // eslint-disable-next-line @silverhand/fp/no-mutation
+      (EnvSet.values as { isCloud: boolean }).isCloud = false;
+
+      const response = await userRequest
+        .post('/users')
+        .send({ username: 'MJAtLogto', name: 'Michael' });
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('id', 'fooId');
+      expect(hasUserWithId).not.toHaveBeenCalled();
+      expect(usersLibraries.generateUserId).toHaveBeenCalled();
+    });
+
+    it('should reject custom id in cloud', async () => {
+      // eslint-disable-next-line @silverhand/fp/no-mutation
+      (EnvSet.values as { isCloud: boolean }).isCloud = true;
+
+      const response = await userRequest
+        .post('/users')
+        .send({ id: 'legacy_id-01', username: 'MJAtLogto', name: 'Michael' });
+
+      expect(response.status).toEqual(501);
+      expect(usersLibraries.insertUser).not.toHaveBeenCalled();
+    });
+
+    it('should throw if the given id is already in use', async () => {
+      // eslint-disable-next-line @silverhand/fp/no-mutation
+      (EnvSet.values as { isCloud: boolean }).isCloud = false;
+      hasUserWithId.mockResolvedValueOnce(true);
+
+      const response = await userRequest
+        .post('/users')
+        .send({ id: 'legacy_id-01', username: 'MJAtLogto', name: 'Michael' });
+
+      expect(response.status).toEqual(422);
+      expect(usersLibraries.insertUser).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      'auth0|5f7c8ec7c33c6c004bbafe82',
+      'google-oauth2|103547991597142817347',
+      'user@example.com',
+      'first.last+tag@example.com',
+      '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+      'user_01H8MZ2QK3V4X5Y6Z7',
+      'org:acme:user',
+      'dXNlcg==',
+      '...',
+      '.hidden',
+      'a..b',
+      'a'.repeat(128),
+    ])('should accept id %p', async (id) => {
+      // eslint-disable-next-line @silverhand/fp/no-mutation
+      (EnvSet.values as { isCloud: boolean }).isCloud = false;
+
+      const response = await userRequest
+        .post('/users')
+        .send({ id, username: 'MJAtLogto', name: 'Michael' });
+
+      expect(response.status).toEqual(200);
+      expect(response.body).toHaveProperty('id', id);
+    });
+
+    it.each([
+      '',
+      '.',
+      '..',
+      'a'.repeat(129),
+      'has space',
+      'slash/id',
+      'back\\slash',
+      'query?id',
+      'hash#id',
+      'percent%20id',
+    ])('should reject invalid id %p', async (id) => {
+      // eslint-disable-next-line @silverhand/fp/no-mutation
+      (EnvSet.values as { isCloud: boolean }).isCloud = false;
+
+      const response = await userRequest
+        .post('/users')
+        .send({ id, username: 'MJAtLogto', name: 'Michael' });
+
+      expect(response.status).toEqual(400);
+      expect(usersLibraries.insertUser).not.toHaveBeenCalled();
+    });
   });
 
   it('POST /users should throw if username exists', async () => {
@@ -328,10 +444,11 @@ describe('adminUserRoutes', () => {
     const mockedUserId = 'foo';
     const password = '1234asd$';
     const response = await userRequest.patch(`/users/${mockedUserId}/password`).send({ password });
-    expect(encryptUserPassword).toHaveBeenCalledWith(password);
     expect(findUserById).toHaveBeenCalledTimes(1);
     const updateCalls = updateUserById.mock.calls as Array<[string, Partial<CreateUser>]>;
     const passwordCall = updateCalls.find(([id]) => id === mockedUserId);
+    expect(typeof passwordCall?.[1].passwordEncrypted).toBe('string');
+    expect(passwordCall?.[1].passwordEncryptionMethod).toBe(UsersPasswordEncryptionMethod.Argon2i);
     expect(typeof passwordCall?.[1].passwordUpdatedAt).toBe('number');
     expect(passwordCall?.[1].isPasswordExpired).toBe(false);
     expect(response.status).toEqual(200);
@@ -340,7 +457,7 @@ describe('adminUserRoutes', () => {
     });
   });
 
-  it('PATCH /users/:userId/password/expire', async () => {
+  it('PATCH /users/:userId/password/expiration', async () => {
     mockedQueries.signInExperiences.findDefaultSignInExperience.mockResolvedValueOnce({
       ...mockSignInExperience,
       passwordExpiration: {
@@ -349,14 +466,16 @@ describe('adminUserRoutes', () => {
       },
     });
 
-    const response = await userRequest.patch('/users/foo/password/expire');
+    const response = await userRequest
+      .patch('/users/foo/password/expiration')
+      .send({ isExpired: true });
     expect(response.status).toEqual(200);
     expect(updateUserById).toHaveBeenCalledWith('foo', {
       isPasswordExpired: true,
     });
   });
 
-  it('PATCH /users/:userId/password/expire should return 400 when expiration is disabled', async () => {
+  it('PATCH /users/:userId/password/expiration should return 400 when expiration is disabled', async () => {
     mockedQueries.signInExperiences.findDefaultSignInExperience.mockResolvedValueOnce({
       ...mockSignInExperience,
       passwordExpiration: {
@@ -364,8 +483,24 @@ describe('adminUserRoutes', () => {
       },
     });
 
-    const response = await userRequest.patch('/users/foo/password/expire');
+    const response = await userRequest
+      .patch('/users/foo/password/expiration')
+      .send({ isExpired: true });
     expect(response.status).toEqual(400);
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('PATCH /users/:userId/password/expiration should return 404 when user does not exist', async () => {
+    findUserById.mockRejectedValueOnce(
+      new RequestError({ code: 'user.user_not_exist', status: 404 })
+    );
+
+    const response = await userRequest
+      .patch('/users/foo/password/expiration')
+      .send({ isExpired: true });
+
+    expect(response.status).toEqual(404);
+    expect(mockedQueries.signInExperiences.findDefaultSignInExperience).not.toHaveBeenCalled();
     expect(updateUserById).not.toHaveBeenCalled();
   });
 
@@ -451,6 +586,22 @@ describe('adminUserRoutes', () => {
     const response = await userRequest.delete(`/users/${userId}`);
     expect(response.status).toEqual(204);
     expect(signOutUser).toHaveBeenCalledWith(userId);
+  });
+
+  it('DELETE /users/:userId should proceed with deletion when revocation times out', async () => {
+    const userId = 'fooUser';
+    signOutUser.mockRejectedValueOnce(new StatementTimeoutError(new Error('statement timeout')));
+    const response = await userRequest.delete(`/users/${userId}`);
+    expect(response.status).toEqual(204);
+    expect(deleteUserById).toHaveBeenCalledWith(userId);
+  });
+
+  it('DELETE /users/:userId should fail when revocation fails with a non-timeout error', async () => {
+    const userId = 'fooUser';
+    signOutUser.mockRejectedValueOnce(new Error('connection refused'));
+    const response = await userRequest.delete(`/users/${userId}`);
+    expect(response.status).toEqual(500);
+    expect(deleteUserById).not.toHaveBeenCalled();
   });
 
   it('DELETE /users/:userId should throw if user is deleting self', async () => {

@@ -3,8 +3,8 @@ import { useContext, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { validate } from 'superstruct';
 
-import SecondaryPageLayout from '@/Layout/SecondaryPageLayout';
 import SectionLayout from '@/Layout/SectionLayout';
+import VerificationPageLayout from '@/Layout/VerificationPageLayout';
 import UserInteractionContext from '@/Providers/UserInteractionContextProvider/UserInteractionContext';
 import SwitchMfaFactorsLink from '@/components/SwitchMfaFactorsLink';
 import useWebAuthnOperation from '@/hooks/use-webauthn-operation';
@@ -21,7 +21,6 @@ const WebAuthnVerification = () => {
   const [, webAuthnState] = validate(state, webAuthnStateGuard);
   const { verificationIdsMap } = useContext(UserInteractionContext);
   const verificationId = verificationIdsMap[VerificationType.WebAuthn];
-
   const handleWebAuthn = useWebAuthnOperation();
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -29,14 +28,14 @@ const WebAuthnVerification = () => {
     return <ErrorPage title="error.invalid_session" />;
   }
 
-  const { options, availableFactors, skippable } = webAuthnState;
+  const { options, ...flowState } = webAuthnState;
 
   if (!isWebAuthnOptions(options)) {
     return <ErrorPage title="error.invalid_session" />;
   }
 
   return (
-    <SecondaryPageLayout title="mfa.verify_mfa_factors">
+    <VerificationPageLayout title="mfa.verify_mfa_factors">
       <SectionLayout
         title="mfa.verify_via_passkey"
         description="mfa.verify_via_passkey_description"
@@ -52,11 +51,8 @@ const WebAuthnVerification = () => {
           }}
         />
       </SectionLayout>
-      <SwitchMfaFactorsLink
-        flow={UserMfaFlow.MfaVerification}
-        flowState={{ availableFactors, skippable }}
-      />
-    </SecondaryPageLayout>
+      <SwitchMfaFactorsLink flow={UserMfaFlow.MfaVerification} flowState={flowState} />
+    </VerificationPageLayout>
   );
 };
 

@@ -70,8 +70,11 @@ export default class BasicSentinel extends Sentinel {
    * @throws {Error} If the action is not supported.
    */
   static assertAction(action: unknown): asserts action is SentinelActivityAction {
-    // eslint-disable-next-line no-restricted-syntax
-    if (!BasicSentinel.supportedActions.includes(action as SentinelActivityAction)) {
+    // `supportedActions` is a narrow tuple of the actions this sentinel handles; widen it so
+    // `includes` accepts any `SentinelActivityAction` (e.g. the send actions handled elsewhere).
+    const actionAllowlist: readonly SentinelActivityAction[] = BasicSentinel.supportedActions;
+    // eslint-disable-next-line no-restricted-syntax -- check membership against the allowlist
+    if (!actionAllowlist.includes(action as SentinelActivityAction)) {
       // Update to use the new error class later.
       throw new Error(`Unsupported action: ${String(action)}`);
     }
@@ -171,15 +174,19 @@ export default class BasicSentinel extends Sentinel {
     }
 
     const actionArray = BasicSentinel.getActionArray(query.action);
-    const failedAttempts = await this.pool.oneFirst<number>(sql`
-      select count(*) from ${table}
-      where ${fields.targetType} = ${query.targetType}
-        and ${fields.targetHash} = ${query.targetHash}
-        and ${fields.action} = any(${actionArray})
-        and ${fields.actionResult} = ${SentinelActionResult.Failed}
-        and ${fields.decision} != ${SentinelDecision.Blocked}
-        and ${fields.createdAt} > now() - interval '1 hour'
-    `);
+    // Postgres returns a bigint for count(*), which Slonik surfaces as a string. Convert it to a
+    // number so the threshold arithmetic below is numeric rather than string concatenation.
+    const failedAttempts = Number(
+      await this.pool.oneFirst<string>(sql`
+        select count(*) from ${table}
+        where ${fields.targetType} = ${query.targetType}
+          and ${fields.targetHash} = ${query.targetHash}
+          and ${fields.action} = any(${actionArray})
+          and ${fields.actionResult} = ${SentinelActionResult.Failed}
+          and ${fields.decision} != ${SentinelDecision.Blocked}
+          and ${fields.createdAt} > now() - interval '1 hour'
+      `)
+    );
 
     const { maxAttempts, lockoutDuration } = await this.getSentinelPolicy();
 

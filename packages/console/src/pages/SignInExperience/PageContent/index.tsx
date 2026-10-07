@@ -13,8 +13,6 @@ import { useParams } from 'react-router-dom';
 
 import SubmitFormChangesActionBar from '@/components/SubmitFormChangesActionBar';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
-import { isCloud } from '@/consts/env';
-import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import ConfirmModal from '@/ds-components/ConfirmModal';
 import TabNav, { TabNavItem } from '@/ds-components/TabNav';
 import useApi from '@/hooks/use-api';
@@ -25,10 +23,12 @@ import { trySubmitSafe } from '@/utils/form';
 
 import Preview from '../components/Preview';
 import { SignInExperienceContext } from '../contexts/SignInExperienceContextProvider';
+import useBrandingEntitlements from '../hooks/use-branding-entitlements';
 import usePreviewConfigs from '../hooks/use-preview-configs';
 import {
   SignInExperienceTab,
   convertAccountCenterToForm,
+  normalizeAccountCenterFieldsForSubmit,
   type SignInExperiencePageManagedData,
   type SignInExperienceForm,
   type AccountCenterFormValues,
@@ -38,6 +38,7 @@ import {
 
 import AccountCenter from './AccountCenter';
 import Branding from './Branding';
+import UpsellNotice from './Branding/UpsellNotice';
 import CollectUserProfile from './CollectUserProfile';
 import Content from './Content';
 import SignUpAndSignIn from './SignUpAndSignIn';
@@ -70,9 +71,8 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
   const { updateConfigs } = useConfigs();
   const { getPathname } = useTenantPathname();
   const { isUploading, cancelUpload } = useContext(SignInExperienceContext);
-  const { currentSubscriptionQuota } = useContext(SubscriptionDataContext);
   const { isConnectorTypeEnabled, ready: isConnectorsReady } = useEnabledConnectorTypes();
-  const isCustomUiCspEnabled = currentSubscriptionQuota.bringYourUiEnabled || !isCloud;
+  const { isHideLogtoBrandingAvailable, isCustomUiCspEnabled } = useBrandingEntitlements();
 
   const [dataToCompare, setDataToCompare] = useState<SignInExperiencePageManagedData>();
 
@@ -106,10 +106,14 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
         accountCenter.webauthnRelatedOrigins
       );
       const deleteAccountUrl = normalizeDeleteAccountUrl(accountCenter.deleteAccountUrl);
+      const fields = accountCenter.enabled
+        ? normalizeAccountCenterFieldsForSubmit(accountCenter.fields, data.accountCenter.fields)
+        : {};
 
       const updatedData = await api
         .patch('api/sign-in-exp', {
           json: sieFormDataParser.toSignInExperience(formValues, {
+            isHideLogtoBrandingAvailable,
             isCustomUiCspEnabled,
           }),
         })
@@ -120,7 +124,7 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
           json: {
             enabled: accountCenter.enabled,
             // Disable all fields when account center is disabled
-            fields: accountCenter.enabled ? accountCenter.fields : {},
+            fields,
             webauthnRelatedOrigins,
             deleteAccountUrl,
             customCss: accountCenter.customCss?.length ? accountCenter.customCss : null,
@@ -144,8 +148,10 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
     }
   }, [
     api,
+    data.accountCenter.fields,
     getValues,
     isCustomUiCspEnabled,
+    isHideLogtoBrandingAvailable,
     onAccountCenterUpdated,
     onSignInExperienceUpdated,
     reset,
@@ -161,9 +167,11 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
         }
 
         const formatted = sieFormDataParser.toSignInExperience(formData, {
+          isHideLogtoBrandingAvailable,
           isCustomUiCspEnabled,
         });
         const original = signInExperienceToUpdatedDataParser(data, {
+          isHideLogtoBrandingAvailable,
           isCustomUiCspEnabled,
         });
 
@@ -178,7 +186,7 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
       });
       return handler(formData);
     },
-    [data, isCustomUiCspEnabled, isSaving, saveData]
+    [data, isCustomUiCspEnabled, isHideLogtoBrandingAvailable, isSaving, saveData]
   );
 
   const onDiscard = useCallback(() => {
@@ -247,6 +255,7 @@ function PageContent({ data, onSignInExperienceUpdated, onAccountCenterUpdated }
         </PageTab>
       </TabNav>
       <div className={styles.content}>
+        {tab === SignInExperienceTab.Branding && <UpsellNotice />}
         <div className={classNames(styles.contentTop, isDirty && styles.withSubmitActionBar)}>
           <FormProvider {...methods}>
             <form>

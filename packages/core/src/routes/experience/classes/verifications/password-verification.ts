@@ -1,13 +1,15 @@
 import {
+  AdditionalIdentifier,
   type VerificationIdentifier,
   VerificationType,
   type User,
   type PasswordVerificationRecordData,
 } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
-import { differenceInDays } from 'date-fns';
+import { conditional } from '@silverhand/essentials';
 
 import RequestError from '#src/errors/RequestError/index.js';
+import { verifyPasswordExpirationPolicy } from '#src/libraries/password-expiration.js';
 import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
@@ -21,23 +23,6 @@ export {
   passwordVerificationRecordDataGuard,
 } from '@logto/schemas';
 
-type PasswordExpirationReminder = {
-  daysUntilExpiration: number;
-};
-
-type PasswordExpirationSuccess = {
-  kind: 'success';
-  user: User;
-};
-
-type PasswordExpirationReminderResult = {
-  kind: 'reminder';
-  user: User;
-  reminder: PasswordExpirationReminder;
-};
-
-type PasswordExpirationResult = PasswordExpirationSuccess | PasswordExpirationReminderResult;
-
 export class PasswordVerification
   implements IdentifierVerificationRecord<VerificationType.Password>
 {
@@ -48,6 +33,17 @@ export class PasswordVerification
       type: VerificationType.Password,
       identifier,
       verified: false,
+    });
+  }
+
+  /**
+   * Factory method to create a new `PasswordVerification` record for the subject the interaction
+   * carries: it verifies against that user's credential and {@link identifyUser} returns that user.
+   */
+  static createForUser(libraries: Libraries, queries: Queries, userId: string) {
+    return PasswordVerification.create(libraries, queries, {
+      type: AdditionalIdentifier.UserId,
+      value: userId,
     });
   }
 
@@ -74,9 +70,20 @@ export class PasswordVerification
     this.verified = verified;
   }
 
-  /** Returns true if a userId is set */
+  /** Returns whether the password verification has succeeded. */
   get isVerified() {
     return this.verified;
+  }
+
+  /** The user this record was created for (see {@link createForUser}), if not from an identifier. */
+  get userId(): string | undefined {
+    return conditional(
+      this.identifier.type === AdditionalIdentifier.UserId && this.identifier.value
+    );
+  }
+
+  markAsVerified(): void {
+    this.verified = true;
   }
 
   /**
@@ -86,7 +93,7 @@ export class PasswordVerification
    * @throws RequestError with 422 status if the user is not found or the password is incorrect.
    */
   async verify(password: string): Promise<User> {
-    const user = await findUserByIdentifier(this.queries.users, this.identifier);
+    const user = await findUserByIdentifier(this.queries, this.identifier);
 
     // Throws an 422 error if the user is not found or the password is incorrect
     const verifiedUser = await this.libraries.users.verifyUserPassword(user, password);
@@ -107,7 +114,7 @@ export class PasswordVerification
       new RequestError({ code: 'session.verification_failed', status: 400 })
     );
 
-    const user = await findUserByIdentifier(this.queries.users, this.identifier);
+    const user = await findUserByIdentifier(this.queries, this.identifier);
 
     assertThat(
       user,
@@ -143,57 +150,13 @@ export class PasswordVerification
    * The route keeps this outside the sentinel guard so expired passwords do not count as failed
    * credential attempts.
    *
-   * @throws RequestError with 422 status if the password is already expired.
-   * @throws RequestError with 500 status if the expiration policy is misconfigured.
+   * @throws RequestError with 422 status if the password is already expired, or if an enabled
+   * policy has an invalid valid period.
    */
-  async verifyPasswordExpiration(user: User): Promise<PasswordExpirationResult> {
+  async verifyPasswordExpiration(user: User): Promise<void> {
     const { passwordExpiration } =
       await this.queries.signInExperiences.findDefaultSignInExperience();
 
-    if (!passwordExpiration.enabled) {
-      return {
-        kind: 'success',
-        user,
-      };
-    }
-
-    assertThat(
-      passwordExpiration.validPeriodDays !== undefined && passwordExpiration.validPeriodDays > 0,
-      new RequestError({
-        code: 'sign_in_experiences.password_expiration_invalid_period_days',
-        status: 500,
-      })
-    );
-
-    // validPeriodDays is guaranteed to be defined and > 0 by the assertThat above
-    const { validPeriodDays } = passwordExpiration;
-    const referenceDate = new Date(user.passwordUpdatedAt ?? user.createdAt);
-    const passwordAgeInDays = differenceInDays(new Date(), referenceDate);
-
-    const isPasswordExpired =
-      user.isPasswordExpired || passwordAgeInDays >= validPeriodDays;
-
-    assertThat(!isPasswordExpired, new RequestError({ code: 'password.expired', status: 422 }));
-
-    const reminderPeriodDays = passwordExpiration.reminderPeriodDays ?? 0;
-    const reminderDaysUntilExpiration = validPeriodDays - passwordAgeInDays;
-
-    const isInReminderWindow =
-      reminderPeriodDays > 0 && reminderDaysUntilExpiration <= reminderPeriodDays;
-
-    if (!isInReminderWindow) {
-      return {
-        kind: 'success',
-        user,
-      };
-    }
-
-    return {
-      kind: 'reminder',
-      user,
-      reminder: {
-        daysUntilExpiration: reminderDaysUntilExpiration,
-      },
-    };
+    verifyPasswordExpirationPolicy(passwordExpiration, user);
   }
 }

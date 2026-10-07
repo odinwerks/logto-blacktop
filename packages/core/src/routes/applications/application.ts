@@ -3,7 +3,6 @@
 import type { Role, Application } from '@logto/schemas';
 import {
   adminTenantId,
-  Applications,
   ApplicationType,
   buildBuiltInApplicationDataForTenant,
   defaultApplicationSecretName,
@@ -11,6 +10,7 @@ import {
   InternalRole,
   ProductEvent,
   isBuiltInApplicationId,
+  applicationResponseGuard,
 } from '@logto/schemas';
 import { generateStandardId, generateStandardSecret } from '@logto/shared';
 import { conditional } from '@silverhand/essentials';
@@ -29,7 +29,14 @@ import type { ManagementApiRouter, RouterInitArgs } from '../types.js';
 import { assertApplicationAccessControlHasRules } from './application-access-control/utils.js';
 import applicationAccessControlRoutes from './application-access-control.js';
 import applicationCustomDataRoutes from './application-custom-data.js';
-import { generateInternalSecret } from './application-secret.js';
+import applicationOrganizationRoutes from './application-organization.js';
+import applicationProtectedAppMetadataRoutes from './application-protected-app-metadata.js';
+import { omitInternalApplicationSecret } from './application-response.js';
+import applicationRoleRoutes from './application-role.js';
+import applicationSecretRoutes, { generateInternalSecret } from './application-secret.js';
+import applicationSignInExperienceRoutes from './application-sign-in-experience.js';
+import applicationUserConsentOrganizationRoutes from './application-user-consent-organization.js';
+import applicationUserConsentScopeRoutes from './application-user-consent-scope.js';
 import { applicationCreateGuard, applicationPatchGuard } from './types.js';
 
 const includesInternalAdminRole = (roles: Readonly<Array<{ role: Role }>>) =>
@@ -43,7 +50,13 @@ const parseIsThirdPartQueryParam = (isThirdPartyQuery: 'true' | 'false' | undefi
   return isThirdPartyQuery === 'true';
 };
 
-/** Third-party applications are not allowed to enable token exchange. */
+/**
+ * Third-party applications are not allowed to enable token exchange — by design, not as a
+ * temporary limitation: token exchange is consent-free impersonation reserved for the tenant's
+ * own services, while third-party access is governed by user consent, and the token exchange
+ * grant performs no per-client scope filtering on that premise. A third party that needs an
+ * exchanged token should obtain it through the tenant's own machine-to-machine backend.
+ */
 const assertThirdPartyApplicationTokenExchangeDisabled = (
   isThirdParty: boolean,
   allowTokenExchange?: boolean
@@ -65,8 +78,11 @@ const hideOidcClientMetadataForSamlApp = (application: Application) => ({
   ),
 });
 
+const buildApplicationResponse = (application: Application) =>
+  omitInternalApplicationSecret(hideOidcClientMetadataForSamlApp(application));
+
 const hideOidcClientMetadataForSamlApps = (applications: readonly Application[]) => {
-  return applications.map((application) => hideOidcClientMetadataForSamlApp(application));
+  return applications.map((application) => buildApplicationResponse(application));
 };
 
 const applicationTypeGuard = z.nativeEnum(ApplicationType);
@@ -97,7 +113,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
         excludeOrganizationId: string().optional(),
         isThirdParty: z.union([z.literal('true'), z.literal('false')]).optional(),
       }),
-      response: z.array(Applications.guard),
+      response: z.array(applicationResponseGuard),
       status: 200,
     }),
     async (ctx, next) => {
@@ -177,7 +193,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
     '/applications',
     koaGuard({
       body: applicationCreateGuard,
-      response: Applications.guard,
+      response: applicationResponseGuard,
       status: [200, 400, 422, 403, 500],
     }),
     // eslint-disable-next-line complexity
@@ -251,7 +267,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
         }
       }
 
-      ctx.body = application;
+      ctx.body = buildApplicationResponse(application);
 
       if (rest.type === ApplicationType.MachineToMachine) {
         void quota.reportSubscriptionUpdatesUsage('machineToMachineLimit');
@@ -273,7 +289,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
     '/applications/:id',
     koaGuard({
       params: object({ id: string().min(1) }),
-      response: Applications.guard.merge(z.object({ isAdmin: z.boolean() })),
+      response: applicationResponseGuard.extend({ isAdmin: z.boolean() }),
       status: [200, 404],
     }),
     async (ctx, next) => {
@@ -285,7 +301,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
         ? buildBuiltInApplicationDataForTenant(tenantId, id)
         : undefined;
       if (builtInApplication) {
-        ctx.body = { ...builtInApplication, isAdmin: false };
+        ctx.body = { ...buildApplicationResponse(builtInApplication), isAdmin: false };
 
         return next();
       }
@@ -295,7 +311,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
         await queries.applicationsRoles.findApplicationsRolesByApplicationId(id);
 
       ctx.body = {
-        ...hideOidcClientMetadataForSamlApp(application),
+        ...buildApplicationResponse(application),
         isAdmin: includesInternalAdminRole(applicationsRoles),
       };
 
@@ -312,7 +328,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
           isAdmin: boolean().optional(),
         })
       ),
-      response: Applications.guard,
+      response: applicationResponseGuard,
       status: [200, 400, 404, 422, 500],
     }),
 
@@ -430,7 +446,7 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
           ? await queries.applications.updateApplicationById(id, rest, 'replace')
           : (updatedProtectedApplication ?? pendingUpdateApplication);
 
-      ctx.body = updatedApplication;
+      ctx.body = buildApplicationResponse(updatedApplication);
 
       return next();
     }
@@ -484,5 +500,12 @@ export default function applicationRoutes<T extends ManagementApiRouter>(
   applicationCustomDataRoutes(router, tenant);
 
   applicationAccessControlRoutes(router, tenant);
+  applicationRoleRoutes(router, tenant);
+  applicationProtectedAppMetadataRoutes(router, tenant);
+  applicationOrganizationRoutes(router, tenant);
+  applicationSecretRoutes(router, tenant);
+  applicationUserConsentScopeRoutes(router, tenant);
+  applicationSignInExperienceRoutes(router, tenant);
+  applicationUserConsentOrganizationRoutes(router, tenant);
 }
 /* eslint-enable max-lines */

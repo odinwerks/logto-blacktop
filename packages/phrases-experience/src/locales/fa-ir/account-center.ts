@@ -13,6 +13,8 @@ const account_center = {
     sidebar_security: 'امنیت',
     sidebar_sessions: 'نشست‌ها',
     support: 'پشتیبانی',
+    user_menu: 'منوی کاربر',
+    sign_out: 'خروج',
   },
   verification: {
     title: 'تأیید امنیتی',
@@ -119,6 +121,21 @@ const account_center = {
     email_removed: 'آدرس ایمیل با موفقیت حذف شد.',
     phone_removed: 'شماره تلفن با موفقیت حذف شد.',
     username_removed: 'نام کاربری با موفقیت حذف شد.',
+    trusted_devices: {
+      title: 'دستگاه‌های مورد اعتماد MFA',
+      current_device: 'دستگاه فعلی',
+      expires_on: 'انقضا در {{date}}',
+      unknown_location: 'مکان نامشخص',
+      remove: 'حذف',
+      removed: 'دستگاه مورد اعتماد با موفقیت حذف شد.',
+      loading: 'در حال بارگذاری...',
+      empty: 'هیچ دستگاه مورد اعتمادی وجود ندارد.',
+      load_failed: 'بارگذاری دستگاه‌های مورد اعتماد ناموفق بود. لطفاً دوباره تلاش کنید.',
+      retry: 'تلاش مجدد',
+      remove_confirmation_title: 'دستگاه مورد اعتماد حذف شود؟',
+      remove_confirmation_description:
+        'دفعه بعد که در این دستگاه وارد می‌شوید، باید MFA را دوباره تکمیل کنید. نشست فعلی شما فعال باقی می‌ماند.',
+    },
   },
   social: {
     linked: '{{connector}} با موفقیت پیوند داده شد.',
@@ -271,10 +288,12 @@ const account_center = {
     third_party_apps_load_failed:
       'بارگذاری برنامه‌های شخص ثالث ناموفق بود. لطفاً دوباره تلاش کنید.',
     granted_at: 'مجازشده در {{date}}',
+    dynamic_app: 'برنامه پویا',
+    client_id: 'شناسه کلاینت: {{clientId}}',
     revoke_grant: 'حذف',
     revoke_grant_title: 'حذف دسترسی برنامه شخص ثالث',
     revoke_grant_description:
-      'این کار تمام دسترسی‌های اعطاشده به این برنامه را لغو می‌کند. آیا مطمئن هستید که می‌خواهید ادامه دهید؟',
+      'این کار دسترسی اعطاشده به این برنامه را لغو می‌کند. توکن‌های دسترسی صادرشده قبلی ممکن است تا زمان انقضا معتبر بمانند. آیا مطمئن هستید که می‌خواهید ادامه دهید؟',
     revoke_grant_failed: 'لغو برخی از دسترسی‌ها ناموفق بود. لطفاً دوباره تلاش کنید.',
   },
 };

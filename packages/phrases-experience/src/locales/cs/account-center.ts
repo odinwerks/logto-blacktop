@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Stránka nenalezena',
@@ -13,6 +14,8 @@ const account_center = {
     sidebar_security: 'Zabezpečení',
     sidebar_sessions: 'Relace',
     support: 'Podpora',
+    user_menu: 'Uživatelská nabídka',
+    sign_out: 'Odhlásit se',
   },
   verification: {
     title: 'Ověření bezpečnosti',
@@ -119,6 +122,21 @@ const account_center = {
     email_removed: 'E-mailová adresa byla úspěšně odstraněna.',
     phone_removed: 'Telefonní číslo bylo úspěšně odstraněno.',
     username_removed: 'Uživatelské jméno bylo úspěšně odstraněno.',
+    trusted_devices: {
+      title: 'Důvěryhodná zařízení MFA',
+      current_device: 'Aktuální zařízení',
+      expires_on: 'Platnost vyprší {{date}}',
+      unknown_location: 'Neznámá poloha',
+      remove: 'Odebrat',
+      removed: 'Důvěryhodné zařízení bylo úspěšně odebráno.',
+      loading: 'Načítání...',
+      empty: 'Žádná důvěryhodná zařízení.',
+      load_failed: 'Důvěryhodná zařízení se nepodařilo načíst. Zkuste to prosím znovu.',
+      retry: 'Zkusit znovu',
+      remove_confirmation_title: 'Odebrat důvěryhodné zařízení?',
+      remove_confirmation_description:
+        'Při příštím přihlášení na tomto zařízení budete muset znovu dokončit MFA. Vaše aktuální relace zůstane aktivní.',
+    },
   },
   social: {
     linked: '{{connector}} byl úspěšně propojen.',
@@ -272,12 +290,15 @@ const account_center = {
     third_party_apps_load_failed:
       'Nepodařilo se načíst aplikace třetích stran. Zkuste to prosím znovu.',
     granted_at: 'Autorizováno {{date}}',
+    dynamic_app: 'Dynamická aplikace',
+    client_id: 'ID klienta: {{clientId}}',
     revoke_grant: 'Odebrat',
     revoke_grant_title: 'Odebrat přístup aplikace třetí strany',
     revoke_grant_description:
-      'Tímto se zruší veškerý přístup udělený této aplikaci. Opravdu chcete pokračovat?',
+      'Tímto se zruší přístup udělený této aplikaci. Dříve vydané přístupové tokeny mohou zůstat platné až do svého vypršení. Opravdu chcete pokračovat?',
     revoke_grant_failed: 'Nepodařilo se zrušit některá oprávnění. Zkuste to prosím znovu.',
   },
 };
 
 export default Object.freeze(account_center);
+/* eslint-enable max-lines */

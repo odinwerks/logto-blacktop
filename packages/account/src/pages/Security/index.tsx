@@ -9,8 +9,11 @@ import styles from '../Home/index.module.scss';
 import DeleteAccountSection from './DeleteAccountSection';
 import EmailPhoneSection from './EmailPhoneSection';
 import MfaSection from './MfaSection';
+import MfaVerificationsProvider from './MfaVerificationsProvider';
+import PasskeySection from './PasskeySection';
 import PasswordSection from './PasswordSection';
 import SocialSection from './SocialSection';
+import TrustedDevicesSection from './TrustedDevicesSection';
 import UsernameSection from './UsernameSection';
 
 const Security = () => {
@@ -25,7 +28,11 @@ const Security = () => {
         <EmailPhoneSection />
         <PasswordSection />
         <SocialSection />
-        <MfaSection />
+        <MfaVerificationsProvider>
+          <PasskeySection />
+          <MfaSection />
+        </MfaVerificationsProvider>
+        <TrustedDevicesSection />
         <DeleteAccountSection />
       </div>
       <PageFooter />

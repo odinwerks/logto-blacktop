@@ -34,6 +34,11 @@ const security = {
       description:
         'Cloudflare 的智能验证码替代方案，提供非侵入性的机器人保护，同时确保无视觉难题的无缝用户体验。',
     },
+    cap: {
+      name: 'Cap',
+      description:
+        '开源、可自托管的工作量证明验证码，无需视觉谜题或第三方服务，适合无法访问其他验证码服务的地区。',
+    },
   },
   captcha_details: {
     back_to_security: '返回安全',
@@ -49,6 +54,10 @@ const security = {
     domain_placeholder: 'www.google.com（默认）或 recaptcha.net',
     recaptcha_key_id: 'reCAPTCHA 密钥 ID',
     recaptcha_api_key: '项目的 API 密钥',
+    cap_endpoint: 'Cap 端点',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      '此端点使用 HTTP，仅适用于本地开发。浏览器会拦截 HTTPS 登录页发出的 HTTP 请求，且密钥将以明文传输。生产环境请使用 HTTPS。',
     deletion_description: '你确定要删除此验证码提供商吗？',
     captcha_deleted: '验证码提供商删除成功',
     setup_captcha: '设置验证码',
@@ -57,6 +66,10 @@ const security = {
     mode_checkbox: '复选框验证',
     mode_notice:
       '验证模式在 Google Cloud Console 的 reCAPTCHA 密钥设置中定义。更改此处的模式需要匹配的密钥类型。',
+    score_threshold: '分数阈值',
+    score_threshold_description:
+      '低于阈值的分数将被拒绝。0.0 允许所有分数，1.0 只允许满分。默认值为 0.5。',
+    score_threshold_error: '分数阈值必须在 0 到 1 之间。',
   },
   password_policy: {
     password_requirements: '密码要求',
@@ -85,17 +98,34 @@ const security = {
       '要求用户在设定的天数后重置密码。通过 SSO 或通行密钥登录的用户不受影响。',
     enable_password_expiration: '启用密码过期',
     enable_password_expiration_description:
-      '要求用户定期重置密码。对于没有记录密码更改日期的现有用户，将根据其账户创建日期进行评估。',
+      '要求用户定期重置密码。对于没有记录密码更改日期的现有用户，将从此策略启用之日起进行评估。',
     enable_password_expiration_tip:
       '只有在登录体验中配置至少一种带有有效连接器的忘记密码方式后，才能启用密码过期。',
     expiration_period: '密码有效期限（天）',
     expiration_period_description: '密码在过期前保持有效的天数。',
-    expiration_period_error: '密码有效期限必须至少为 1 天。',
-    expiration_reminder: '过期提醒（过期前天数）',
-    expiration_reminder_description:
-      '在过期前多少天提醒用户并提示重置密码。用户可以跳过提醒并继续登录。',
-    expiration_reminder_error: '过期提醒期限必须在 0 和有效期限（{{max}} 天）之间。',
+    expiration_period_error: '密码有效期限必须在 {{min}} 到 {{max}} 天之间。',
+    password_expiration_recovery_reminder:
+      '部分用户可能没有电子邮箱或电话号码来接收密码恢复验证码，因此无法重置已过期的密码。请在注册时要求提供电子邮箱或电话号码，以确保每位用户都能恢复其密码。',
   },
+  verification_code_policy: {
+    card_title: '验证码',
+    card_description: '配置登录、注册和密码重置流程中验证码的过期时长和最大重试次数。',
+    enable: {
+      title: '自定义验证码设置',
+      description: '允许自定义验证码的过期时长和最大重试次数。',
+    },
+    expiration_duration: {
+      title: '过期时长（秒）',
+      description: '验证码发送后保持有效的时长（秒）。',
+      error_message: '过期时长必须在 60 到 3600 秒之间。',
+    },
+    max_retry_attempts: {
+      title: '最大重试次数',
+      description: '验证码失效前允许的最大验证失败次数。',
+      error_message: '最大重试次数必须在 1 到 100 之间。',
+    },
+  },
+
   sentinel_policy: {
     card_title: '标识符锁定',
     card_description:
@@ -131,6 +161,21 @@ const security = {
   blocklist: {
     card_title: '电子邮件阻止列表',
     card_description: '通过阻止高风险或不受欢迎的电子邮件地址来控制用户群。',
+    custom_email_allowlist: {
+      title: '允许自定义电子邮件地址',
+      description:
+        '添加规则，仅允许特定的电子邮件域名、电子邮件地址或通配符模式用于新注册和新绑定的电子邮件。例如：bar@example.com、@example.com、foo*@example.com、*@example.com。gmail.com 和 googlemail.com 域名会被视为等效，且本地部分中的点号会被忽略，因此 foo.bar@gmail.com 与 foobar@googlemail.com 匹配。',
+      placeholder: '输入电子邮件地址、域名或通配符模式',
+      duplicate_error: '电子邮件地址、域名或通配符电子邮件地址模式已添加',
+      invalid_format_error:
+        '必须是有效的电子邮件地址（bar@example.com）、域名（@example.com）或通配符电子邮件地址模式（foo*@example.com，*@example.com）',
+      warnings: {
+        identical_entries: '部分允许列表条目也存在于阻止规则中。匹配的电子邮件仍可能被阻止。',
+        blocked_exact_email: '部分精确电子邮件允许条目匹配了阻止规则。匹配的电子邮件仍可能被阻止。',
+        blocked_subaddressing: '部分允许列表条目包含加号（+），但电子邮件子地址已被阻止。',
+        effectively_unusable: '根据这些检查，当前允许列表可能无法让任何新的电子邮件通过。',
+      },
+    },
     disposable_email: {
       title: '阻止一次性电子邮件地址',
       description:
@@ -143,10 +188,12 @@ const security = {
     },
     custom_email_address: {
       title: '阻止自定义电子邮件地址',
-      description: '添加特定电子邮件域或电子邮件地址，无法通过 UI 注册或链接。',
-      placeholder: '输入被阻止的电子邮件地址或域名（例如，bar@example.com，@example.com）',
-      duplicate_error: '电子邮件地址或域名已添加',
-      invalid_format_error: '必须是有效的电子邮件地址（bar@example.com）或域（@example.com）',
+      description:
+        '添加规则，阻止特定的电子邮件域名、电子邮件地址或通配符模式通过 UI 注册或链接。例如：bar@example.com、@example.com、foo*@example.com、*@example.com。gmail.com 和 googlemail.com 域名会被视为等效，且本地部分中的点号会被忽略，因此 foo.bar@gmail.com 与 foobar@googlemail.com 匹配。',
+      placeholder: '输入电子邮件地址、域名或通配符模式',
+      duplicate_error: '电子邮件地址、域名或通配符电子邮件地址模式已添加',
+      invalid_format_error:
+        '必须是有效的电子邮件地址（bar@example.com）、域（@example.com）或通配符电子邮件地址模式（foo*@example.com，*@example.com）',
     },
   },
 };

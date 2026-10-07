@@ -6,7 +6,13 @@ import type {
   SignUp,
   SignIn,
 } from '@logto/schemas';
-import { SignInMode, SignInIdentifier, MfaPolicy, AgreeToTermsPolicy } from '@logto/schemas';
+import {
+  SignInMode,
+  SignInIdentifier,
+  MfaPolicy,
+  AgreeToTermsPolicy,
+  defaultUsernamePolicy,
+} from '@logto/schemas';
 
 export const mockColor: Color = {
   primaryColor: '#000',
@@ -106,6 +112,7 @@ export const mockSignInExperience: SignInExperience = {
   adaptiveMfa: {
     enabled: false,
   },
+  trustedDevice: {},
   singleSignOnEnabled: true,
   socialSignIn: {},
   supportEmail: null,
@@ -113,6 +120,7 @@ export const mockSignInExperience: SignInExperience = {
   unknownSessionRedirectUrl: null,
   captchaPolicy: {},
   sentinelPolicy: {},
+  verificationCodePolicy: {},
   emailBlocklistPolicy: {},
   forgotPasswordMethods: null,
   passkeySignIn: {
@@ -121,4 +129,5 @@ export const mockSignInExperience: SignInExperience = {
     allowAutofill: false,
   },
   signUpProfileFields: null,
+  usernamePolicy: defaultUsernamePolicy,
 };

@@ -196,7 +196,7 @@ describe('buildS3Storage', () => {
 
       const result = await storage.downloadFile('my-file.json');
 
-      expect(result.body).toBe(mockBody);
+      expect(result.readableStreamBody).toBe(mockBody);
       expect(result.contentType).toBe('application/json');
       expect(result.contentLength).toBe(1234);
       const command = mockS3Send.mock.calls[0][0];
@@ -215,7 +215,7 @@ describe('buildS3Storage', () => {
 
       const result = await storage.downloadFile('binary-file.bin');
 
-      expect(result.body).toBe(mockBody);
+      expect(result.readableStreamBody).toBe(mockBody);
       expect(result.contentType).toBeUndefined();
       expect(result.contentLength).toBeUndefined();
     });

@@ -1,5 +1,47 @@
 # Change Log
 
+## 2.13.0
+
+### Minor Changes
+
+- ab106cdb82: add `UserScope.TrustedDevices` for authorizing trusted-device management
+
+### Patch Changes
+
+- ebfefb513d: fix date validation regex to match the complete string, rejecting trailing input after a valid date
+- 28c3c9283e: treat Gmail address aliases as the same address in custom email allowlist and blocklist rules
+
+  The matcher treats gmail.com and googlemail.com as equivalent and ignores local-part dots. The Console now shows custom email rule examples and Gmail matching behavior in the field descriptions, with shorter input placeholders.
+
+- Updated dependencies [7464c6a97a]
+- Updated dependencies [16f4b2e732]
+  - @logto/language-kit@1.4.0
+  - @logto/shared@3.4.3
+
+## 2.12.0
+
+### Minor Changes
+
+- af678dd84: add reusable email blocklist validation and matching helpers
+
+### Patch Changes
+
+- 1650be05e: fix email or email domain validation to match complete values and stricter domain labels
+- Updated dependencies [58cb52c705]
+  - @logto/shared@3.4.2
+
+## 2.11.0
+
+### Minor Changes
+
+- e1fadfb1a: add a shared username policy type, Zod guard, and default value
+- a88413689: add a shared username policy validator
+
+### Patch Changes
+
+- Updated dependencies [67b99bba85]
+  - @logto/shared@3.4.1
+
 ## 2.10.0
 
 ### Minor Changes

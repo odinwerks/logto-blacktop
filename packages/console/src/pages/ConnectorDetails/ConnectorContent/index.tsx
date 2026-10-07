@@ -1,26 +1,23 @@
-import { GoogleConnector, ServiceConnector, TemplateType } from '@logto/connector-kit';
-import type { LanguageTag } from '@logto/language-kit';
+import { ServiceConnector, GoogleConnector } from '@logto/connector-kit';
 import { ConnectorType } from '@logto/schemas';
 import type { ConnectorResponse } from '@logto/schemas';
 import { conditional } from '@silverhand/essentials';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { useSWRConfig } from 'swr';
 
 import BasicForm from '@/components/ConnectorForm/BasicForm';
 import ConfigForm from '@/components/ConnectorForm/ConfigForm';
-import {
-  deriveLanguages,
-  safeJsonParse,
-} from '@/components/ConnectorForm/ConnectorTemplatesEditor/utils';
 import GoogleOneTapCard from '@/components/ConnectorForm/GoogleOneTapCard';
 import ConnectorTester from '@/components/ConnectorTester';
 import DetailsForm from '@/components/DetailsForm';
 import FormCard from '@/components/FormCard';
 import UnsavedChangesAlertModal from '@/components/UnsavedChangesAlertModal';
 import { connectors, emailConnectors } from '@/consts';
-import { type Option } from '@/ds-components/Select';
+import { isCloud } from '@/consts/env';
+import { TenantsContext } from '@/contexts/TenantsProvider';
 import useApi from '@/hooks/use-api';
 import { useConnectorFormConfigParser } from '@/hooks/use-connector-form-config-parser';
 import { SyncProfileMode } from '@/types/connector';
@@ -29,16 +26,9 @@ import { convertResponseToForm } from '@/utils/connector-form';
 import { trySubmitSafe } from '@/utils/form';
 import { removeFalsyValues } from '@/utils/object';
 
-import EmailServiceConnectorForm from './EmailServiceConnectorForm';
+import { getHostedEmailUsageKey } from '../EmailUsage/use-hosted-email-usage';
 
-/**
- * Every supported {@link TemplateType}, surfaced as the "Template" selector options on the test bar
- * so a test message can be sent for any delivery template. The enum values equal their keys (no
- * numeric reverse mappings), so `Object.values` yields the human-readable usage-type strings.
- */
-const templateTypeOptions: Array<Option<TemplateType>> = Object.values(TemplateType).map(
-  (value) => ({ value, title: value })
-);
+import EmailServiceConnectorForm from './EmailServiceConnectorForm';
 
 type Props = {
   readonly isDeleted: boolean;
@@ -49,6 +39,8 @@ type Props = {
 function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const api = useApi();
+  const { mutate } = useSWRConfig();
+  const { currentTenantId } = useContext(TenantsContext);
   const formData = useMemo(() => convertResponseToForm(connectorData), [connectorData]);
 
   const methods = useForm<ConnectorFormType>({
@@ -75,12 +67,6 @@ function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Prop
 
   const isSocialConnector = connectorType === ConnectorType.Social;
   const isEmailServiceConnector = connectorId === ServiceConnector.Email;
-
-  const templateEditorModeRaw = watch('formConfig.templateEditorMode');
-  const isUnifiedMode =
-    typeof templateEditorModeRaw === 'string'
-      ? safeJsonParse<string>(templateEditorModeRaw) === 'unified'
-      : false;
 
   const configParser = useConnectorFormConfigParser();
 
@@ -125,20 +111,15 @@ function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Prop
   );
 
   const updateUsage = useCallback(() => {
-    if (connectorData.usage === undefined) {
-      return;
+    // A hosted-email test send consumes the daily/monthly quota; refresh that display even when the
+    // lifetime count is unavailable (core wraps `getUsage` in `trySafe`, so `usage` may be undefined).
+    if (isCloud && isEmailServiceConnector && currentTenantId) {
+      void mutate(getHostedEmailUsageKey(currentTenantId));
     }
-    onConnectorUpdated();
-  }, [connectorData, onConnectorUpdated]);
-
-  // Languages configured in the connector's translations dictionary, surfaced as the test bar's
-  // "Language" selector options so a test message can be previewed in any localized variant. The
-  // translations form field is owned (read/written) by `ConnectorTemplatesEditor` as a JSON string.
-  const translationsRaw = watch('formConfig.translations');
-  const testLanguages = useMemo<LanguageTag[]>(
-    () => deriveLanguages(safeJsonParse(translationsRaw) ?? {}),
-    [translationsRaw]
-  );
+    if (connectorData.usage !== undefined) {
+      onConnectorUpdated();
+    }
+  }, [connectorData, onConnectorUpdated, isEmailServiceConnector, currentTenantId, mutate]);
 
   return (
     <FormProvider {...methods}>
@@ -186,15 +167,13 @@ function ConnectorContent({ isDeleted, connectorData, onConnectorUpdated }: Prop
           </FormCard>
         )}
         {connectorId === GoogleConnector.factoryId && <GoogleOneTapCard />}
-        {!isSocialConnector && !isUnifiedMode && (
+        {!isSocialConnector && (
           <FormCard title="connector_details.test_connection">
             <ConnectorTester
               connectorFactoryId={connectorId}
               connectorType={connectorType}
               parse={() => configParser(watch(), formItems)}
               updateUsage={updateUsage}
-              templateTypes={templateTypeOptions}
-              languages={testLanguages}
             />
           </FormCard>
         )}

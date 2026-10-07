@@ -35,10 +35,16 @@ const error = {
   invalid_link_description:
     'Ваш одноразовый токен мог истечь или больше не является действительным.',
   captcha_verification_failed: 'Не удалось проверить капчу.',
+  send_verification_code_failed: 'Не удалось отправить код подтверждения. Попробуйте позже.',
+  send_verification_code_failed_use_password:
+    'Не удалось отправить код подтверждения. Войдите с помощью пароля.',
   terms_acceptance_required: 'Требуется согласие с условиями',
   terms_acceptance_required_description:
     'Вы должны согласиться с условиями, чтобы продолжить. Пожалуйста, попробуйте снова.',
   something_went_wrong: 'Что-то пошло не так',
+  account_suspended: 'Аккаунт заблокирован',
+  account_suspended_description:
+    'Этот аккаунт заблокирован. Обратитесь к администратору за помощью.',
   access_denied: 'Доступ запрещен',
   application_access_denied:
     'У вас нет прав на доступ к этому приложению.\nОбратитесь к администратору за помощью.',

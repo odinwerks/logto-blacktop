@@ -177,6 +177,7 @@ const sign_in_exp = {
       password: 'Password',
       mfa: 'Multi-factor authentication',
       mfa_description: 'Let users manage their MFA methods from the account center.',
+      passkey: 'Passkey',
       username: 'Username',
       name: 'Name',
       avatar: 'Avatar',
@@ -185,6 +186,7 @@ const sign_in_exp = {
       custom_data: 'Custom data',
       custom_data_description: 'Control access to custom JSON data stored on the user.',
       sessions: 'Sessions',
+      trusted_devices: 'Trusted devices',
     },
     profile_fields: {
       title: 'Profile fields for prebuilt account center',
@@ -195,13 +197,13 @@ const sign_in_exp = {
         go_to: 'other profile fields now.',
       },
       disabled_hint: {
-        name: "To add this field, set the 'Name' permission to 'Edit / Read only' in the Profile data above first.",
+        name: "To add this field, set the 'Name' permission to 'Edit / Read only' in the User profile section below first.",
         avatar:
-          "To add this field, set the 'Avatar' permission to 'Edit / Read only' in the Profile data above first.",
+          "To add this field, set the 'Avatar' permission to 'Edit / Read only' in the User profile section below first.",
         profile:
-          "To add this field, set the 'Profile' permission to 'Edit / Read only' in the Profile data above first.",
+          "To add this field, set the 'Profile' permission to 'Edit / Read only' in the User profile section below first.",
         custom_data:
-          "To add this field, set the 'Custom data' permission to 'Edit / Read only' in the Profile data above first.",
+          "To add this field, set the 'Custom data' permission to 'Edit / Read only' in the User profile section below first.",
       },
     },
     webauthn_related_origins: 'WebAuthn Related Origins',
@@ -243,6 +245,7 @@ const sign_in_exp = {
         account_center:
           'Access the account center to manage security settings such as email, phone, username, password, MFA, and connected accounts',
         profile: 'The central hub for managing your personal information (e.g., name, avatar)',
+        sessions: 'View and manage your active sessions across devices',
       },
       customize_note: "Don't want the out-of-the-box experience? You can fully",
       customize_link: 'customize your flows with the Account API instead.',

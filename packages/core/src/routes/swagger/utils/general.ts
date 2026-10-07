@@ -17,8 +17,11 @@ const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slic
 /** The tag name used in the supplement document to indicate that the operation is cloud only. */
 const cloudOnlyTag = 'Cloud only';
 /** The tag name is used in the supplement document to indicate that the corresponding API operation is a dev feature. */
-const devFeatureTag = 'Dev feature';
-/** The OpenAPI schema extension that hides a schema property when dev features are disabled. */
+export const devFeatureTag = 'Dev feature';
+/**
+ * The OpenAPI schema extension that hides a schema property or query parameter when dev features
+ * are disabled.
+ */
 export const devFeatureSchemaExtension = 'x-logto-dev-feature';
 
 const reservedTags = new Set([cloudOnlyTag, devFeatureTag]);
@@ -40,6 +43,7 @@ const tagMap = new Map([
   ['saml', 'SAML applications auth flow'],
   ['one-time-tokens', 'One-time tokens'],
   ['custom-profile-fields', 'Custom profile fields'],
+  ['cimd', 'CIMD'],
 ]);
 
 /**
@@ -90,6 +94,10 @@ export const findSupplementFiles = async (
       result.push(path.join(directory, file));
     }
   }
+
+  // Supplements may annotate the same operation (e.g. a dev-feature variant overriding the public
+  // description); a deterministic order makes the later, more specific document win.
+  result.sort();
 
   return result;
 };
@@ -256,33 +264,46 @@ export const validateSwaggerDocument = (document: OpenAPIV3.Document) => {
  * **CAUTION**: This function mutates the input document.
  *
  * Remove operations (path + method) that are tagged with `Cloud only` if the application is not
- * running in the cloud. It also removes the `x-logto-dev-feature` internal marker from schema
- * properties (dev features are always enabled).
+ * running in the cloud and remove operations with `Dev feature` tag if Logto's
+ * `isDevFeaturesEnabled` flag is set to be false.
+ *
+ * Dev-feature schema properties and query parameters are NOT pruned here: supplement documents
+ * run through this function before merging, and pruning `x-logto-dev-feature` markers at that
+ * point would strip them before they reach the base schema properties generated from the guards.
+ * The assembled document is pruned instead — see {@link removeDevFeatureSchemaProperties} and
+ * {@link removeDevFeatureParameters}.
  *
  * This will prevent the swagger validation from failing in the OSS environment.
  *
  */
-
+// eslint-disable-next-line complexity
 export const removeUnnecessaryOperations = (
   document: DeepPartial<OpenAPIV3.Document>
 ): DeepPartial<OpenAPIV3.Document> => {
-  const { isCloud } = EnvSet.values;
+  const { isCloud, isDevFeaturesEnabled } = EnvSet.values;
 
-  removeDevFeatureSchemaProperties(document);
-
-  if (isCloud || !document.paths) {
+  if ((isCloud && isDevFeaturesEnabled) || !document.paths) {
     return document;
   }
 
   for (const [path, pathItem] of Object.entries(document.paths)) {
+    if (!pathItem) {
+      continue;
+    }
+
     for (const method of Object.values(OpenAPIV3.HttpMethods)) {
-      if (pathItem?.[method]?.tags?.includes(cloudOnlyTag)) {
+      const tags = pathItem[method]?.tags;
+      const shouldRemoveCloudOnlyOperation = !isCloud && tags?.includes(cloudOnlyTag) === true;
+      const shouldRemoveDevFeatureOperation =
+        !isDevFeaturesEnabled && tags?.includes(devFeatureTag) === true;
+
+      if (shouldRemoveCloudOnlyOperation || shouldRemoveDevFeatureOperation) {
         // eslint-disable-next-line @silverhand/fp/no-delete, @typescript-eslint/no-dynamic-delete -- intended
         delete pathItem[method];
       }
     }
 
-    if (Object.keys(pathItem ?? {}).length === 0) {
+    if (Object.keys(pathItem).length === 0) {
       // eslint-disable-next-line @silverhand/fp/no-delete, @typescript-eslint/no-dynamic-delete -- intended
       delete document.paths[path];
     }
@@ -292,6 +313,44 @@ export const removeUnnecessaryOperations = (
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => isObject(value);
+
+/**
+ * **CAUTION**: This function mutates the input value.
+ *
+ * Recursively prune query parameters marked with `x-logto-dev-feature`: when dev features are
+ * disabled, the parameters are removed; when enabled, only the internal marker is removed.
+ *
+ * Run this before {@link removeDevFeatureSchemaProperties}, which strips the marker from every
+ * record unconditionally.
+ */
+export const removeDevFeatureParameters = (value: unknown) => {
+  if (!isRecord(value)) {
+    return;
+  }
+
+  const { parameters } = value;
+
+  if (Array.isArray(parameters)) {
+    // eslint-disable-next-line @silverhand/fp/no-mutation -- Pruning the supplement document is intentionally in-place.
+    value.parameters = parameters.filter((parameter) => {
+      if (!isRecord(parameter) || !isRecord(parameter.schema)) {
+        return true;
+      }
+
+      const isDevFeature = parameter.schema[devFeatureSchemaExtension] === true;
+
+      if (isDevFeature && EnvSet.values.isDevFeaturesEnabled) {
+        Reflect.deleteProperty(parameter.schema, devFeatureSchemaExtension);
+      }
+
+      return EnvSet.values.isDevFeaturesEnabled || !isDevFeature;
+    });
+  }
+
+  for (const item of Object.values(value).flat()) {
+    removeDevFeatureParameters(item);
+  }
+};
 
 const removeRequiredProperty = (
   schema: Record<string, unknown>,
@@ -320,16 +379,37 @@ const removeDevFeatureSchemaProperty = (
   propertyName: string,
   propertySchema: unknown
 ) => {
-  if (!isRecord(propertySchema) || propertySchema[devFeatureSchemaExtension] !== true) {
+  const isMarked = isRecord(propertySchema) && propertySchema[devFeatureSchemaExtension] === true;
+
+  if (!isMarked) {
     return false;
   }
 
-  Reflect.deleteProperty(propertySchema, devFeatureSchemaExtension);
+  if (!EnvSet.values.isDevFeaturesEnabled) {
+    Reflect.deleteProperty(properties, propertyName);
+    removeRequiredProperty(schema, schema.required, propertyName);
+
+    return true;
+  }
+
+  if (isRecord(propertySchema)) {
+    Reflect.deleteProperty(propertySchema, devFeatureSchemaExtension);
+  }
 
   return false;
 };
 
-const removeDevFeatureSchemaProperties = (value: unknown) => {
+/**
+ * **CAUTION**: This function mutates the input value.
+ *
+ * Recursively prune dev-feature schema properties: when dev features are disabled, properties
+ * marked with `x-logto-dev-feature` are removed (including their `required` entries); when
+ * enabled, only the internal marker is removed.
+ *
+ * Run this on the assembled document — the base schema properties generated from the env-free
+ * zod guards carry no markers, so pruning supplements alone cannot remove them.
+ */
+export const removeDevFeatureSchemaProperties = (value: unknown) => {
   if (Array.isArray(value)) {
     for (const item of value) {
       removeDevFeatureSchemaProperties(item);

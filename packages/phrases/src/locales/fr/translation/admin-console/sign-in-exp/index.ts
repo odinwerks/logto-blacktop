@@ -178,6 +178,7 @@ const sign_in_exp = {
       mfa: 'Authentification multifacteur',
       mfa_description:
         'Permettez aux utilisateurs de gérer leurs méthodes MFA depuis le centre de compte.',
+      passkey: 'Passkey',
       username: "Nom d'utilisateur",
       name: 'Nom',
       avatar: 'Avatar',
@@ -187,6 +188,7 @@ const sign_in_exp = {
       custom_data_description:
         'Contrôlez l’accès aux données JSON personnalisées stockées sur l’utilisateur.',
       sessions: 'Sessions',
+      trusted_devices: 'Appareils de confiance',
     },
     profile_fields: {
       title: 'Champs de profil pour le centre de compte prédéfini',
@@ -197,13 +199,13 @@ const sign_in_exp = {
         go_to: "d'autres champs de profil maintenant.",
       },
       disabled_hint: {
-        name: "Pour ajouter ce champ, définissez d'abord l'autorisation « Nom » sur « Modifier/Lecture seule » dans Données de profil ci-dessus.",
+        name: "Pour ajouter ce champ, définissez d'abord l'autorisation « Nom » sur « Modifier/Lecture seule » dans la section Profil utilisateur ci-dessous.",
         avatar:
-          "Pour ajouter ce champ, définissez d'abord l'autorisation « Avatar » sur « Modifier/Lecture seule » dans Données de profil ci-dessus.",
+          "Pour ajouter ce champ, définissez d'abord l'autorisation « Avatar » sur « Modifier/Lecture seule » dans la section Profil utilisateur ci-dessous.",
         profile:
-          "Pour ajouter ce champ, définissez d'abord l'autorisation « Profil » sur « Modifier/Lecture seule » dans Données de profil ci-dessus.",
+          "Pour ajouter ce champ, définissez d'abord l'autorisation « Profil » sur « Modifier/Lecture seule » dans la section Profil utilisateur ci-dessous.",
         custom_data:
-          "Pour ajouter ce champ, définissez d'abord l'autorisation « Données personnalisées » sur « Modifier/Lecture seule » dans Données de profil ci-dessus.",
+          "Pour ajouter ce champ, définissez d'abord l'autorisation « Données personnalisées » sur « Modifier/Lecture seule » dans la section Profil utilisateur ci-dessous.",
       },
     },
     webauthn_related_origins: 'Origines associées à WebAuthn',
@@ -247,6 +249,7 @@ const sign_in_exp = {
           "Accédez au centre de compte pour gérer les paramètres de sécurité tels que l'e-mail, le téléphone, le nom d'utilisateur, le mot de passe, la MFA et les comptes connectés",
         profile:
           'Le centre névralgique pour gérer vos informations personnelles (par exemple, nom, avatar)',
+        sessions: 'Consultez et gérez vos sessions actives sur tous les appareils',
       },
       customize_note:
         "Vous ne voulez pas d'une expérience prête à l'emploi ? Vous pouvez pleinement",

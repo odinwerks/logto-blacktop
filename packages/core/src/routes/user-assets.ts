@@ -8,6 +8,8 @@ import {
   maxUploadFileSize,
   uploadFileGuard,
 } from '@logto/schemas';
+import { generateStandardId } from '@logto/shared';
+import { format } from 'date-fns';
 import { object } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
@@ -21,7 +23,7 @@ import { getTenantId } from '#src/utils/tenant.js';
 import type { ManagementApiRouter, RouterInitArgs } from './types.js';
 
 export default function userAssetsRoutes<T extends ManagementApiRouter>(
-  ...[router, tenant]: RouterInitArgs<T>
+  ...[router]: RouterInitArgs<T>
 ) {
   router.get(
     '/user-assets/service-status',
@@ -30,14 +32,17 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
     }),
     async (ctx, next) => {
       const { storageProviderConfig } = SystemContext.shared;
+      const isExperienceAvatarUploadEnabled = true;
       const status = storageProviderConfig
         ? {
             status: 'ready',
             allowUploadMimeTypes,
             maxUploadFileSize,
+            isExperienceAvatarUploadEnabled,
           }
         : {
             status: 'not_configured',
+            isExperienceAvatarUploadEnabled,
           };
 
       ctx.body = status;
@@ -72,27 +77,23 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
       assertThat(storageProviderConfig, 'storage.not_configured');
 
       const userId = ctx.auth.id;
-      const storage = buildUploadFile(storageProviderConfig);
-      const objectKey = `${tenantId}/app-assets/branding/${file.originalFilename}`;
-      const cacheBust = Date.now();
+      const uploadFile = buildUploadFile(storageProviderConfig);
+      const objectKey = `${tenantId}/${userId}/${format(
+        new Date(),
+        'yyyy/MM/dd'
+      )}/${generateStandardId(8)}/${file.originalFilename}`;
 
       try {
-        if (storageProviderConfig.publicUrl) {
-          const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
-            contentType: file.mimetype,
-            publicUrl: storageProviderConfig.publicUrl,
-            isPublic: true,
-          });
-          ctx.body = { url: `${url}?v=${cacheBust}` } satisfies UserAssets;
-        } else {
-          await storage.uploadFile(await readFile(file.filepath), objectKey, {
-            contentType: file.mimetype,
-            isPublic: true,
-          });
-          ctx.body = {
-            url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}?v=${cacheBust}`,
-          } satisfies UserAssets;
-        }
+        const { url } = await uploadFile(await readFile(file.filepath), objectKey, {
+          contentType: file.mimetype,
+          publicUrl: storageProviderConfig.publicUrl,
+        });
+
+        const result: UserAssets = {
+          url,
+        };
+
+        ctx.body = result;
       } catch (error: unknown) {
         getConsoleLogFromContext(ctx).error(error);
         throw new RequestError({

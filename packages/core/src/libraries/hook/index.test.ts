@@ -68,6 +68,7 @@ const { triggerInteractionHooks, triggerTestHook, triggerDataHooks } = createHoo
       findUserById: jest.fn().mockReturnValue({
         id: 'user_id',
         username: 'user',
+        cimdClientId: 'https://client.example.com/metadata.json',
         extraField: 'not_ok',
       }),
     },
@@ -114,7 +115,11 @@ describe('triggerInteractionHooks()', () => {
         interactionEvent: 'SignIn',
         sessionId: interactionHookContext.metadata.sessionId,
         userId: '123',
-        user: { id: 'user_id', username: 'user' },
+        user: {
+          id: 'user_id',
+          username: 'user',
+          cimdClientId: 'https://client.example.com/metadata.json',
+        },
         application: { id: 'app_id' },
         createdAt: new Date(100_000).toISOString(),
       },
@@ -383,5 +388,38 @@ describe('triggerDataHooks()', () => {
       },
       signingKey: dataHook.signingKey,
     });
+  });
+
+  it('should omit request IP from trusted-device lifecycle payloads', async () => {
+    jest.useFakeTimers().setSystemTime(100_000);
+    const trustedDeviceHook: Hook = {
+      ...dataHook,
+      event: 'TrustedDevice.Created',
+      events: ['TrustedDevice.Created'],
+    };
+    findAllHooks.mockResolvedValueOnce([trustedDeviceHook]);
+    const hooksManager = new HookContextManager({ userAgent: 'ua', ip: 'request-ip' });
+    const data = { id: 'device-id', userId: 'user-id', expiresAt: 200_000 };
+
+    hooksManager.appendDataHookContext('TrustedDevice.Created', {
+      data,
+      includeRequestIp: false,
+    });
+
+    await triggerDataHooks(new ConsoleLog(), hooksManager);
+
+    expect(sendWebhookRequest).toHaveBeenCalledWith({
+      hookConfig: trustedDeviceHook.config,
+      payload: {
+        hookId: trustedDeviceHook.id,
+        event: 'TrustedDevice.Created',
+        createdAt: new Date(100_000).toISOString(),
+        data,
+        userAgent: 'ua',
+      },
+      signingKey: trustedDeviceHook.signingKey,
+    });
+
+    jest.useRealTimers();
   });
 });

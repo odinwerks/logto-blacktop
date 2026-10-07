@@ -57,6 +57,11 @@ const jwt_claims = {
     subtitle:
       'Use `context.application` input parameter to provide the application info associated with the token.',
   },
+  organization_data: {
+    title: 'Organization context',
+    subtitle:
+      'Use `context.organization` input parameter to provide the target organization info, available only for organization tokens.',
+  },
   token_data: {
     title: 'Token payload',
     subtitle: 'Use `token` input parameter for current access token payload. ',
@@ -95,6 +100,11 @@ const jwt_claims = {
     subtitle: 'Adjust mock token and user data for testing.',
     run_button: 'Run test',
     result_title: 'Test result',
+  },
+  sandbox_warning: {
+    title: 'Scripts run with server privileges',
+    description:
+      'On self-hosted Logto, this script runs in the same environment as Logto itself: it can read server environment variables and reach services on your internal network. It is not sandboxed. Only give access to this page to people you would trust with access to the server.',
   },
   form_error: {
     invalid_json: 'Invalid JSON format',

@@ -17,7 +17,7 @@ import koaGuard from '#src/middleware/koa-guard.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { detectImageType } from '#src/utils/file.js';
-import { buildUploadFile } from '#src/utils/storage/index.js';
+import { buildStorage } from '#src/utils/storage/index.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
 
 import { type RouterInitArgs, type UserRouter } from '../types.js';
@@ -77,7 +77,7 @@ export default function avatarRoutes<T extends UserRouter>(
         storageProviderConfig.provider === StorageProvider.S3Storage,
         'storage.not_configured'
       );
-      const storage = buildUploadFile(storageProviderConfig);
+      const storage = buildStorage(storageProviderConfig);
 
       // Build storage keys
       const extension = detected.extension;
@@ -128,8 +128,8 @@ export default function avatarRoutes<T extends UserRouter>(
       ctx.appendDataHookContext('User.Data.Updated', { user: updatedUser });
 
       // Return updated profile
-      const profile = await getScopedProfile(queries, libraries, scopes, userId);
-      ctx.body = getAccountCenterFilteredProfile(profile, ctx.accountCenter);
+      const { profile, user } = await getScopedProfile(queries, libraries, scopes, userId);
+      ctx.body = getAccountCenterFilteredProfile(profile, ctx.accountCenter, user);
 
       return next();
     }

@@ -35,6 +35,8 @@ const description = {
   reset_password: 'Parolanızı mı unuttunuz',
   reset_password_description:
     'Hesabınızla ilişkili {{types, list(type: disjunction;)}} girin, şifrenizi sıfırlamanız için size doğrulama kodunu göndereceğiz.',
+  reset_password_magic_link_description:
+    'Parolanızı sıfırlamaya devam etmek için hesabınızla ilişkili e-posta adresini girin.',
   new_password: 'Yeni Şifre',
   set_password: 'Şifreyi belirle',
   password_changed: 'Şifre değişti',
@@ -99,6 +101,8 @@ const description = {
     'Şirketiniz, {{email}} e-posta hesabı için Tekli Oturum Açmayı (Single Sign-On) etkinleştirdi. Aşağıdaki SSO sağlayıcıları ile oturum açmaya devam edebilirsiniz.',
   single_sign_on_enabled: 'Bu hesapta Tekli Oturum Açma etkinleştirildi.',
   authorize_title: '{{name}} yetkilendir',
+  unregistered_client_notice:
+    'Bu uygulama, adı ve logosu dahil olmak üzere <hostname>{{host}}</hostname> tarafından beyan edilmiştir. Devam etmeden önce ana bilgisayar adını doğrulayın.',
   request_permission: '{{name}} erişim izni istiyor:',
   grant_organization_access: 'Organizasyon erişimi ver:',
   authorize_personal_data_usage: 'Kişisel verilerinizin kullanımını yetkilendirin:',
@@ -117,9 +121,6 @@ const description = {
     'Yeni bir hesap oluşturmak için {{types, list(type: disjunction;)}} girin.',
   all_account_creation_options: 'Tüm hesap oluşturma seçenekleri',
   password_expired: 'Şifrenizin süresi doldu ve giriş yapmadan önce sıfırlanması gerekiyor.',
-  password_expiration_reminder:
-    'Şifrenizin süresi {{days}} gün içinde dolacak. Şimdi sıfırlamanızı öneririz.',
-  password_expiration_reminder_skip: 'Şimdilik atla',
   password_expiration_reset: 'Şifreyi sıfırla',
   back_to_sign_in: 'Girişe dön',
   support_email: 'Destek e-postası: <link></link>',

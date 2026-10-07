@@ -67,16 +67,13 @@
                       "description": "Password policies to adjust the password strength requirements."
                     },
                     "passwordExpiration": {
-                      "description": "Password expiration policy used to force or remind users to reset their password during sign-in. When enabled is false, the period fields are ignored.",
+                      "description": "Password expiration policy used to force users to reset their password during sign-in. When enabled is false, the period field is ignored.",
                       "properties": {
                         "enabled": {
                           "description": "Whether password expiration is enabled."
                         },
                         "validPeriodDays": {
                           "description": "Number of days a password remains valid before it expires."
-                        },
-                        "reminderPeriodDays": {
-                          "description": "Number of days before expiration when the user is reminded to reset their password."
                         }
                       }
                     },
@@ -99,16 +96,19 @@
                       "description": "Custom sentinel policy settings. Use this field to customize the user lockout policy. The default value is 100 failed attempts within one hour. The user will be locked out for 60 minutes after exceeding the limit."
                     },
                     "emailBlocklistPolicy": {
-                      "description": "Define email restriction policies. Users will be prohibited from registering or linking any email addresses that are included in the blocklist.",
+                      "description": "Define email restriction policies for registering or linking email addresses.",
                       "properties": {
-                        "blockDisposableAddress": {
+                        "blockDisposableAddresses": {
                           "description": "Cloud only.  Whether to block disposable email addresses. Once enabled, Logto will check the email domain against a list of known disposable email domains. If the domain is found in the list, the email address will be blocked."
                         },
                         "blockSubaddressing": {
                           "description": "Whether to block sub-addresses. (E.g., example+shopping@test.com)"
                         },
+                        "customAllowlist": {
+                          "description": "Custom allowlist of email addresses, domains, or wildcard email address patterns. Examples: `bar@example.com`, `@example.com`, `foo*@example.com`, `@*.example.com`."
+                        },
                         "customBlocklist": {
-                          "description": "Custom blocklist of email addresses or domains."
+                          "description": "Custom blocklist of email addresses, domains, or wildcard email address patterns. Examples: `bar@example.com`, `@example.com`, `foo*@example.com`, `@*.example.com`."
                         }
                       }
                     }
@@ -184,16 +184,13 @@
                     "description": "Password policies to adjust the password strength requirements."
                   },
                   "passwordExpiration": {
-                    "description": "Password expiration policy used to force or remind users to reset their password during sign-in. When enabled is false, the period fields are ignored.",
+                    "description": "Password expiration policy used to force users to reset their password during sign-in. When enabled is false, the period field is ignored.",
                     "properties": {
                       "enabled": {
                         "description": "Whether password expiration is enabled."
                       },
                       "validPeriodDays": {
                         "description": "Number of days a password remains valid before it expires."
-                      },
-                      "reminderPeriodDays": {
-                        "description": "Number of days before expiration when the user is reminded to reset their password."
                       }
                     }
                   },
@@ -216,16 +213,19 @@
                     "description": "Custom sentinel policy settings. Use this field to customize the user lockout policy. The default value is 100 failed attempts within one hour. The user will be locked out for 60 minutes after exceeding the limit."
                   },
                   "emailBlocklistPolicy": {
-                    "description": "Define email restriction policies. Users will be prohibited from registering or linking any email addresses that are included in the blocklist.",
+                    "description": "Define email restriction policies for registering or linking email addresses.",
                     "properties": {
-                      "blockDisposableAddress": {
+                      "blockDisposableAddresses": {
                         "description": "Cloud only.  Whether to block disposable email addresses. Once enabled, Logto will check the email domain against a list of known disposable email domains. If the domain is found in the list, the email address will be blocked."
                       },
                       "blockSubaddressing": {
                         "description": "Whether to block sub-addresses. (E.g., example+shopping@test.com)"
                       },
+                      "customAllowlist": {
+                        "description": "Custom allowlist of email addresses, domains, or wildcard email address patterns. Examples: `bar@example.com`, `@example.com`, `foo*@example.com`, `@*.example.com`."
+                      },
                       "customBlocklist": {
-                        "description": "Custom blocklist of email addresses or domains."
+                        "description": "Custom blocklist of email addresses, domains, or wildcard email address patterns. Examples: `bar@example.com`, `@example.com`, `foo*@example.com`, `@*.example.com`."
                       }
                     }
                   }

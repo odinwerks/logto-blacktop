@@ -51,6 +51,10 @@ const jwt_claims = {
     title: '應用程式上下文',
     subtitle: '使用 `context.application` 輸入參數提供與令牌關聯的應用程式資訊。',
   },
+  organization_data: {
+    title: '組織上下文',
+    subtitle: '使用 `context.organization` 輸入參數提供目標組織資訊，僅適用於組織令牌。',
+  },
   token_data: {
     title: '權杖數據',
     subtitle: '使用 `token` 輸入參數查看當前存取權杖有效負載。',
@@ -87,6 +91,11 @@ const jwt_claims = {
     subtitle: '調整模擬權杖和用戶數據以進行測試。',
     run_button: '運行測試',
     result_title: '測試結果',
+  },
+  sandbox_warning: {
+    title: '腳本以伺服器權限運行',
+    description:
+      '在自託管的 Logto 中，此腳本與 Logto 本身運行在相同環境中：它可以讀取伺服器環境變數並存取你的內網服務。它沒有沙箱隔離。請僅向你信任可存取伺服器的人開放此頁面。',
   },
   form_error: {
     invalid_json: '無效的 JSON 格式',

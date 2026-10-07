@@ -4,15 +4,20 @@ create table oidc_session_extensions (
   tenant_id varchar(21) not null
     references tenants (id) on update cascade on delete cascade,
   session_uid varchar(128) not null,
-  account_id varchar(12) not null
+  account_id varchar(128) not null
     references users (id) on update cascade on delete cascade,
   last_submission jsonb /* @use JsonObject */ not null default '{}'::jsonb,
+  last_active_at timestamptz,
   client_id varchar(21) null,
-  last_active_at timestamptz null,
+  cimd_client_id varchar(2048) null,
   created_at timestamptz not null default(now()),
   updated_at timestamptz not null default(now()),
   primary key (tenant_id, session_uid)
 );
+
+/* Leads with account_id instead of tenant_id so the cascades from the users table can use it (users.id is globally unique, so a tenant_id prefix adds no selectivity). */
+create index oidc_session_extensions__account_id
+  on oidc_session_extensions (account_id);
 
 create trigger set_updated_at
   before update on oidc_session_extensions

@@ -173,6 +173,24 @@ export const jwtCustomizerApplicationContextGuard = Applications.guard.omit({
   secret: true,
 });
 
+/**
+ * The target organization context for organization (API resource) access tokens.
+ *
+ * Only populated when the token is being issued for a specific organization (i.e. the
+ * `organization_id` request parameter is present), letting the customizer attach per-org
+ * claims without embedding every organization the user belongs to.
+ */
+export const jwtCustomizerOrganizationContextGuard = Organizations.guard.pick({
+  id: true,
+  name: true,
+  description: true,
+  customData: true,
+});
+
+export type JwtCustomizerOrganizationContext = z.infer<
+  typeof jwtCustomizerOrganizationContextGuard
+>;
+
 export const accessTokenJwtCustomizerGuard = jwtCustomizerGuard
   .extend({
     // Use partial token guard since users customization may not rely on all fields.
@@ -183,6 +201,7 @@ export const accessTokenJwtCustomizerGuard = jwtCustomizerGuard
         grant: jwtCustomizerGrantContextGuard.partial().optional(),
         interaction: jwtCustomizerUserInteractionContextGuard.partial().optional(),
         application: jwtCustomizerApplicationContextGuard.partial().optional(),
+        organization: jwtCustomizerOrganizationContextGuard.partial().optional(),
       })
       .optional(),
   })
@@ -263,7 +282,7 @@ export enum CustomJwtErrorCode {
   AccessDenied = 'AccessDenied',
   /** General JWT customizer error,
    * this is the fallback custom jwt error code
-   * for any internal error thrown by the JWT customizer (localVM, azure function, or CF worker).
+   * for any internal error thrown by the JWT customizer on any runtime.
    */
   General = 'General',
 }
@@ -277,7 +296,7 @@ export type CustomJwtErrorBody = z.infer<typeof customJwtErrorBodyGuard>;
 
 export type CustomJwtApiContext = {
   /**
-   * Reject the the current token request.
+   * Reject the current token request.
    *
    * @remarks
    * By calling this function, the current token request will be rejected,

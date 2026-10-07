@@ -79,6 +79,52 @@ const applications = {
     'O Logto usa uma entidade de aplicativo para OIDC para ajudar nas tarefas, como identificar seus aplicativos, gerenciar o login e criar logs de auditoria.',
   third_party_application_placeholder_description:
     'Use o Logto como um provedor de identidade para fornecer autorização OAuth a serviços de terceiros. \n Inclui uma tela de consentimento do usuário pré-construída para acesso a recursos. <a>Saiba mais</a>',
+  dynamic_app: {
+    title: 'Aplicativo dinâmico',
+    subtitle: 'CIMD',
+    description:
+      'O aplicativo dinâmico permite que clientes OAuth se conectem sem registro prévio.',
+    settings_description:
+      'O aplicativo dinâmico permite que clientes OAuth se conectem sem registro prévio. Usa a especificação OAuth Client ID Metadata Document (CIMD).',
+    beta_notice:
+      'Aplicativo dinâmico está atualmente em beta. Bem-vindo para explorá-lo e <ContactLink>compartilhar seu feedback</ContactLink>.',
+    app_id_placeholder: 'Fornecido dinamicamente por cada cliente',
+    enable_confirm_modal: {
+      title: 'Ativar o acesso dinâmico de clientes?',
+      content:
+        'Qualquer cliente OAuth com uma URL de ID de cliente HTTPS pública e válida pode iniciar a autorização para este inquilino sem registro prévio. O acesso continua limitado pelas suas permissões máximas e pelo consentimento do usuário.',
+      beta_pricing_notice:
+        'O aplicativo dinâmico é gratuito durante a beta. Após a beta, pode haver cobrança como complemento. Avisaremos com antecedência e você pode desativá-lo a qualquer momento.',
+    },
+    enabled: 'Aplicativo dinâmico ativado com sucesso.',
+    disable_confirm_modal: {
+      title: 'Desabilitar o aplicativo dinâmico?',
+      content:
+        'Os clientes CIMD não poderão mais iniciar novas solicitações de autorização. As concessões existentes serão mantidas e os tokens de acesso emitidos podem permanecer válidos até expirarem.',
+    },
+    disabled: 'Aplicativo dinâmico desabilitado com sucesso.',
+    permissions: {
+      user_title: 'Usuário',
+      user_description:
+        'Selecione as permissões solicitadas pelos clientes OAuth para acessar tipos específicos de dados do usuário.',
+      grant_user_level_permissions: 'Conceder permissões de usuário',
+      organization_title: 'Organização',
+      organization_description:
+        'Selecione as permissões solicitadas pelos clientes OAuth para acessar tipos específicos de dados da organização.',
+      grant_organization_level_permissions: 'Conceder permissões de organização',
+      permission_delete_confirm:
+        'Esta ação removerá a permissão do aplicativo dinâmico, impedindo que os clientes OAuth solicitem autorização do usuário para ela. Tem certeza de que deseja continuar?',
+    },
+    client_compatibility: {
+      title: 'Compatibilidade com clientes',
+      description:
+        'Ajuste como o Logto trata as solicitações de autorização de clientes OAuth que ainda não oferecem suporte completo ao OpenID Connect. Essas configurações são experimentais e podem mudar ou ser removidas.',
+      add_consent_prompt_for_offline_access:
+        'Adicionar solicitação de consentimento para acesso offline',
+      add_consent_prompt_for_offline_access_description:
+        'Quando um cliente OAuth solicita `offline_access` sem `prompt=consent`, o Logto adiciona a solicitação de consentimento para que o cliente possa receber um token de atualização. Recomendado para clientes como ChatGPT e Codex.',
+    },
+  },
   guide: {
     third_party: {
       title: 'Integrar um aplicativo de terceiros',

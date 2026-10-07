@@ -1,7 +1,6 @@
 import { type AccountCenter, CustomProfileFields, type SignInExperience } from '@logto/schemas';
 import { createMockUtils } from '@logto/shared/esm';
 
-import { EnvSet } from '#src/env-set/index.js';
 import { DeletionError } from '#src/errors/SlonikError/index.js';
 
 const { jest } = import.meta;
@@ -45,7 +44,6 @@ const { MockQueries } = await import('#src/test-utils/tenant.js');
 const { createCustomProfileFieldsLibrary } = await import('./index.js');
 
 describe('createCustomProfileFieldsLibrary', () => {
-  const originalIsDevFeaturesEnabled = EnvSet.values.isDevFeaturesEnabled;
   const queries = new MockQueries({
     customProfileFields: {
       findCustomProfileFieldsByNames,
@@ -55,13 +53,7 @@ describe('createCustomProfileFieldsLibrary', () => {
   const { deleteCustomProfileField, normalizeProfileFields, updateCustomProfileFieldsSieOrder } =
     createCustomProfileFieldsLibrary(queries);
 
-  const setDevFeaturesEnabled = (enabled: boolean) => {
-    // eslint-disable-next-line @silverhand/fp/no-mutation
-    (EnvSet.values as { isDevFeaturesEnabled: boolean }).isDevFeaturesEnabled = enabled;
-  };
-
   beforeEach(() => {
-    setDevFeaturesEnabled(true);
     findCustomProfileFieldsByNames.mockReset();
     updateFieldOrderInSignInExperience.mockReset();
     deleteCustomProfileFieldsByName.mockReset();
@@ -69,10 +61,6 @@ describe('createCustomProfileFieldsLibrary', () => {
     updateSignInExperience.mockReset();
     findAccountCenterById.mockReset();
     updateAccountCenter.mockReset();
-  });
-
-  afterAll(() => {
-    setDevFeaturesEnabled(originalIsDevFeaturesEnabled);
   });
 
   it('should return null signUpProfileFields without reading the catalog', async () => {
@@ -106,21 +94,27 @@ describe('createCustomProfileFieldsLibrary', () => {
     expect(findCustomProfileFieldsByNames).toHaveBeenCalledWith(['inviteCode', 'company']);
   });
 
-  it('should deduplicate missing names in the validation error', async () => {
-    findCustomProfileFieldsByNames.mockResolvedValue([]);
+  it('should drop missing catalog fields while preserving existing ones', async () => {
+    findCustomProfileFieldsByNames.mockResolvedValue([{ name: 'company' }]);
 
     await expect(
-      normalizeProfileFields([{ name: 'unknown' }, { name: 'unknown' }])
-    ).rejects.toMatchObject({
-      code: 'custom_profile_fields.entity_not_exists_with_names',
-      message: 'Cannot find entities with the given names: unknown',
-    });
-    expect(findCustomProfileFieldsByNames).toHaveBeenCalledWith(['unknown']);
+      normalizeProfileFields([{ name: 'company' }, { name: 'fullname' }, { name: 'inviteCode' }])
+    ).resolves.toEqual([{ name: 'company' }]);
+    expect(findCustomProfileFieldsByNames).toHaveBeenCalledWith([
+      'company',
+      'fullname',
+      'inviteCode',
+    ]);
+  });
+
+  it('should return an empty list when every profile field is missing from the catalog', async () => {
+    findCustomProfileFieldsByNames.mockResolvedValue([]);
+
+    await expect(normalizeProfileFields([{ name: 'fullname' }])).resolves.toEqual([]);
+    expect(findCustomProfileFieldsByNames).toHaveBeenCalledWith(['fullname']);
   });
 
   it('should include duplicate names in the validation error payload', async () => {
-    findCustomProfileFieldsByNames.mockResolvedValue([{ name: 'company' }, { name: 'inviteCode' }]);
-
     await expect(
       normalizeProfileFields([
         { name: 'company' },
@@ -135,6 +129,19 @@ describe('createCustomProfileFieldsLibrary', () => {
       },
       message: 'Input is invalid. Duplicate profile field names: company, inviteCode',
     });
+    expect(findCustomProfileFieldsByNames).not.toHaveBeenCalled();
+  });
+
+  it('should reject missing names when updating the sign-in experience order', async () => {
+    findCustomProfileFieldsByNames.mockResolvedValue([]);
+
+    await expect(
+      updateCustomProfileFieldsSieOrder([{ name: 'unknown', sieOrder: 1 }])
+    ).rejects.toMatchObject({
+      code: 'custom_profile_fields.entity_not_exists_with_names',
+      message: 'Cannot find entities with the given names: unknown',
+    });
+    expect(findCustomProfileFieldsByNames).toHaveBeenCalledWith(['unknown']);
   });
 
   it('should validate names before updating the sign-in experience order', async () => {

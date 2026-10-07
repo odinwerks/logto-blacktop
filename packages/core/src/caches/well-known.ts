@@ -11,6 +11,8 @@ import {
   idTokenConfigGuard,
   type SigningKeyRotationState,
   signingKeyRotationStateGuard,
+  type MessageRateLimitOverride,
+  messageRateLimitOverrideGuard,
 } from '@logto/schemas';
 import { type Nullable } from '@silverhand/essentials';
 import { type ZodType, z } from 'zod';
@@ -33,6 +35,8 @@ type WellKnownMap = {
   'is-development-tenant': boolean;
   'account-center': AccountCenter;
   'id-token-config': Nullable<IdTokenConfig>;
+  'message-rate-limit-override': Nullable<MessageRateLimitOverride>;
+  'captcha-cap-endpoint': Nullable<string>;
 };
 
 type WellKnownCacheType = keyof WellKnownMap;
@@ -49,6 +53,8 @@ const valueGuards: { [Key in WellKnownCacheType]: ZodType<WellKnownMap[Key]> } =
   'is-development-tenant': z.boolean(),
   'account-center': AccountCenters.guard,
   'id-token-config': idTokenConfigGuard.nullable(),
+  'message-rate-limit-override': messageRateLimitOverrideGuard.nullable(),
+  'captcha-cap-endpoint': z.string().nullable(),
 };
 
 // Cannot use generic type here, but direct type works.

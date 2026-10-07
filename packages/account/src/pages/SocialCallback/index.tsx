@@ -11,14 +11,10 @@ import {
 } from '@ac/apis/social';
 import ErrorPage from '@ac/components/ErrorPage';
 import GlobalLoading from '@ac/components/GlobalLoading';
-import {
-  getSocialAddRoute,
-  getSocialCallbackRoute,
-  getSocialChangeRoute,
-} from '@ac/constants/routes';
+import { getSocialAddRoute, getSocialChangeRoute } from '@ac/constants/routes';
 import useApi from '@ac/hooks/use-api';
 import useErrorHandler from '@ac/hooks/use-error-handler';
-import { accountCenterBasePath } from '@ac/utils/account-center-route';
+import { canManageSocialIdentitiesWithoutVerification } from '@ac/utils/security-page';
 import { accountStorage } from '@ac/utils/session-storage';
 import { getLocalizedConnectorName } from '@ac/utils/social-connector';
 import { finalizeSocialFlowFailure, finalizeSocialFlowSuccess } from '@ac/utils/social-flow';
@@ -37,9 +33,11 @@ const SocialCallback = () => {
     isLoadingExperience,
     refreshUserInfo,
     setToast,
+    userInfo,
     verificationId,
     setVerificationId,
   } = useContext(PageContext);
+  const canSkipVerification = canManageSocialIdentitiesWithoutVerification(userInfo);
   const verifySocialVerificationRequest = useApi(verifySocialVerification);
   const linkSocialIdentityRequest = useApi(linkSocialIdentity);
   const replaceSocialIdentityRequest = useApi(replaceSocialIdentity);
@@ -54,11 +52,12 @@ const SocialCallback = () => {
   const connectorName = connector ? getLocalizedConnectorName(connector, language) : undefined;
   const storedSocialFlow = connectorId ? accountStorage.socialFlow.get(connectorId) : undefined;
 
-  const redirectToReverify = useCallback(() => {
+  const redirectToReverify = useCallback(async () => {
     if (!connectorId) {
       return;
     }
 
+    await refreshUserInfo();
     setStartedConnectorId(undefined);
     setVerificationId(undefined);
     setToast(t('account_center.verification.verification_required'));
@@ -68,7 +67,15 @@ const SocialCallback = () => {
         : getSocialAddRoute(connectorId),
       { replace: true }
     );
-  }, [connectorId, navigate, setToast, setVerificationId, storedSocialFlow?.mode, t]);
+  }, [
+    connectorId,
+    navigate,
+    refreshUserInfo,
+    setToast,
+    setVerificationId,
+    storedSocialFlow?.mode,
+    t,
+  ]);
 
   const finishLinkFlow = useCallback(async () => {
     if (!connectorId || !connectorName) {
@@ -87,7 +94,7 @@ const SocialCallback = () => {
       return;
     }
 
-    if (!verificationId) {
+    if (!verificationId && !canSkipVerification) {
       return;
     }
 
@@ -140,9 +147,7 @@ const SocialCallback = () => {
     };
 
     const completeCallback = async () => {
-      const redirectUri = `${window.location.origin}${accountCenterBasePath}${getSocialCallbackRoute(
-        connectorId
-      )}`;
+      const redirectUri = `${window.location.origin}/callback/${connectorId}`;
       const [verifyError] = await verifySocialVerificationRequest({
         verificationRecordId: storedSocialFlow.verificationRecordId,
         connectorData: {
@@ -201,6 +206,7 @@ const SocialCallback = () => {
     setToast,
     startedConnectorId,
     storedSocialFlow,
+    canSkipVerification,
     verificationId,
     verifySocialVerificationRequest,
     t,

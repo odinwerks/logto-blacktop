@@ -7,7 +7,6 @@ import {
 import { pickDefault } from '@logto/shared/esm';
 
 import { mockApplication } from '#src/__mocks__/index.js';
-import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { MockTenant } from '#src/test-utils/tenant.js';
 
@@ -36,17 +35,8 @@ const tenantContext = new MockTenant(undefined, {
 
 const { createRequester } = await import('#src/utils/test-utils.js');
 const applicationRoutes = await pickDefault(import('./application.js'));
-const originalIsDevFeaturesEnabled = EnvSet.values.isDevFeaturesEnabled;
-const setDevFeaturesEnabled = (isDevFeaturesEnabled: boolean) => {
-  // eslint-disable-next-line @silverhand/fp/no-mutation
-  (EnvSet.values as { isDevFeaturesEnabled: boolean }).isDevFeaturesEnabled = isDevFeaturesEnabled;
-};
-
-const createApplicationRequest = (isDevFeaturesEnabled = true) => {
-  setDevFeaturesEnabled(isDevFeaturesEnabled);
-
-  return createRequester({ authedRoutes: applicationRoutes, tenantContext });
-};
+const createApplicationRequest = () =>
+  createRequester({ authedRoutes: applicationRoutes, tenantContext });
 
 const buildAccessControl = (
   patch: Partial<ApplicationAccessControl> = {}
@@ -62,7 +52,6 @@ const buildAccessControl = (
 
 describe('application access-control route', () => {
   afterEach(() => {
-    setDevFeaturesEnabled(originalIsDevFeaturesEnabled);
     findApplicationById.mockClear();
     updateApplicationById.mockClear();
     findApplicationAccessControl.mockClear();

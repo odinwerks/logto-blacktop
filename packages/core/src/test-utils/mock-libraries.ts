@@ -16,6 +16,10 @@ export const mockLogtoConfigsLibrary: jest.Mocked<LogtoConfigLibrary> = {
   getJwtCustomizer: jest.fn(),
   getJwtCustomizers: jest.fn(),
   updateJwtCustomizer: jest.fn(),
+  upsertAction: jest.fn(),
+  getAction: jest.fn(),
+  getActions: jest.fn(),
+  updateAction: jest.fn(),
   upsertIdTokenConfig: jest.fn(),
 };
 

@@ -59,6 +59,11 @@ const jwt_claims = {
     subtitle:
       'Token ile ilişkili uygulama bilgilerini sağlamak için `context.application` giriş parametresini kullanın.',
   },
+  organization_data: {
+    title: 'Kuruluş bağlamı',
+    subtitle:
+      'Hedef kuruluş bilgilerini sağlamak için `context.organization` giriş parametresini kullanın, yalnızca kuruluş tokenları için kullanılabilir.',
+  },
   token_data: {
     title: 'Belge verisi',
     subtitle: '`belge` giriş parametresini mevcut erişim belgesi yükü için kullanın. ',
@@ -98,6 +103,11 @@ const jwt_claims = {
     subtitle: 'Test için sahte belge ve kullanıcı verilerini ayarlayın.',
     run_button: 'Testi Çalıştır',
     result_title: 'Test sonucu',
+  },
+  sandbox_warning: {
+    title: 'Komut dosyaları sunucu ayrıcalıklarıyla çalışır',
+    description:
+      'Kendi barındırılan Logto’da bu komut dosyası, Logto’nun kendisiyle aynı ortamda çalışır: sunucu ortam değişkenlerini okuyabilir ve iç ağınızdaki hizmetlere erişebilir. Sandbox’lanmamıştır. Bu sayfaya yalnızca sunucuya erişim vereceğiniz kişilere erişim verin.',
   },
   form_error: {
     invalid_json: 'Geçersiz JSON biçimi',

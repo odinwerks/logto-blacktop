@@ -82,6 +82,7 @@ const formatApplicationGrant = (
     id: grant.id,
     payload: payloadResult.data,
     expiresAt: grant.expiresAt,
+    application: grant.application,
   };
 };
 
@@ -103,9 +104,6 @@ const removeSessionAuthorizationsByGrantIds = async (
     return;
   }
 
-  // Align with oidc-provider client-scoped end-session branch:
-  // delete matched authorization entry + reset session identifier.
-  // oidc-provider/lib/actions/end_session.js
   const grantIdSet = new Set(grantIds);
   const authorizationEntries = Object.entries(session.authorizations);
   const filteredEntries = authorizationEntries.filter(
@@ -116,12 +114,18 @@ const removeSessionAuthorizationsByGrantIds = async (
     return;
   }
 
+  /**
+   * Unlike the client-scoped `end_session` branch in oidc-provider
+   * (lib/actions/end_session.js), this path must not rotate the session identifier via
+   * `resetIdentifier()`: revocation runs outside any browser request context, so the
+   * rotated cookie could never reach the user agent and the browser's SSO session would
+   * be silently orphaned — already-issued tokens keep working (session-bound token
+   * checks and ID token `sid` claims go through `session.uid`, which rotation never
+   * touches), but the next authorization request from that browser would force a full
+   * re-authentication instead of single sign-on.
+   */
   // eslint-disable-next-line @silverhand/fp/no-mutation
   session.authorizations = Object.fromEntries(filteredEntries);
-  // `end_session` also clears `session.state`, but that state is specific to
-  // the interactive logout flow context. Management API revocation has no such
-  // OIDC route state, so we only apply authorization cleanup + identifier reset.
-  session.resetIdentifier();
   await session.persist();
 };
 
@@ -153,12 +157,16 @@ export const createSessionLibrary = (queries: Queries) => {
     userId: string,
     applicationType?: 'thirdParty' | 'firstParty'
   ) => {
-    const result = await queries.oidcModelInstances.findUserActiveApplicationGrants(
-      userId,
-      applicationType
-    );
+    const [applicationGrants, cimdGrants] = await Promise.all([
+      queries.oidcModelInstances.findUserActiveApplicationGrants(userId, applicationType),
+      // CIMD clients are third-party by definition, so the `firstParty` filter skips their
+      // query entirely.
+      applicationType === 'firstParty'
+        ? []
+        : queries.oidcModelInstances.findUserActiveCimdGrants(userId),
+    ]);
 
-    return result.map((grant) => formatApplicationGrant(grant));
+    return [...applicationGrants, ...cimdGrants].map((grant) => formatApplicationGrant(grant));
   };
 
   const revokeSessionAssociatedGrants = async ({

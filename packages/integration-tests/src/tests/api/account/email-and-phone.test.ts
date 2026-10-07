@@ -13,7 +13,7 @@ import {
   updatePrimaryPhone,
   updateUser,
 } from '#src/api/my-account.js';
-import { updateSignInExperience } from '#src/api/sign-in-experience.js';
+import { getSignInExperience, updateSignInExperience } from '#src/api/sign-in-experience.js';
 import {
   createAndVerifyVerificationCode,
   createVerificationRecordByPassword,
@@ -27,6 +27,82 @@ import {
 } from '#src/helpers/profile.js';
 import { enableAllPasswordSignInMethods } from '#src/helpers/sign-in-experience.js';
 import { generateEmail, generatePhone, generateNationalPhoneNumber } from '#src/utils.js';
+
+const expectPrimaryEmailUpdateRejectedByBlocklist = async (
+  email: string,
+  customBlocklist: string[]
+) => {
+  const { emailBlocklistPolicy } = await getSignInExperience();
+  const { user, username, password } = await createDefaultTenantUserWithPassword();
+  const api = await signInAndGetUserApi(username, password, {
+    scopes: [UserScope.Profile, UserScope.Email],
+  });
+
+  try {
+    const verificationRecordId = await createVerificationRecordByPassword(api, password);
+    const newVerificationRecordId = await createAndVerifyVerificationCode(api, {
+      type: SignInIdentifier.Email,
+      value: email,
+    });
+    await updateSignInExperience({
+      emailBlocklistPolicy: {
+        ...emailBlocklistPolicy,
+        customBlocklist: [...(emailBlocklistPolicy.customBlocklist ?? []), ...customBlocklist],
+      },
+    });
+
+    await expectRejects(
+      updatePrimaryEmail(api, email, verificationRecordId, newVerificationRecordId),
+      {
+        code: 'session.email_blocklist.email_not_allowed',
+        status: 422,
+      }
+    );
+  } finally {
+    await updateSignInExperience({
+      emailBlocklistPolicy,
+    });
+    await deleteDefaultTenantUser(user.id);
+  }
+};
+
+const expectPrimaryEmailUpdateRejectedByAllowlist = async (
+  email: string,
+  customAllowlist: string[]
+) => {
+  const { emailBlocklistPolicy } = await getSignInExperience();
+  const { user, username, password } = await createDefaultTenantUserWithPassword();
+  const api = await signInAndGetUserApi(username, password, {
+    scopes: [UserScope.Profile, UserScope.Email],
+  });
+
+  try {
+    const verificationRecordId = await createVerificationRecordByPassword(api, password);
+    const newVerificationRecordId = await createAndVerifyVerificationCode(api, {
+      type: SignInIdentifier.Email,
+      value: email,
+    });
+    await updateSignInExperience({
+      emailBlocklistPolicy: {
+        ...emailBlocklistPolicy,
+        customAllowlist,
+      },
+    });
+
+    await expectRejects(
+      updatePrimaryEmail(api, email, verificationRecordId, newVerificationRecordId),
+      {
+        code: 'session.email_blocklist.email_not_allowed',
+        status: 422,
+      }
+    );
+  } finally {
+    await updateSignInExperience({
+      emailBlocklistPolicy,
+    });
+    await deleteDefaultTenantUser(user.id);
+  }
+};
 
 describe('account (email and phone)', () => {
   beforeAll(async () => {
@@ -142,34 +218,66 @@ describe('account (email and phone)', () => {
       await deleteDefaultTenantUser(user.id);
     });
 
-    it('should reject the email if the email is in the blocklist', async () => {
+    it('should reject sending verification code to a blocklisted new email', async () => {
       const email = generateEmail();
-      await updateSignInExperience({
-        emailBlocklistPolicy: {
-          customBlocklist: [email],
-        },
-      });
-
+      const { emailBlocklistPolicy } = await getSignInExperience();
       const { user, username, password } = await createDefaultTenantUserWithPassword();
       const api = await signInAndGetUserApi(username, password, {
         scopes: [UserScope.Profile, UserScope.Email],
       });
 
-      const verificationRecordId = await createVerificationRecordByPassword(api, password);
-      const newVerificationRecordId = await createAndVerifyVerificationCode(api, {
-        type: SignInIdentifier.Email,
-        value: email,
-      });
+      try {
+        await updateSignInExperience({
+          emailBlocklistPolicy: {
+            ...emailBlocklistPolicy,
+            customBlocklist: [...(emailBlocklistPolicy.customBlocklist ?? []), email],
+          },
+        });
 
-      await expectRejects(
-        updatePrimaryEmail(api, email, verificationRecordId, newVerificationRecordId),
-        {
-          code: 'session.email_blocklist.email_not_allowed',
-          status: 422,
-        }
-      );
+        await expectRejects(
+          api.post('api/verifications/verification-code', {
+            json: {
+              identifier: {
+                type: SignInIdentifier.Email,
+                value: email,
+              },
+            },
+          }),
+          {
+            code: 'session.email_blocklist.email_not_allowed',
+            status: 422,
+          }
+        );
+      } finally {
+        await updateSignInExperience({
+          emailBlocklistPolicy,
+        });
+        await deleteDefaultTenantUser(user.id);
+      }
+    });
 
-      await deleteDefaultTenantUser(user.id);
+    it('should reject the email if the email is in the blocklist', async () => {
+      const email = generateEmail();
+
+      await expectPrimaryEmailUpdateRejectedByBlocklist(email, [email]);
+    });
+
+    it('should reject the email if the exact blocklist entry uses different casing', async () => {
+      const email = generateEmail('account-blocklist.com');
+
+      await expectPrimaryEmailUpdateRejectedByBlocklist(email, [email.toUpperCase()]);
+    });
+
+    it('should reject the email if the wildcard blocklist entry uses different casing', async () => {
+      const email = `foo-${generateEmail('account-wildcard.com')}`;
+
+      await expectPrimaryEmailUpdateRejectedByBlocklist(email, ['FOO*@ACCOUNT-WILDCARD.COM']);
+    });
+
+    it('should reject the email if the email does not match the allowlist', async () => {
+      const email = generateEmail('account-allowlist.com');
+
+      await expectPrimaryEmailUpdateRejectedByAllowlist(email, ['@different-account-domain.com']);
     });
   });
 

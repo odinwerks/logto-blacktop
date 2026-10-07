@@ -176,6 +176,7 @@ const sign_in_exp = {
       password: 'Password',
       mfa: 'Autenticazione multifattore',
       mfa_description: 'Consenti agli utenti di gestire i loro metodi MFA dal centro account.',
+      passkey: 'Passkey',
       username: 'Nome utente',
       name: 'Nome',
       avatar: 'Avatar',
@@ -185,6 +186,7 @@ const sign_in_exp = {
       custom_data_description:
         'Controlla l’accesso ai dati JSON personalizzati archiviati sull’utente.',
       sessions: 'Sessioni',
+      trusted_devices: 'Dispositivi attendibili',
     },
     profile_fields: {
       title: 'Campi del profilo per il centro account predefinito',
@@ -195,13 +197,13 @@ const sign_in_exp = {
         go_to: 'altri campi del profilo ora.',
       },
       disabled_hint: {
-        name: 'Per aggiungere questo campo, imposta prima il permesso "Nome" su "Modifica/Sola lettura" nei Dati del profilo sopra.',
+        name: 'Per aggiungere questo campo, imposta prima il permesso "Nome" su "Modifica/Sola lettura" nella sezione Profilo utente sotto.',
         avatar:
-          'Per aggiungere questo campo, imposta prima il permesso "Avatar" su "Modifica/Sola lettura" nei Dati del profilo sopra.',
+          'Per aggiungere questo campo, imposta prima il permesso "Avatar" su "Modifica/Sola lettura" nella sezione Profilo utente sotto.',
         profile:
-          'Per aggiungere questo campo, imposta prima il permesso "Profilo" su "Modifica/Sola lettura" nei Dati del profilo sopra.',
+          'Per aggiungere questo campo, imposta prima il permesso "Profilo" su "Modifica/Sola lettura" nella sezione Profilo utente sotto.',
         custom_data:
-          'Per aggiungere questo campo, imposta prima il permesso "Dati personalizzati" su "Modifica/Sola lettura" nei Dati del profilo sopra.',
+          'Per aggiungere questo campo, imposta prima il permesso "Dati personalizzati" su "Modifica/Sola lettura" nella sezione Profilo utente sotto.',
       },
     },
     webauthn_related_origins: 'Origini correlate a WebAuthn',
@@ -245,6 +247,7 @@ const sign_in_exp = {
           'Accedi al centro account per gestire le impostazioni di sicurezza come email, telefono, nome utente, password, MFA e account collegati',
         profile:
           'Il centro principale per gestire le tue informazioni personali (es. nome, avatar)',
+        sessions: 'Visualizza e gestisci le tue sessioni attive su tutti i dispositivi',
       },
       customize_note: 'Non vuoi l’esperienza predefinita? Puoi completamente',
       customize_link: 'personalizzare i tuoi flussi con l’Account API invece.',

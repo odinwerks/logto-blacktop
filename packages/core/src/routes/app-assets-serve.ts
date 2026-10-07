@@ -3,7 +3,7 @@ import { Readable } from 'node:stream';
 import { adminTenantId, StorageProvider } from '@logto/schemas';
 
 import SystemContext from '#src/tenants/SystemContext.js';
-import { buildUploadFile } from '#src/utils/storage/index.js';
+import { buildStorage } from '#src/utils/storage/index.js';
 import { getTenantId } from '#src/utils/tenant.js';
 
 import type { AnonymousRouter, RouterInitArgs } from './types.js';
@@ -40,8 +40,8 @@ export default function appAssetsServeRoutes<T extends AnonymousRouter>(
       return next();
     }
 
-    const storage = buildUploadFile(storageProviderConfig);
-    if (!storage.downloadFile) {
+    const storage = buildStorage(storageProviderConfig);
+    if (!storage.downloadFile) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition
       ctx.status = 500;
       return next();
     }
@@ -59,8 +59,7 @@ export default function appAssetsServeRoutes<T extends AnonymousRouter>(
       ctx.set('Cross-Origin-Resource-Policy', 'cross-origin');
       ctx.set('X-Content-Type-Options', 'nosniff');
       ctx.status = 200;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-      ctx.body = Readable.fromWeb(result.body as any);
+      ctx.body = result.readableStreamBody;
     } catch (error: unknown) {
       const error_ = error as { name?: string };
       ctx.status = error_.name === 'NotFound' || error_.name === 'NoSuchKey' ? 404 : 500;
@@ -100,8 +99,8 @@ export default function appAssetsServeRoutes<T extends AnonymousRouter>(
       return next();
     }
 
-    const storage = buildUploadFile(storageProviderConfig);
-    if (!storage.downloadFile) {
+    const storage = buildStorage(storageProviderConfig);
+    if (!storage.downloadFile) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition
       ctx.status = 500;
       return next();
     }
@@ -119,8 +118,7 @@ export default function appAssetsServeRoutes<T extends AnonymousRouter>(
       ctx.set('Cross-Origin-Resource-Policy', 'cross-origin');
       ctx.set('X-Content-Type-Options', 'nosniff');
       ctx.status = 200;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-      ctx.body = Readable.fromWeb(result.body as any);
+      ctx.body = result.readableStreamBody;
     } catch (error: unknown) {
       const error_ = error as { name?: string };
       ctx.status = error_.name === 'NotFound' || error_.name === 'NoSuchKey' ? 404 : 500;

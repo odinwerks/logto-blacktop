@@ -1,0 +1,83 @@
+import { trustedDeviceResponseGuard, type TrustedDeviceResponse } from '@logto/schemas';
+import { pick } from '@silverhand/essentials';
+import { z } from 'zod';
+
+import RequestError from '#src/errors/RequestError/index.js';
+import { buildManagementApiContext } from '#src/libraries/hook/utils.js';
+import koaGuard from '#src/middleware/koa-guard.js';
+import assertThat from '#src/utils/assert-that.js';
+
+import type { ManagementApiRouter, RouterInitArgs } from '../types.js';
+
+export default function adminUserTrustedDeviceRoutes<T extends ManagementApiRouter>(
+  ...[router, tenant]: RouterInitArgs<T>
+) {
+  const {
+    queries: {
+      trustedDevices,
+      users: { findUserById },
+    },
+    libraries: { trustedDevices: trustedDeviceLibrary },
+  } = tenant;
+
+  router.get(
+    '/users/:userId/trusted-devices',
+    koaGuard({
+      params: z.object({ userId: z.string() }),
+      response: trustedDeviceResponseGuard.array(),
+      status: [200, 404],
+    }),
+    async (ctx, next) => {
+      const { userId } = ctx.guard.params;
+
+      await findUserById(userId);
+      const records = await trustedDevices.findActiveByUserId(userId);
+
+      ctx.body = records.map(
+        (record) =>
+          pick(
+            record,
+            'id',
+            'userAgent',
+            'country',
+            'city',
+            'createdAt',
+            'lastUsedAt',
+            'expiresAt'
+          ) satisfies TrustedDeviceResponse
+      );
+
+      return next();
+    }
+  );
+
+  router.delete(
+    '/users/:userId/trusted-devices/:trustedDeviceId',
+    koaGuard({
+      params: z.object({ userId: z.string(), trustedDeviceId: z.string() }),
+      status: [204, 404],
+    }),
+    async (ctx, next) => {
+      const { userId, trustedDeviceId } = ctx.guard.params;
+
+      await findUserById(userId);
+      ctx.status = 204;
+      const trustedDevice = await trustedDeviceLibrary.deleteByIdAndUserId(
+        ctx,
+        trustedDeviceId,
+        userId,
+        buildManagementApiContext(ctx)
+      );
+
+      assertThat(
+        trustedDevice,
+        new RequestError({
+          code: 'entity.not_found',
+          status: 404,
+        })
+      );
+
+      return next();
+    }
+  );
+}

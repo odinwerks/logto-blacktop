@@ -35,6 +35,7 @@ import UserPassword from './UserPassword';
 import UserSessions from './UserSessions';
 import UserSignInPasskeys from './UserSignInPasskeys';
 import UserThirdPartyApps from './UserThirdPartyApps';
+import UserTrustedDevices from './UserTrustedDevices';
 
 function UserSettings() {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
@@ -179,6 +180,7 @@ function UserSettings() {
         </FormCard>
         <UserConnections userId={user.id} />
         <UserSessions userId={user.id} />
+        <UserTrustedDevices key={user.id} userId={user.id} />
         <UserThirdPartyApps userId={user.id} />
         <FormCard title="user_details.user_profile">
           <FormField title="user_details.field_name">

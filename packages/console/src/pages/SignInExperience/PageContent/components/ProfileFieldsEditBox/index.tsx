@@ -19,6 +19,7 @@ import { DropdownItem } from '@/ds-components/Dropdown';
 import { type RequestError } from '@/hooks/use-api';
 
 import useI18nFieldLabel from '../../CollectUserProfile/use-i18n-field-label';
+import { isBuiltInCustomProfileFieldKey } from '../../CollectUserProfile/utils';
 
 import ProfileFieldItem from './ProfileFieldItem';
 import styles from './index.module.scss';
@@ -85,6 +86,8 @@ function ProfileFieldsEditBox<
     return map;
   }, [catalog, getI18nLabel]);
 
+  const catalogNameSet = useMemo(() => new Set((catalog ?? []).map(({ name }) => name)), [catalog]);
+
   const hasSelectedFields = fields.length > 0;
 
   const addProfileFieldsButtonProps: ButtonProps = {
@@ -107,9 +110,15 @@ function ProfileFieldsEditBox<
         {fields.map(({ id }, index) => {
           const fieldValue = selectedValue?.[index];
           const currentFieldName = fieldValue?.name;
-          const disabledReason = currentFieldName
-            ? getFieldDisabledReason?.(currentFieldName)
-            : undefined;
+          // Missing catalog fields must stay removable so admins can clear stale references even
+          // when the related account-center permission control is Off.
+          const isMissingFromCatalog = Boolean(
+            currentFieldName && catalog && !catalogNameSet.has(currentFieldName)
+          );
+          const disabledReason =
+            currentFieldName && !isMissingFromCatalog
+              ? getFieldDisabledReason?.(currentFieldName)
+              : undefined;
           const isDisabled = Boolean(disabledReason);
           return (
             <DraggableItem
@@ -133,6 +142,11 @@ function ProfileFieldsEditBox<
                   return (
                     <ProfileFieldItem
                       label={fieldLabelByName.get(fieldName) ?? fieldName}
+                      fieldKey={
+                        isBuiltInCustomProfileFieldKey(fieldName)
+                          ? fieldName
+                          : `customData.${fieldName}`
+                      }
                       isDisabled={isDisabled}
                       disabledHint={disabledReason}
                       onDelete={() => {
@@ -167,7 +181,14 @@ function ProfileFieldsEditBox<
                   append({ name: fieldName } as never);
                 }}
               >
-                {label || getI18nLabel(fieldName)}
+                <span>
+                  {label || getI18nLabel(fieldName)}
+                  <span className={styles.dropdownFieldKey}>
+                    {isBuiltInCustomProfileFieldKey(fieldName)
+                      ? fieldName
+                      : `customData.${fieldName}`}
+                  </span>
+                </span>
               </DropdownItem>
             );
           })}

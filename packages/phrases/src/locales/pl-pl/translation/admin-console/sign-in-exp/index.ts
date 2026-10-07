@@ -176,6 +176,7 @@ const sign_in_exp = {
       password: 'Hasło',
       mfa: 'Uwierzytelnianie wieloskładnikowe',
       mfa_description: 'Pozwól użytkownikom zarządzać metodami MFA w centrum konta.',
+      passkey: 'Passkey',
       username: 'Nazwa użytkownika',
       name: 'Imię i nazwisko',
       avatar: 'Awatar',
@@ -185,6 +186,7 @@ const sign_in_exp = {
       custom_data_description:
         'Kontroluj dostęp do niestandardowych danych JSON przechowywanych przy użytkowniku.',
       sessions: 'Sesje',
+      trusted_devices: 'Zaufane urządzenia',
     },
     profile_fields: {
       title: 'Pola profilu dla gotowego centrum konta',
@@ -195,13 +197,13 @@ const sign_in_exp = {
         go_to: 'inne pola profilu teraz.',
       },
       disabled_hint: {
-        name: 'Aby dodać to pole, najpierw ustaw uprawnienie „Imię i nazwisko” na „Edytuj/Tylko do odczytu” w Danych profilu powyżej.',
+        name: 'Aby dodać to pole, najpierw ustaw uprawnienie „Imię i nazwisko” na „Edytuj/Tylko do odczytu” w sekcji Profil użytkownika poniżej.',
         avatar:
-          'Aby dodać to pole, najpierw ustaw uprawnienie „Awatar” na „Edytuj/Tylko do odczytu” w Danych profilu powyżej.',
+          'Aby dodać to pole, najpierw ustaw uprawnienie „Awatar” na „Edytuj/Tylko do odczytu” w sekcji Profil użytkownika poniżej.',
         profile:
-          'Aby dodać to pole, najpierw ustaw uprawnienie „Profil” na „Edytuj/Tylko do odczytu” w Danych profilu powyżej.',
+          'Aby dodać to pole, najpierw ustaw uprawnienie „Profil” na „Edytuj/Tylko do odczytu” w sekcji Profil użytkownika poniżej.',
         custom_data:
-          'Aby dodać to pole, najpierw ustaw uprawnienie „Dane niestandardowe” na „Edytuj/Tylko do odczytu” w Danych profilu powyżej.',
+          'Aby dodać to pole, najpierw ustaw uprawnienie „Dane niestandardowe” na „Edytuj/Tylko do odczytu” w sekcji Profil użytkownika poniżej.',
       },
     },
     webauthn_related_origins: 'Powiązane źródła WebAuthn',
@@ -244,6 +246,7 @@ const sign_in_exp = {
         account_center:
           'Uzyskaj dostęp do centrum konta, aby zarządzać ustawieniami bezpieczeństwa, takimi jak e-mail, telefon, nazwa użytkownika, hasło, MFA i połączone konta',
         profile: 'Centralne miejsce do zarządzania danymi osobowymi (np. imię, awatar)',
+        sessions: 'Przeglądaj i zarządzaj aktywnymi sesjami na wszystkich urządzeniach',
       },
       customize_note: 'Nie chcesz korzystać z gotowego rozwiązania? Możesz całkowicie',
       customize_link: 'dostosować swoje przepływy za pomocą Account API.',

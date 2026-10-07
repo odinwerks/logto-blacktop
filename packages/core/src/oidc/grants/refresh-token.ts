@@ -9,42 +9,84 @@
  * `=== End RFC 0001 ===` to indicate the changes.
  *
  * @see {@link https://github.com/logto-io/rfcs | Logto RFCs} for more information about RFC 0001.
- * @see {@link https://github.com/panva/node-oidc-provider/blob/cf2069cbb31a6a855876e95157372d25dde2511c/lib/actions/grants/refresh_token.js | Original file}.
+ * @see {@link https://github.com/logto-io/node-oidc-provider/blob/d60ae9bd6d089e69f3a243119c6d87db25e837ce/lib/actions/grants/refresh_token.js | Original file}.
  *
  * @remarks
  * Since the original code is not exported, we have to copy the code here. This file should be
  * treated as a fork of the original file, which means, we should keep the code in sync with the
  * original file as much as possible.
  *
- * The commit hash of the original file is `cf2069cbb31a6a855876e95157372d25dde2511c`.
+ * The original file is from the fork's `v9` branch at commit
+ * `d60ae9bd6d089e69f3a243119c6d87db25e837ce`, where it is identical to the upstream v9.9.1 tag.
+ * Its shared helpers (`grant_common.js` and friends) are consumed through the
+ * `oidc-provider-internals.js` seam module. Following the v9 original, the ID token issued here
+ * no longer carries `at_hash` (the official SDK sweep confirmed no SDK depends on it).
+ *
+ * Deliberate deviations from the original file:
+ *
+ * - `deviceCodeGty` is a local constant instead of a deep import of the upstream `device_code`
+ *   grant module, which would pull in the whole grant for one string literal.
+ * - The explicit `grantId not found` guard before grant validation is a Logto addition kept
+ *   from the v8 fork; upstream relies on the grant lookup failing instead.
  */
 
-import { UserScope } from '@logto/core-kit';
-import { isKeyInObject } from '@silverhand/essentials';
-import type { Provider } from 'oidc-provider';
-import { errors } from 'oidc-provider';
-import difference from 'oidc-provider/lib/helpers/_/difference.js';
-import filterClaims from 'oidc-provider/lib/helpers/filter_claims.js';
-import resolveResource from 'oidc-provider/lib/helpers/resolve_resource.js';
-import revoke from 'oidc-provider/lib/helpers/revoke.js';
-import validatePresence from 'oidc-provider/lib/helpers/validate_presence.js';
-import instance from 'oidc-provider/lib/helpers/weak_cache.js';
+import { ReservedResource, UserScope } from '@logto/core-kit';
+import { noop } from '@silverhand/essentials';
+import { errors, type Provider } from 'oidc-provider';
 
 import { type EnvSet } from '#src/env-set/index.js';
+import { assertUserHasApplicationAccessForOidc } from '#src/oidc/application-access-control.js';
+import { shouldTreatAsCimdClient } from '#src/oidc/cimd/index.js';
+import { getOidcScopesNoLongerAllowed } from '#src/oidc/client-scope.js';
+import {
+  applyMtlsBinding,
+  buildTokenResponse,
+  certificateThumbprint,
+  checkAccountMismatch,
+  checkAttestBinding,
+  checkDpopReplay,
+  checkDpopRequired,
+  checkRar,
+  createAccessToken,
+  difference,
+  dpopValidate,
+  getProviderConfiguration,
+  type GrantTypeHandler,
+  issueIdToken,
+  pluralize,
+  resolveResource,
+  revoke,
+  validateAccount,
+  validateGrant,
+  validatePresence,
+} from '#src/oidc/oidc-provider-internals.js';
+import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
 
-import {
-  handleClientCertificate,
-  handleDPoP,
-  handleOrganizationToken,
-  checkOrganizationAccess,
-} from './utils.js';
+import { handleOrganizationToken, checkOrganizationAccess } from './utils.js';
 
-const { InvalidClient, InvalidGrant, InvalidScope, InsufficientScope, AccessDenied } = errors;
+const { InvalidClient, InvalidGrant, InvalidRequest, InvalidScope, InsufficientScope } = errors;
 
 /** The grant type name. `gty` follows the name in oidc-provider. */
 const gty = 'refresh_token';
+
+/**
+ * The `gty` of the upstream `device_code` grant. The original file imports it from the sibling
+ * `device_code.js` grant module; hardcoded here to avoid deep-importing a whole grant for one
+ * string literal.
+ */
+const deviceCodeGty = 'device_code';
+
+/**
+ * The `RefreshToken` instance widened with v9 runtime properties missing from
+ * `@types/oidc-provider`: `rar` (RFC 9396 authorization details) and `attestationJkt`
+ * (attestation-based client authentication binding).
+ */
+type WidenedRefreshToken = InstanceType<Provider['RefreshToken']> & {
+  rar?: unknown;
+  attestationJkt?: string;
+};
 
 /**
  * The valid parameters for the `refresh_token` grant type. Note the `resource` parameter is
@@ -63,31 +105,48 @@ const requiredParameters = Object.freeze(['refresh_token']) satisfies ReadonlyAr
 
 // We have to disable the rules because the original implementation is written in JavaScript and
 // uses mutable variables.
-/* eslint-disable @silverhand/fp/no-let, @typescript-eslint/no-non-null-assertion, @silverhand/fp/no-mutation, unicorn/no-array-method-this-argument */
-export const buildHandler: (
+/* eslint-disable complexity, @silverhand/fp/no-let, @typescript-eslint/no-non-null-assertion, @silverhand/fp/no-mutation, unicorn/no-array-method-this-argument */
+const rarSupported = (token: WidenedRefreshToken) => {
+  const [origin] = token.gty!.split(' ');
+  return origin !== deviceCodeGty;
+};
+
+type Handler = (
   envSet: EnvSet,
-  queries: Queries
-  // eslint-disable-next-line complexity
-) => Parameters<Provider['registerGrantType']>[1] = (envSet, queries) => async (ctx, next) => {
+  queries: Queries,
+  applicationAccessControl: Libraries['applicationAccessControl']
+) => GrantTypeHandler;
+
+export const buildHandler: Handler = (envSet, queries, appAccess) => async (ctx) => {
   const { client, params, requestParamScopes, provider } = ctx.oidc;
-  const { RefreshToken, Account, AccessToken, Grant, IdToken } = provider;
 
   assertThat(params, new InvalidGrant('parameters must be available'));
   assertThat(client, new InvalidClient('client must be available'));
 
   validatePresence(ctx, ...requiredParameters);
 
-  const providerInstance = instance(provider);
   const {
-    rotateRefreshToken,
+    findAccount,
     conformIdTokenClaims,
-    features: { userinfo, resourceIndicators },
-  } = providerInstance.configuration();
+    rotateRefreshToken,
+    features: {
+      userinfo,
+      mTLS: { getCertificate },
+      resourceIndicators,
+      richAuthorizationRequests,
+    },
+  } = getProviderConfiguration(provider);
+
+  const { RefreshToken, AccessToken } = provider;
+
+  const dPoP = await dpopValidate(ctx);
 
   // @gao: I believe the presence of the param is validated by required parameters of this grant.
   // Add `String` to make TS happy.
   let refreshTokenValue = String(params.refresh_token);
-  let refreshToken = await RefreshToken.find(refreshTokenValue, { ignoreExpiration: true });
+  let refreshToken: WidenedRefreshToken | undefined = await RefreshToken.find(refreshTokenValue, {
+    ignoreExpiration: true,
+  });
 
   if (!refreshToken) {
     throw new InvalidGrant('refresh token not found');
@@ -101,56 +160,53 @@ export const buildHandler: (
     throw new InvalidGrant('refresh token is expired');
   }
 
+  let cert: ReturnType<typeof getCertificate>;
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+  if (client.tlsClientCertificateBoundAccessTokens || refreshToken['x5t#S256']) {
+    cert = getCertificate(ctx);
+    if (!cert) {
+      throw new InvalidGrant('mutual TLS client certificate not provided');
+    }
+  }
+
+  checkDpopRequired(ctx, dPoP);
+
+  if (refreshToken['x5t#S256'] && refreshToken['x5t#S256'] !== certificateThumbprint(cert!)) {
+    throw new InvalidGrant('failed x5t#S256 verification');
+  }
+
   if (!refreshToken.grantId) {
     throw new InvalidGrant('grantId not found');
   }
 
-  const grant = await Grant.find(refreshToken.grantId, {
-    ignoreExpiration: true,
-  });
-
-  if (!grant) {
-    throw new InvalidGrant('grant not found');
-  }
-
-  /**
-   * It's actually available on the `BaseModel` class - but missing from the typings.
-   *
-   * @see {@link https://github.com/panva/node-oidc-provider/blob/cf2069cbb31a6a855876e95157372d25dde2511c/lib/models/base_model.js#L128 | oidc-provider/lib/models/base_model.js#L128}
-   */
-  if (isKeyInObject(grant, 'isExpired') && grant.isExpired) {
-    throw new InvalidGrant('grant is expired');
-  }
-
-  if (grant.clientId !== client.clientId) {
-    throw new InvalidGrant('client mismatch');
-  }
+  const grant = await validateGrant(ctx, refreshToken.grantId);
 
   if (params.scope) {
     const missing = difference([...requestParamScopes], [...refreshToken.scopes]);
 
     if (missing.length > 0) {
       throw new InvalidScope(
-        `refresh token missing requested ${missing.length > 1 ? 'scopes' : 'scope'}`,
+        `refresh token missing requested ${pluralize('scope', missing.length)}`,
         missing.join(' ')
       );
     }
   }
 
+  await checkDpopReplay(ctx, dPoP, client.clientId, InvalidGrant);
+
+  if (refreshToken.jkt && (!dPoP || refreshToken.jkt !== dPoP.thumbprint)) {
+    throw new InvalidGrant('failed jkt verification');
+  }
+
+  if (client.clientAuthMethod === 'attest_jwt_client_auth') {
+    await checkAttestBinding(ctx, refreshToken);
+  }
+
   ctx.oidc.entity('RefreshToken', refreshToken);
   ctx.oidc.entity('Grant', grant);
 
-  // @ts-expect-error -- code from oidc-provider. the original type definition does not include
-  // `RefreshToken` but it's actually available.
-  const account = await Account.findAccount(ctx, refreshToken.accountId, refreshToken);
-
-  if (!account) {
-    throw new InvalidGrant('refresh token invalid (referenced account not found)');
-  }
-
-  if (refreshToken.accountId !== grant.accountId) {
-    throw new InvalidGrant('accountId mismatch');
-  }
+  const account = await validateAccount(ctx, findAccount, refreshToken, 'refresh token');
+  checkAccountMismatch(refreshToken, grant);
 
   ctx.oidc.entity('Account', account);
 
@@ -159,14 +215,45 @@ export const buildHandler: (
     throw new InvalidGrant('refresh token already used');
   }
 
-  const { organizationId } = await checkOrganizationAccess(ctx, queries, account);
+  if (params.authorization_details && !rarSupported(refreshToken)) {
+    throw new InvalidRequest('authorization_details is unsupported for this refresh token');
+  }
+
+  /**
+   * Application-level access control only applies to registered applications; the
+   * access-control library's fallback lookup would query the applications table with the CIMD
+   * identifier URL and deny on not-found.
+   */
+  if (!shouldTreatAsCimdClient(envSet, client.clientId)) {
+    await assertUserHasApplicationAccessForOidc(
+      appAccess,
+      client.clientId,
+      account.accountId,
+      client.metadata().appLevelAccessControlEnabled
+    );
+  }
 
   /* === RFC 0001 === */
+  const { organizationId } = await checkOrganizationAccess(ctx, { envSet, queries, account });
+
   if (
     organizationId && // Validate if the refresh token has the required scope from RFC 0001.
     !refreshToken.scopes.has(UserScope.Organizations)
   ) {
     throw new InsufficientScope('refresh token missing required scope', UserScope.Organizations);
+  }
+
+  /** Keyed on the token's own scopes: the request may omit `scope` and still pass `organization_id`. */
+  if (
+    organizationId &&
+    getOidcScopesNoLongerAllowed(grant, client, refreshToken.scopes).includes(
+      UserScope.Organizations
+    )
+  ) {
+    throw new InsufficientScope(
+      'requested scope is no longer allowed for the client',
+      UserScope.Organizations
+    );
   }
   /* === End RFC 0001 === */
 
@@ -194,8 +281,10 @@ export const buildHandler: (
       scope: refreshToken.scope!,
       sessionUid: refreshToken.sessionUid,
       sid: refreshToken.sid,
+      rar: refreshToken.rar,
       'x5t#S256': refreshToken['x5t#S256'],
       jkt: refreshToken.jkt,
+      attestationJkt: refreshToken.attestationJkt,
     });
 
     if (refreshToken.gty && !refreshToken.gty.endsWith(gty)) {
@@ -206,19 +295,24 @@ export const buildHandler: (
     refreshTokenValue = await refreshToken.save();
   }
 
-  const at = new AccessToken({
-    accountId: account.accountId,
-    client,
-    expiresWithSession: refreshToken.expiresWithSession,
-    grantId: refreshToken.grantId!,
-    gty: refreshToken.gty!,
-    sessionUid: refreshToken.sessionUid,
-    sid: refreshToken.sid,
-    scope: undefined!,
-  });
+  const at = createAccessToken(
+    ctx,
+    AccessToken,
+    {
+      accountId: account.accountId,
+      expiresWithSession: refreshToken.expiresWithSession,
+      grantId: refreshToken.grantId,
+      sessionUid: refreshToken.sessionUid,
+      sid: refreshToken.sid,
+    },
+    refreshToken.gty!
+  );
 
-  await handleDPoP(ctx, at, refreshToken);
-  await handleClientCertificate(ctx, at, refreshToken);
+  applyMtlsBinding(at, cert);
+
+  if (dPoP) {
+    at.setThumbprint('jkt', dPoP.thumbprint);
+  }
 
   if (at.gty && !at.gty.endsWith(gty)) {
     at.gty = `${at.gty} ${gty}`;
@@ -226,16 +320,48 @@ export const buildHandler: (
 
   /** The scopes requested by the client. If not provided, use the scopes from the refresh token. */
   const scope = params.scope ? requestParamScopes : refreshToken.scopes;
+  /**
+   * Dropped rather than rejected: the client usually sends no `scope` on refresh, so rejecting
+   * would turn a configuration change into an outage it has no way to fix.
+   *
+   * Kept separate from `scope`, which resource and organization issuance match by name — a scope
+   * name there may collide with an OP scope name.
+   */
+  const scopesNoLongerAllowed = getOidcScopesNoLongerAllowed(grant, client, scope);
+  const oidcScope = new Set([...scope].filter((name) => !scopesNoLongerAllowed.includes(name)));
+  await checkRar(ctx, noop);
 
   // Note, issue organization token only if `params.resource` is not present.
   // If resource is set, we will issue normal access token with extra claim "organization_id",
   // the logic is handled in `getResourceServerInfo` and `extraTokenClaims`, see the init file of oidc-provider.
   if (organizationId && !params.resource) {
     /* === RFC 0001 === */
-    /** All available scopes for the user in the organization. */
-    const availableScopes = await queries.organizations.relations.usersRoles
+    /** All the scopes granted to the user through organization roles. */
+    const roleScopeNames = await queries.organizations.relations.usersRoles
       .getUserScopes(organizationId, account.accountId)
       .then((scopes) => scopes.map(({ name }) => name));
+    /**
+     * CIMD clients bound organization role scopes twice: by the Grant's organization-resource
+     * record and by the tenant-wide `cimd_organization_scopes` ceiling (the organization-scope
+     * counterpart of the resource-server ceiling filter in `init.ts`). The Grant intersection is
+     * load-bearing — scope names are not unique across resources, and the flat refresh-token
+     * scope set passed to `handleOrganizationToken` cannot carry the organization resource's
+     * boundary, so without it a name granted for an unrelated API resource would issue the
+     * same-named organization scope. Registered applications are governed by their own consent
+     * configuration.
+     */
+    const availableScopes = shouldTreatAsCimdClient(envSet, client.clientId)
+      ? await queries.cimd.organizationScopes.findAll().then((ceiling) => {
+          const ceilingNames = new Set(ceiling.map(({ name }) => name));
+          // `getResourceScope` returns `''` when the Grant carries no record for the resource.
+          const grantedOrganizationScopes = new Set(
+            grant.getResourceScope(ReservedResource.Organization).split(' ').filter(Boolean)
+          );
+          return roleScopeNames.filter(
+            (name) => ceilingNames.has(name) && grantedOrganizationScopes.has(name)
+          );
+        })
+      : roleScopeNames;
     await handleOrganizationToken({
       envSet,
       availableScopes,
@@ -268,58 +394,32 @@ export const buildHandler: (
       );
     } else {
       at.claims = refreshToken.claims;
-      at.scope = grant.getOIDCScopeFiltered(scope);
+      at.scope = grant.getOIDCScopeFiltered(oidcScope);
     }
+  }
+
+  if (richAuthorizationRequests.enabled && at.resourceServer) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- `@types/oidc-provider` types the members of this experimental feature as `any`
+    at.rar = await richAuthorizationRequests.rarForRefreshTokenResponse(ctx, at.resourceServer);
   }
 
   ctx.oidc.entity('AccessToken', at);
   const accessToken = await at.save();
 
-  let idToken;
-  if (scope.has('openid')) {
-    const claims = filterClaims(refreshToken.claims, 'id_token', grant);
-    // @ts-expect-error -- code from oidc-provider
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-    const rejected: string[] = grant.getRejectedOIDCClaims();
-    const token = new IdToken(
-      {
-        ...(await account.claims('id_token', [...scope].join(' '), claims, rejected)),
-        acr: refreshToken.acr,
-        amr: refreshToken.amr,
-        auth_time: refreshToken.authTime,
-      },
-      { ctx }
-    );
+  const idToken = await issueIdToken(
+    ctx,
+    refreshToken,
+    at,
+    grant,
+    { conformIdTokenClaims, userinfo },
+    oidcScope
+  );
 
-    // eslint-disable-next-line unicorn/prefer-ternary
-    if (conformIdTokenClaims && userinfo.enabled && !at.aud) {
-      // @ts-expect-error -- code from oidc-provider
-      token.scope = 'openid';
-    } else {
-      // @ts-expect-error -- code from oidc-provider
-      token.scope = grant.getOIDCScopeFiltered(scope);
-    }
-    // @ts-expect-error -- code from oidc-provider
-    token.mask = claims;
-    // @ts-expect-error -- code from oidc-provider
-    token.rejected = rejected;
-
-    token.set('nonce', refreshToken.nonce);
-    token.set('at_hash', accessToken);
-    token.set('sid', refreshToken.sid);
-
-    idToken = await token.issue({ use: 'idtoken' });
-  }
-
-  ctx.body = {
-    access_token: accessToken,
-    expires_in: at.expiration,
-    id_token: idToken,
-    refresh_token: refreshTokenValue,
-    scope: at.scope,
-    token_type: at.tokenType,
-  };
-
-  await next();
+  ctx.body = buildTokenResponse(at, accessToken, {
+    idToken,
+    refreshToken: refreshTokenValue,
+    source: refreshToken,
+    rar: at.rar,
+  });
 };
-/* eslint-enable @silverhand/fp/no-let, @typescript-eslint/no-non-null-assertion, @silverhand/fp/no-mutation, unicorn/no-array-method-this-argument */
+/* eslint-enable complexity, @silverhand/fp/no-let, @typescript-eslint/no-non-null-assertion, @silverhand/fp/no-mutation, unicorn/no-array-method-this-argument */

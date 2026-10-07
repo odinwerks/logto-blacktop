@@ -33,9 +33,14 @@ const error = {
   invalid_link: 'Neplatný odkaz',
   invalid_link_description: 'Tvůj jednorázový kód mohl vypršet nebo již není platný.',
   captcha_verification_failed: 'Ověření, že nejsi robot, se nezdařilo.',
+  send_verification_code_failed: 'Odeslání ověřovacího kódu se nezdařilo. Zkus to prosím později.',
+  send_verification_code_failed_use_password:
+    'Odeslání ověřovacího kódu se nezdařilo. Přihlas se prosím pomocí hesla.',
   terms_acceptance_required: 'Je nutné souhlasit s podmínkami',
   terms_acceptance_required_description: 'Pro pokračování je nutné souhlasit s podmínkami.',
   something_went_wrong: 'Něco se pokazilo.',
+  account_suspended: 'Účet pozastaven',
+  account_suspended_description: 'Tento účet byl pozastaven. Kontaktujte prosím administrátora.',
   access_denied: 'Přístup odepřen',
   application_access_denied:
     'Nemáš oprávnění k přístupu k této aplikaci.\nKontaktuj prosím svého administrátora pro pomoc.',

@@ -57,6 +57,11 @@ const jwt_claims = {
     subtitle:
       '`context.application` 入力パラメータを使用して、トークンに関連するアプリケーション情報を提供します。',
   },
+  organization_data: {
+    title: '組織コンテキスト',
+    subtitle:
+      '`context.organization` 入力パラメータを使用して、対象組織の情報を提供します。組織トークンでのみ利用可能です。',
+  },
   token_data: {
     title: 'トークンデータ',
     subtitle: '現在のアクセストークンペイロードに対して`token`入力パラメータを使用します。',
@@ -94,6 +99,11 @@ const jwt_claims = {
     subtitle: 'テストのためにモックトークンとユーザーデータを調整します。',
     run_button: 'テストを実行',
     result_title: 'テスト結果',
+  },
+  sandbox_warning: {
+    title: 'スクリプトはサーバー権限で実行されます',
+    description:
+      'セルフホスト版 Logto では、このスクリプトは Logto 本体と同じ環境で実行されます。サーバーの環境変数を読み取り、内部ネットワーク上のサービスに到達できます。サンドボックス化されていません。サーバーへのアクセスを許可してもよい相手にのみ、このページへのアクセスを付与してください。',
   },
   form_error: {
     invalid_json: '無効なJSON形式',

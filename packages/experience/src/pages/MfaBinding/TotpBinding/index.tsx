@@ -31,7 +31,8 @@ const TotpBinding = () => {
     return <ErrorPage title="error.invalid_session" />;
   }
 
-  const { availableFactors, skippable, suggestion } = totpBindingState;
+  const { secret: _secret, secretQrCode: _secretQrCode, ...mfaFlowState } = totpBindingState;
+  const { availableFactors, skippable, suggestion } = mfaFlowState;
 
   return (
     <SecondaryPageLayout
@@ -47,7 +48,7 @@ const TotpBinding = () => {
             <Divider />
             <SwitchMfaFactorsLink
               flow={UserMfaFlow.MfaBinding}
-              flowState={{ availableFactors, skippable }}
+              flowState={mfaFlowState}
               className={styles.switchLink}
             />
           </>

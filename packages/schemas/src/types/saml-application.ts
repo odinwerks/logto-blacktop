@@ -4,7 +4,11 @@ import { z } from 'zod';
 import { Applications } from '../db-entries/application.js';
 import { SamlApplicationConfigs } from '../db-entries/saml-application-config.js';
 import { SamlApplicationSecrets } from '../db-entries/saml-application-secret.js';
-import { nameIdFormatGuard, NameIdFormat } from '../foundations/index.js';
+import {
+  nameIdFormatGuard,
+  NameIdFormat,
+  type SamlAuthnRequestConfig,
+} from '../foundations/index.js';
 
 import { applicationCreateGuard, applicationPatchGuard } from './application.js';
 
@@ -13,6 +17,7 @@ const samlAppConfigGuard = SamlApplicationConfigs.guard.pick({
   entityId: true,
   acsUrl: true,
   encryption: true,
+  authnRequestConfig: true,
   nameIdFormat: true,
 });
 
@@ -34,6 +39,11 @@ export const samlApplicationPatchGuard = applicationPatchGuard
     description: true,
     customData: true,
   })
+  .merge(
+    Applications.createGuard.pick({
+      appLevelAccessControlEnabled: true,
+    })
+  )
   // The reason for encapsulating attributeMapping and spMetadata into an object within the config field is that you cannot provide only one of `attributeMapping` or `spMetadata`. Due to the structure of the `saml_application_configs` table, both must be not null.
   .merge(samlAppConfigGuard.partial())
   .extend({ nameIdFormat: nameIdFormatGuard.optional() });
@@ -86,3 +96,10 @@ export const samlApplicationSecretResponseGuard = SamlApplicationSecrets.guard
   });
 
 export type SamlApplicationSecretResponse = z.infer<typeof samlApplicationSecretResponseGuard>;
+
+/**
+ * Whether a SAML application forces fresh authentication. Forcing is the default; only an explicit
+ * `forceAuthn: false` lets the application reuse an existing session.
+ */
+export const isSamlForceAuthnEnabled = (config?: SamlAuthnRequestConfig | null): boolean =>
+  config?.forceAuthn !== false;

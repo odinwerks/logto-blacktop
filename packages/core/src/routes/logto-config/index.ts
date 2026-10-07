@@ -20,6 +20,8 @@ import { getConsoleLogFromContext } from '#src/utils/console.js';
 
 import type { ManagementApiRouter, RouterInitArgs } from '../types.js';
 
+import logtoConfigActionRoutes from './action.js';
+import logtoConfigCimdRoutes from './cimd.js';
 import idTokenRoutes from './id-token.js';
 import logtoConfigJwtCustomizerRoutes from './jwt-customizer.js';
 
@@ -28,7 +30,7 @@ import logtoConfigJwtCustomizerRoutes from './jwt-customizer.js';
  */
 const getOidcConfigKeyDatabaseColumnName = (
   key: LogtoOidcConfigKeyType
-): Exclude<LogtoOidcConfigKey, LogtoOidcConfigKey.Session> =>
+): LogtoOidcConfigKey.PrivateKeys | LogtoOidcConfigKey.CookieKeys =>
   key === LogtoOidcConfigKeyType.PrivateKeys
     ? LogtoOidcConfigKey.PrivateKeys
     : LogtoOidcConfigKey.CookieKeys;
@@ -228,6 +230,7 @@ export default function logtoConfigRoutes<T extends ManagementApiRouter>(
   );
 
   logtoConfigJwtCustomizerRoutes(router, tenant);
-
   idTokenRoutes(router, tenant);
+  logtoConfigActionRoutes(router, tenant);
+  logtoConfigCimdRoutes(router, tenant);
 }

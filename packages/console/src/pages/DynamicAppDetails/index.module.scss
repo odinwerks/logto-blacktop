@@ -1,0 +1,25 @@
+@use '@/scss/underscore' as _;
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: _.unit(2);
+  /** The filled tag sits lower than the title's descender, so the row below needs extra room. */
+  margin-bottom: _.unit(1);
+}
+
+.tabContainer {
+  flex-direction: column;
+  flex-grow: 1;
+
+  &[data-active='true'] {
+    display: flex;
+  }
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: _.unit(4);
+  padding-bottom: _.unit(6);
+}

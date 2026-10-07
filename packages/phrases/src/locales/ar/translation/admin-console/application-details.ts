@@ -120,6 +120,43 @@ const application_details = {
   field_custom_data_tip:
     'معلومات تطبيق مخصصة إضافية غير مدرجة في خصائص التطبيق المحددة مسبقًا ، مثل الإعدادات والتكوينات الخاصة بالأعمال.',
   custom_data_invalid: 'يجب أن تكون البيانات المخصصة كائن JSON صالح',
+  access_control: {
+    name: 'القواعد',
+    title: 'التحكم في الوصول',
+    description: 'خصص قواعد التحكم في الوصول على مستوى التطبيق.',
+    enable: 'تمكين التحكم في الوصول على مستوى التطبيق',
+    enable_description:
+      'مكّن التحكم الدقيق في الوصول لتقييد المستخدمين الذين يمكنهم الوصول إلى هذا التطبيق. إذا كان معطلاً، يمكن لجميع المستخدمين المسجلين في النظام الوصول إليه.',
+    enable_without_rules_notice: 'أضف قاعدة وصول واحدة على الأقل قبل تمكين التحكم في الوصول.',
+    load_error: 'فشل تحميل قواعد التحكم في الوصول.',
+    custom_allow_rules: 'قواعد السماح المخصصة',
+    custom_allow_rules_description:
+      'أنشئ قواعد ليتمكن المستخدمون ذوو سمات معينة من الوصول تلقائيًا. يلزم وجود قاعدة واحدة على الأقل عند التمكين.',
+    rules: 'قواعد الوصول',
+    add_rules: 'إضافة قواعد',
+    rules_description: 'يمكن للمستخدمين الوصول إلى هذا التطبيق عند مطابقة أي قاعدة مكونة.',
+    empty_rules_description: 'لم يتم تكوين أي قواعد بعد.',
+    delete_rule_confirmation: 'هل أنت متأكد من أنك تريد إزالة هذه القاعدة؟',
+    rule_table_rules: 'القواعد',
+    rule_table_description: 'الوصف',
+    rule_table_users: 'المستخدمون',
+    rule_table_members: 'الأعضاء',
+    rule_table_user_id: 'معرّف المستخدم',
+    rule_count: '{{count}} قاعدة',
+    rule_count_other: '{{count}} قواعد',
+    rule_users: 'المستخدمون',
+    rule_users_description: 'يمكن لمستخدمين محددين الوصول إلى هذا التطبيق.',
+    rule_roles: 'الأدوار',
+    rule_user_roles: 'أدوار المستخدمين',
+    rule_user_roles_description:
+      'يمكن للمستخدمين المعينين لأدوار المستخدم المحددة الوصول إلى هذا التطبيق.',
+    rule_organizations: 'المؤسسات',
+    rule_organizations_description:
+      'يمكن لجميع الأعضاء الحاليين والمستقبليين في المؤسسات المحددة الوصول إلى هذا التطبيق.',
+    rule_organization_roles: 'أدوار المؤسسة',
+    rule_organization_roles_description:
+      'يمكن للأعضاء الذين لديهم أدوار المؤسسة المحددة في المؤسسات المحددة الوصول إلى هذا التطبيق.',
+  },
   branding: {
     name: 'العلامة التجارية',
     description: 'قم بتخصيص شعار التطبيق ولون العلامة التجارية لتجربة المستوى التطبيق.',
@@ -258,6 +295,13 @@ const application_details = {
     unspecified_description: 'استخدام معرف مستخدم Logto كاسم المعرف',
     email_address: 'البريد الإلكتروني',
     email_address_description: 'استخدام البريد الإلكتروني كاسم المعرف',
+  },
+  saml_idp_authentication: {
+    always_force_authn: 'تفعيل المصادقة دائمًا',
+    always_force_authn_description:
+      'تطلب من المستخدمين تسجيل الدخول مرة أخرى في كل مرة يصلون فيها إلى هذا التطبيق، حتى لو كان لديهم جلسة Logto.',
+    always_force_authn_tip:
+      'عند التمكين، يطلب Logto من المستخدمين تسجيل الدخول مجددًا لهذا التطبيق. عند التعطيل، يتم إعادة استخدام جلسة Logto الحالية ما لم يطلب مزود الخدمة مصادقة جديدة باستخدام ForceAuthn.',
   },
   saml_encryption_config: {
     encrypt_assertion: 'تشفير تأكيد SAML',

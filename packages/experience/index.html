@@ -1,10 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- `translate="no"`: browser auto-translation rewrites text nodes, which breaks React's
+     DOM bookkeeping and unmounts the app mid-flow. The experience is localized per tenant. -->
+<html lang="en" translate="no">
 
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow" />
+  <meta name="google" content="notranslate" />
   <title></title>
   <script>
     /* See {@link packages/schemas/src/types/ssr.ts} */
@@ -13,6 +16,49 @@
 </head>
 
 <body>
+  <script>
+    // Keep this blocking script in the HTML so the theme, platform class, and brand color
+    // are applied before React loads and the browser has a chance to paint the wrong UI.
+    (function () {
+      var theme = 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      var isMobile = navigator.userAgentData
+        ? navigator.userAgentData.mobile
+        : /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+          || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+      document.body.classList.add(isMobile ? 'mobile' : 'desktop');
+
+      try {
+        var ssr = window.logtoSsr;
+        var darkOk = typeof ssr === 'object' && ssr !== null
+          && ssr.signInExperience && ssr.signInExperience.data
+          && ssr.signInExperience.data.color.isDarkModeEnabled;
+        var prefersDark = typeof window.matchMedia === 'function'
+          && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // The theme override of the current authentication request, which the server resolves
+        // from the `_logto` flow cookie. Reading it from the same payload React reads keeps the
+        // first paint and the rendered app in agreement on every document load of the flow.
+        var override = (typeof ssr === 'object' && ssr !== null && ssr.signInExperience)
+          ? ssr.signInExperience.theme
+          : undefined;
+        var preferred = (override === 'dark' || override === 'light')
+          ? override
+          : (prefersDark ? 'dark' : 'light');
+        theme = darkOk ? preferred : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        if (typeof ssr === 'object' && ssr !== null && ssr.signInExperience
+          && ssr.signInExperience.data && ssr.signInExperience.data.color) {
+          var color = ssr.signInExperience.data.color;
+          var primaryColor = theme === 'dark' && color.darkPrimaryColor
+            ? color.darkPrimaryColor
+            : color.primaryColor;
+          if (primaryColor) {
+            document.body.style.setProperty('--color-brand-default', primaryColor);
+          }
+        }
+      } catch (e) { /* noop */ }
+    })();
+  </script>
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="app"></div>
   <script type="module" src="src/index.tsx"></script>

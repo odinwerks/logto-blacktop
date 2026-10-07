@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import PageContext from '@ac/Providers/PageContextProvider/PageContext';
 import ErrorPage from '@ac/components/ErrorPage';
 import VerificationMethodList from '@ac/components/VerificationMethodList';
+import { getPasskeyFieldControl, isVisibleField } from '@ac/utils/security-page';
 import { sessionStorage } from '@ac/utils/session-storage';
 import type { PendingVerifiedAction } from '@ac/utils/session-storage';
 
@@ -26,6 +27,7 @@ const VerifiedAction = () => {
     () => () => {
       if (!verificationIdRef.current) {
         sessionStorage.clearPendingVerifiedAction();
+        sessionStorage.clearPendingSocialRemoveConnectorId();
       }
     },
     []
@@ -40,6 +42,15 @@ const VerifiedAction = () => {
       case 'disable-mfa': {
         return accountCenterSettings.fields.mfa === AccountCenterControlValue.Edit;
       }
+      case 'enable-passkey-prompt':
+      case 'disable-passkey-prompt': {
+        return (
+          getPasskeyFieldControl(
+            accountCenterSettings.fields.passkey,
+            accountCenterSettings.fields.mfa
+          ) === AccountCenterControlValue.Edit
+        );
+      }
       case 'remove-email': {
         return accountCenterSettings.fields.email === AccountCenterControlValue.Edit;
       }
@@ -48,6 +59,15 @@ const VerifiedAction = () => {
       }
       case 'remove-phone': {
         return accountCenterSettings.fields.phone === AccountCenterControlValue.Edit;
+      }
+      case 'remove-social': {
+        return accountCenterSettings.fields.social === AccountCenterControlValue.Edit;
+      }
+      case 'load-sessions': {
+        return isVisibleField(accountCenterSettings.fields.session);
+      }
+      case 'load-trusted-devices': {
+        return isVisibleField(accountCenterSettings.fields.trustedDevice);
       }
       default: {
         return false;

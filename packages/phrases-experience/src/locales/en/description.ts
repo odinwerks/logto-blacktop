@@ -37,6 +37,8 @@ const description = {
   reset_password: 'Reset password',
   reset_password_description:
     'Enter the {{types, list(type: disjunction;)}} associated with your account, and we’ll send you the verification code to reset your password.',
+  reset_password_magic_link_description:
+    'Enter the email address associated with your account to continue resetting your password.',
   new_password: 'New password',
   set_password: 'Set password',
   password_changed: 'Password changed',
@@ -102,6 +104,8 @@ const description = {
     'Your enterprise has enabled Single Sign-On for the email account {{email}}. You can continue to sign in with the following SSO providers.',
   single_sign_on_enabled: 'Single Sign-On is enabled for this account',
   authorize_title: 'Authorize {{name}}',
+  unregistered_client_notice:
+    'This app is self-declared by <hostname>{{host}}</hostname>, including its name and logo. Please verify the hostname before you continue.',
   request_permission: '{{name}} is requesting access to:',
   grant_organization_access: 'Grant the organization access:',
   authorize_personal_data_usage: 'Authorize the use of your personal data:',
@@ -121,9 +125,6 @@ const description = {
   all_account_creation_options: 'All account creation options',
   back_to_sign_in: 'Back to sign in',
   password_expired: 'Your password has expired and must be reset before you can sign in.',
-  password_expiration_reminder:
-    'Your password will expire in {{days}} day(s). We recommend resetting it now.',
-  password_expiration_reminder_skip: 'Skip for now',
   password_expiration_reset: 'Reset password',
   support_email: 'Support email: <link></link>',
   support_website: 'Support website: <link></link>',

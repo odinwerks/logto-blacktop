@@ -143,6 +143,10 @@ export const signInGuard = z.object({
 
 export type SignIn = z.infer<typeof signInGuard>;
 
+// The username policy is owned by @logto/core-kit (like passwordPolicyGuard) so core, experience,
+// and console share one source of truth; re-exported here for the `@use UsernamePolicy` column.
+export { defaultUsernamePolicy, usernamePolicyGuard, type UsernamePolicy } from '@logto/core-kit';
+
 export type SocialSignIn = {
   /**
    * If account linking should be performed when a user signs in with a social identity that is new
@@ -266,6 +270,23 @@ export const adaptiveMfaGuard = z.object({
   enabled: z.boolean().optional(),
 }) satisfies ToZodObject<AdaptiveMfa>;
 
+/** Stored tenant-level overrides for MFA trusted-device credentials. */
+export type TrustedDevicePolicy = {
+  enabled?: boolean;
+  durationDays?: number;
+};
+
+/** Default trusted-device policy for newly created sign-in experiences. */
+export const defaultTrustedDevicePolicy = Object.freeze({
+  enabled: false,
+  durationDays: 30,
+}) satisfies Required<TrustedDevicePolicy>;
+
+export const trustedDevicePolicyGuard = z.object({
+  enabled: z.boolean().optional(),
+  durationDays: z.number().int().min(1).max(365).optional(),
+}) satisfies ToZodObject<TrustedDevicePolicy>;
+
 export const customUiAssetsGuard = z.object({
   id: z.string(),
   createdAt: z.number(),
@@ -296,22 +317,52 @@ export const sentinelPolicyGuard = z.object({
 }) satisfies ToZodObject<SentinelPolicy>;
 
 /**
- * Email blocklist policy.
+ * Verification code policy.
  *
  * @remarks
- * This policy is used to block specific email addresses or domains from signing up.
+ * This policy controls the expiration duration and maximum retry attempts for verification codes.
  */
+export type VerificationCodePolicy = {
+  /**
+   * The duration in seconds that a verification code remains valid.
+   * @default 600 (10 minutes)
+   */
+  expirationDuration?: number;
+  /**
+   * Maximum number of failed verification attempts allowed before the code is invalidated.
+   * @default 10
+   */
+  maxRetryAttempts?: number;
+};
+
+export const verificationCodePolicyGuard = z.object({
+  expirationDuration: z.number().int().min(60).max(3600).optional(),
+  maxRetryAttempts: z.number().int().min(1).max(100).optional(),
+}) satisfies ToZodObject<VerificationCodePolicy>;
+
 export type EmailBlocklistPolicy = {
   blockDisposableAddresses?: boolean;
   blockSubaddressing?: boolean;
   /**
-   * Custom blocklist of email addresses or domains.
+   * Custom allowlist of email addresses, domains, or wildcard email address patterns.
+   *
+   * The matching semantics are the same as {@link customBlocklist}.
+   */
+  customAllowlist?: string[];
+  /**
+   * Custom blocklist of email addresses, domains, or wildcard email address patterns.
    *
    * @example
    * Email address: abc@xyx.com
    *
    * @example
    * Domain name: @xyz.com
+   *
+   * @example
+   * Wildcard email address pattern: foo*@example.com
+   *
+   * @example
+   * Wildcard domain pattern: @*.example.com
    */
   customBlocklist?: string[];
 };
@@ -319,6 +370,7 @@ export type EmailBlocklistPolicy = {
 export const emailBlocklistPolicyGuard = z.object({
   blockDisposableAddresses: z.boolean().optional(),
   blockSubaddressing: z.boolean().optional(),
+  customAllowlist: z.string().array().optional(),
   customBlocklist: z.string().array().optional(),
 }) satisfies ToZodObject<EmailBlocklistPolicy>;
 
@@ -365,44 +417,50 @@ export const signUpProfileFieldsGuard = z.array(signUpProfileFieldItemGuard);
 
 export type SignUpProfileFields = z.infer<typeof signUpProfileFieldsGuard>;
 
-export { customUiCspGuard, type CustomUiCsp } from '@logto/core-kit';
-
 /**
  * Password lifecycle policy for configuring password expiration and rotation.
  *
  * @remarks
  * This policy is evaluated server-side during sign-in (after local password verification) to determine
- * whether the user's password has expired or is nearing expiration.
+ * whether the user's password has expired.
  *
- * - If the password age >= `validPeriodDays`, the sign-in is blocked and the user
- *   must reset their password before continuing.
- * - If the password age is within `reminderPeriodDays` of expiration, the user is
- *   shown a skip-able prompt to reset their password.
- *
- * @remarks
- * For users without a `passwordUpdatedAt` value (legacy accounts), the
- * `createdAt` timestamp is used as a fallback to determine password age.
+ * If the password age >= `validPeriodDays`, the sign-in is blocked and the user must reset their
+ * password before continuing.
  */
-export type PasswordExpirationPolicy = {
-  /**
-   * Whether the password expiration policy is enabled.
-   * @default false
-   */
-  enabled?: boolean;
-  /**
-   * Number of days a password is valid before it expires and the user is
-   * forced to reset it on sign-in.
-   */
-  validPeriodDays?: number;
-  /**
-   * Number of days before expiration at which the user will be reminded to
-   * reset their password. The reminder is skip-able.
-   */
-  reminderPeriodDays?: number;
-};
+export type PasswordExpirationPolicy =
+  | {
+      /**
+       * Whether the password expiration policy is enabled.
+       * @default false
+       */
+      enabled?: false;
+    }
+  | {
+      enabled: true;
+      /**
+       * Number of days a password is valid before it expires and the user is
+       * forced to reset it on sign-in.
+       */
+      validPeriodDays: number;
+      /**
+       * Epoch milliseconds when the policy was enabled. Used as the expiry anchor for users
+       * that have no `passwordUpdatedAt` (e.g. legacy accounts), so enabling the policy grants
+       * them a full valid period instead of expiring them against their account creation date.
+       */
+      enabledAt?: number;
+    };
 
-export const passwordExpirationPolicyGuard = z.object({
-  enabled: z.boolean().default(false),
-  validPeriodDays: z.number().int().min(1).optional(),
-  reminderPeriodDays: z.number().int().min(0).optional(),
-}) satisfies ToZodObject<PasswordExpirationPolicy>;
+// Intentionally not `.strict()` for backward compatibility: legacy rows may carry removed fields
+// (e.g. `reminderPeriodDays`), which are stripped on parse instead of rejected.
+export const passwordExpirationPolicyGuard = z.union([
+  z.object({
+    enabled: z.literal(false).optional(),
+  }),
+  z.object({
+    enabled: z.literal(true),
+    validPeriodDays: z.number().int().min(1),
+    enabledAt: z.number().int().nonnegative().optional(),
+  }),
+]) satisfies z.ZodType<PasswordExpirationPolicy>;
+
+export { customUiCspGuard, type CustomUiCsp } from '@logto/core-kit';

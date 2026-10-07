@@ -10,6 +10,8 @@ import {
   adminTenantId,
   uploadFileGuard,
 } from '@logto/schemas';
+import { generateStandardId } from '@logto/shared';
+import { format } from 'date-fns';
 import { object } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
@@ -17,7 +19,6 @@ import koaGuard from '#src/middleware/koa-guard.js';
 import type { RouterInitArgs } from '#src/routes/types.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
-import { getConsoleLogFromContext } from '#src/utils/console.js';
 import { buildUploadFile } from '#src/utils/storage/index.js';
 
 import type { AuthedMeRouter } from './types.js';
@@ -28,9 +29,7 @@ import type { AuthedMeRouter } from './types.js';
  *
  * @todo: Refactor to reuse as much code as possible. @Charles
  */
-export default function userAssetsRoutes<T extends AuthedMeRouter>(
-  ...[router, tenant]: RouterInitArgs<T>
-) {
+export default function userAssetsRoutes<T extends AuthedMeRouter>(...[router]: RouterInitArgs<T>) {
   router.get(
     '/user-assets/service-status',
     koaGuard({
@@ -38,14 +37,17 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
     }),
     async (ctx, next) => {
       const { storageProviderConfig } = SystemContext.shared;
+      const isExperienceAvatarUploadEnabled = true;
       const status = storageProviderConfig
         ? {
             status: 'ready',
             allowUploadMimeTypes,
             maxUploadFileSize,
+            isExperienceAvatarUploadEnabled,
           }
         : {
             status: 'not_configured',
+            isExperienceAvatarUploadEnabled,
           };
 
       ctx.body = status;
@@ -77,60 +79,29 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
       assertThat(storageProviderConfig, 'storage.not_configured');
 
       const userId = ctx.auth.id;
-      const isImage = file.mimetype.startsWith('image/');
-      const extension = file.mimetype.split('/')[1] ?? 'bin';
-
-      const storage = buildUploadFile(storageProviderConfig);
-      const objectKey = isImage
-        ? `${adminTenantId}/user-assets/${userId}/you.${extension}`
-        : `${adminTenantId}/app-assets/${file.originalFilename}`;
+      const uploadFile = buildUploadFile(storageProviderConfig);
+      const objectKey = `${adminTenantId}/${userId}/${format(
+        new Date(),
+        'yyyy/MM/dd'
+      )}/${generateStandardId(8)}/${file.originalFilename}`;
 
       try {
-        if (storageProviderConfig.publicUrl) {
-          const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
-            contentType: file.mimetype,
-            publicUrl: storageProviderConfig.publicUrl,
-            isPublic: true,
-          });
+        const { url } = await uploadFile(await readFile(file.filepath), objectKey, {
+          contentType: file.mimetype,
+          publicUrl: storageProviderConfig.publicUrl,
+        });
 
-          ctx.body = isImage ? { url: `${url}?v=${Date.now()}` } : ({ url } satisfies UserAssets);
-        } else {
-          await storage.uploadFile(await readFile(file.filepath), objectKey, {
-            contentType: file.mimetype,
-            isPublic: true,
-          });
+        const result: UserAssets = {
+          url,
+        };
 
-          ctx.body = isImage
-            ? {
-                url: `${tenant.envSet.endpoint.origin}/api/user-assets/${userId}/you.${extension}?v=${Date.now()}`,
-              }
-            : ({
-                url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}`,
-              } satisfies UserAssets);
-        }
+        ctx.body = result;
       } catch (error: unknown) {
         consoleLog.error(error);
         throw new RequestError({
           code: 'storage.upload_error',
           status: 500,
         });
-      }
-
-      // Upload succeeded — clean up old avatars with different extensions (images only)
-      if (isImage) {
-        try {
-          if (storage.listFiles && storage.deleteFile) {
-            const prefix = `${adminTenantId}/user-assets/${userId}/you.`;
-            const existingFiles = await storage.listFiles(prefix);
-            await Promise.all(
-              existingFiles
-                .filter((key) => key !== objectKey)
-                .map((key) => storage.deleteFile!(key))
-            );
-          }
-        } catch (error: unknown) {
-          getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
-        }
       }
 
       return next();

@@ -1,5 +1,44 @@
 # @logto/connector-apple
 
+## 1.6.10
+
+### Patch Changes
+
+- bad3854: clarify that the Apple connector's identifier is a Services ID
+
+  The connector's identifier field is now labeled "Services ID" and states that an App ID (bundle ID) is not a valid value, which Apple rejects with an `invalid_client` error.
+
+  Setup instructions cover the Apple Developer portal, so enabling Sign in with Apple no longer appears to require Xcode. Troubleshooting guidance explains `invalid_client` and `invalid_request`, including Apple's caching of identifier configuration, which has been observed to take up to 24 hours to refresh and can make a correct configuration look broken.
+
+## 1.6.9
+
+### Patch Changes
+
+- Updated dependencies [16f4b2e732]
+  - @logto/shared@3.4.3
+  - @logto/connector-kit@5.1.1
+
+## 1.6.8
+
+### Patch Changes
+
+- 4963a55b4: upgrade jose from v5 to v6
+
+  These connectors now use jose 6, which runs on the Web Crypto API instead of Node's crypto module. Token signing and ID token verification behave exactly as before.
+
+- Updated dependencies [58cb52c705]
+  - @logto/shared@3.4.2
+
+## 1.6.7
+
+### Patch Changes
+
+- Updated dependencies [e7b6e9de1]
+- Updated dependencies [b7386a5113]
+- Updated dependencies [67b99bba85]
+  - @logto/connector-kit@5.1.0
+  - @logto/shared@3.4.1
+
 ## 1.6.6
 
 ### Patch Changes

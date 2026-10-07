@@ -1,13 +1,23 @@
-import { demoAppApplicationId, type MfaFactor } from '@logto/schemas';
+import { createHash } from 'node:crypto';
+
+import { defaultTenantId, demoAppApplicationId, type MfaFactor } from '@logto/schemas';
 import { appendPath } from '@silverhand/essentials';
 
 import { logtoUrl, mockSocialAuthPageUrl } from '#src/constants.js';
 import { readConnectorMessage } from '#src/helpers/index.js';
-import { dcls } from '#src/utils.js';
+import { dcls, waitFor } from '#src/utils.js';
 
 import ExpectPage from './expect-page.js';
 
 const demoAppUrl = appendPath(new URL(logtoUrl), 'demo-app');
+
+/** Aligned with puppeteer's default navigation timeout. */
+const defaultUrlWaitTimeout = 30_000;
+const trustedDeviceCookiePrefix = 'logto-trusted-device-';
+const trustedDeviceOptOutCookiePrefix = 'logto-device-trust-opt-out-';
+
+const isTrustedDeviceCredentialCookie = (name: string) =>
+  name.includes(trustedDeviceCookiePrefix) && !name.includes(trustedDeviceOptOutCookiePrefix);
 
 /** Remove the query string together with the `?` from a URL string. */
 const stripQuery = (url: string) => url.split('?')[0];
@@ -28,6 +38,7 @@ export type ExperiencePath =
   | 'identifier-register'
   | 'single-sign-on'
   | 'reset-password'
+  | 'trusted-device'
   | 'sign-in/passkey'
   | 'sign-in/verification-methods';
 
@@ -86,7 +97,7 @@ export default class ExpectExperience extends ExpectPage {
    */
   async startWith(initialUrl = demoAppUrl, type: ExperienceType = 'sign-in') {
     await this.toStart(initialUrl);
-    this.toBeAt('sign-in');
+    await this.waitToBeAt('sign-in');
 
     if (type === 'register') {
       await this.toClick('a', 'Create account');
@@ -96,24 +107,21 @@ export default class ExpectExperience extends ExpectPage {
     this.#ongoing = { type, initialUrl };
   }
 
-  async waitForUrl(url: URL, retry = 3) {
-    // eslint-disable-next-line @silverhand/fp/no-let
-    let retries = retry;
-
-    do {
-      if (this.page.url() === url.href) {
-        return;
-      }
-
-      // eslint-disable-next-line no-await-in-loop
-      await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
-    } while (retries--); // eslint-disable-line @silverhand/fp/no-mutation
+  /**
+   * Poll the page URL until it exactly matches the given URL.
+   *
+   * Polling covers client-side route changes and full page loads alike, keeps working when
+   * the navigation completed before this call, and does not rely on `networkidle0`, which
+   * in-flight connections can starve beyond the navigation timeout.
+   */
+  async waitForUrl(url: URL, timeout?: number) {
+    await this.waitForUrlToMatch((current) => current === url.href, `to be ${url.href}`, timeout);
   }
 
-  async waitForPathname(pathname: string, retry = 3, appId = demoAppApplicationId) {
+  async waitForPathname(pathname: string, timeout?: number, appId = demoAppApplicationId) {
     const url = this.buildExperienceUrl(pathname);
     url.searchParams.set('app_id', appId);
-    return this.waitForUrl(url, retry);
+    return this.waitForUrl(url, timeout);
   }
 
   /**
@@ -128,12 +136,41 @@ export default class ExpectExperience extends ExpectPage {
     }
 
     await this.waitForUrl(this.#ongoing.initialUrl);
+
     await this.toClick('div[role=button]', /sign out/i);
 
     this.#ongoing = undefined;
     if (closePage) {
       await this.page.close();
     }
+  }
+
+  /**
+   * Clear the demo app browser storage and session cookies while preserving the trusted-device
+   * credential under test. This guarantees the next visit starts a new sign-in interaction.
+   */
+  async clearDemoAppSession() {
+    await this.page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    const cookies = await this.page.cookies(logtoUrl);
+    expect(cookies.some(({ name }) => isTrustedDeviceCredentialCookie(name))).toBe(true);
+    const sessionCookies = cookies.filter(({ name }) => !isTrustedDeviceCredentialCookie(name));
+    await this.page.deleteCookie(...sessionCookies);
+    await this.page.goto('about:blank');
+  }
+
+  /** Clear the persisted trusted-device opt-out preference for the given user. */
+  async clearTrustedDeviceOptOut(userId: string) {
+    const subjectHash = createHash('sha256')
+      .update(`${defaultTenantId}:${userId}`)
+      .digest('base64url');
+    const expectedCookieName = `${trustedDeviceOptOutCookiePrefix}${subjectHash}`;
+    const cookies = await this.page.cookies(logtoUrl);
+    const optOutCookies = cookies.filter(({ name }) => name.endsWith(expectedCookieName));
+    expect(optOutCookies).toHaveLength(1);
+    await this.page.deleteCookie(...optOutCookies);
   }
 
   /**
@@ -144,6 +181,21 @@ export default class ExpectExperience extends ExpectPage {
   toBeAt(pathname: ExperiencePath) {
     const stripped = stripQuery(this.page.url());
     expect(stripped).toBe(this.buildExperienceUrl(pathname).href);
+  }
+
+  /**
+   * Poll the page URL (query excluded) until it is at the given experience path. Unlike
+   * {@link toBeAt}, this tolerates navigations that only complete after one or more API
+   * round trips, which can exceed any fixed delay under CI load.
+   *
+   * @param pathname The experience path to wait for.
+   */
+  async waitToBeAt(pathname: ExperiencePath) {
+    const expected = this.buildExperienceUrl(pathname).href;
+    await this.waitForUrlToMatch(
+      (current) => stripQuery(current) === expected,
+      `to be ${expected}`
+    );
   }
 
   /**
@@ -170,6 +222,15 @@ export default class ExpectExperience extends ExpectPage {
     for (const [index, char] of code.split('').entries()) {
       // eslint-disable-next-line no-await-in-loop
       await this.toFillInput(`passcode_${index}`, char);
+    }
+  }
+
+  async toCompleteMfaVerification(connectorType: Parameters<typeof readConnectorMessage>['0']) {
+    const { code } = await readConnectorMessage(connectorType);
+
+    for (const [index, char] of code.split('').entries()) {
+      // eslint-disable-next-line no-await-in-loop -- verification inputs must be filled in order
+      await this.toFillInput(`mfaCode_${index}`, char);
     }
   }
 
@@ -231,8 +292,9 @@ export default class ExpectExperience extends ExpectPage {
       } else {
         // Reject the password and assert the error message
         // eslint-disable-next-line no-await-in-loop
-        await this.toMatchAlert(
-          typeof errorMessage === 'string' ? new RegExp(errorMessage, 'i') : errorMessage
+        await this.toMatchPasswordRejection(
+          typeof errorMessage === 'string' ? new RegExp(errorMessage, 'i') : errorMessage,
+          password
         );
       }
     }
@@ -245,6 +307,27 @@ export default class ExpectExperience extends ExpectPage {
    */
   async waitForToast(text: string | RegExp) {
     return this.toMatchAndRemove('div[role=toast]', text);
+  }
+
+  async toSeeTrustedDeviceOptIn(durationDays = 365) {
+    const text = `Trust this device for ${durationDays} days`;
+    await this.waitToBeAt('trusted-device');
+    await this.toMatchElement('div[class$=title]', { text: 'Trust this device' });
+    await this.toMatchElement('div[class$=description]', {
+      text: 'You can skip MFA verification on this device during future sign-ins.',
+    });
+    await this.toMatchElement('button', { text });
+  }
+
+  async toOptInTrustedDevice(durationDays = 365) {
+    const text = `Trust this device for ${durationDays} days`;
+    await this.toSeeTrustedDeviceOptIn(durationDays);
+    await this.toClickButton(text, false);
+  }
+
+  async toSkipTrustedDevice(durationDays = 365) {
+    await this.toSeeTrustedDeviceOptIn(durationDays);
+    await this.toClick('div[role=button][class$=skipButton]', undefined, false);
   }
 
   /**
@@ -320,9 +403,59 @@ export default class ExpectExperience extends ExpectPage {
     return { favicon, appleFavicon };
   }
 
+  /**
+   * Poll the page URL until it satisfies the given predicate; throw if it still does not
+   * after the timeout.
+   *
+   * @param match The predicate to test the page URL against.
+   * @param expectation A human-readable description of the expected URL for the error message.
+   */
+  protected async waitForUrlToMatch(
+    match: (url: string) => boolean,
+    expectation: string,
+    timeout = defaultUrlWaitTimeout
+  ) {
+    const deadline = Date.now() + timeout;
+
+    while (!match(this.page.url())) {
+      if (Date.now() > deadline) {
+        this.throwError(
+          `Timed out (${timeout}ms) waiting for the page URL ${expectation}. Current URL: ${this.page.url()}`
+        );
+      }
+
+      // eslint-disable-next-line no-await-in-loop
+      await waitFor(100);
+    }
+  }
+
   /** Build a full experience URL from a pathname. */
   protected buildExperienceUrl(pathname = '') {
     return appendPath(this.options.endpoint, pathname);
+  }
+
+  /**
+   * Assert that the password form shows a rejection alert matching the given pattern.
+   *
+   * The alert only updates after a full server round-trip, which can exceed the default 5s
+   * timeout under CI load, so wait longer here. On timeout, report what the page actually
+   * shows — the current alert text and whether a submission is still in flight — since that
+   * is what separates a slow response from a wrong rejection message or a swallowed submit.
+   */
+  protected async toMatchPasswordRejection(expected: RegExp, password: string) {
+    try {
+      await this.toMatchAlert(expected, { timeout: 10_000 });
+    } catch {
+      const alert = await this.page.$('*[role=alert]');
+      const alertText = await alert?.evaluate(({ textContent }) => textContent);
+      const pendingSubmit = await this.page.$('button[type=submit][disabled]');
+
+      this.throwError(
+        `Expected the alert to match ${String(expected)} for password "${password}", but ${
+          alertText ? `the alert reads "${alertText}"` : 'no alert is present'
+        } (submission in flight: ${String(Boolean(pendingSubmit))}).`
+      );
+    }
   }
 
   protected throwNoOngoingExperienceError() {

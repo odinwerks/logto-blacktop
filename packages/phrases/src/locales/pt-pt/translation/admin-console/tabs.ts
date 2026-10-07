@@ -1,4 +1,5 @@
 const tabs = {
+  actions: 'Actions',
   get_started: 'Começar',
   dashboard: 'Painel',
   applications: 'Aplicações',

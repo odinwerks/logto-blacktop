@@ -1,6 +1,6 @@
 import { ReservedResource } from '@logto/core-kit';
-import { type ConsentInfoResponse } from '@logto/schemas';
-import { useCallback, useEffect, useState } from 'react';
+import { type ConsentInfoResponse, isCimdClientId } from '@logto/schemas';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import LandingPageLayout from '@/Layout/LandingPageLayout';
@@ -8,15 +8,35 @@ import { consent, getConsentInfo } from '@/apis/consent';
 import TermsLinks from '@/components/TermsLinks';
 import TextLink from '@/components/TextLink';
 import useApi from '@/hooks/use-api';
-import useErrorHandler from '@/hooks/use-error-handler';
+import useErrorHandler, { type ErrorHandlers } from '@/hooks/use-error-handler';
 import useGlobalRedirectTo from '@/hooks/use-global-redirect-to';
+import ErrorPage from '@/pages/ErrorPage';
 import Button from '@/shared/components/Button';
+import { searchKeys } from '@/shared/utils/search-parameters';
 
 import OrganizationSelector, { type Organization } from './OrganizationSelector';
 import ScopesListCard from './ScopesListCard';
+import UnregisteredClientNotice from './UnregisteredClientNotice';
 import UserProfile from './UserProfile';
 import styles from './index.module.scss';
-import { getRedirectUriOrigin } from './util';
+import { getClientIdentifierHost, getRedirectUriOrigin } from './util';
+
+/**
+ * Resolve how the client identifies itself on the page.
+ *
+ * An unregistered (CIMD) client is recognized by its identifier alone: the consent info keeps the
+ * client identifier URL in `id`, and a registered application id never takes that shape. Its name
+ * comes from the metadata document, which may omit `client_name` — the identifier host stands in
+ * then, and stays on the page as a permanent identity signal either way.
+ */
+const getClientDisplayData = ({ application: { id, displayName, name } }: ConsentInfoResponse) => {
+  const unregisteredClientHost = isCimdClientId(id) ? getClientIdentifierHost(id) : undefined;
+
+  return {
+    unregisteredClientHost,
+    applicationName: (displayName ?? name) || (unregisteredClientHost ?? name),
+  };
+};
 
 const Consent = () => {
   const handleError = useErrorHandler();
@@ -26,10 +46,40 @@ const Consent = () => {
 
   const [consentData, setConsentData] = useState<ConsentInfoResponse>();
   const [selectedOrganization, setSelectedOrganization] = useState<Organization>();
+  const [isAccessDenied, setIsAccessDenied] = useState(false);
 
   const [isConsentLoading, setIsConsentLoading] = useState(false);
 
   const asyncGetConsentInfo = useApi(getConsentInfo);
+
+  const consentErrorHandlers: ErrorHandlers = useMemo(
+    () => ({
+      'oidc.access_denied': () => {
+        setIsAccessDenied(true);
+      },
+    }),
+    []
+  );
+
+  const handleConsentError = useCallback(
+    async (error: unknown) => {
+      await handleError(error, consentErrorHandlers);
+    },
+    [consentErrorHandlers, handleError]
+  );
+
+  const signOut = useCallback(() => {
+    const applicationId =
+      new URLSearchParams(window.location.search).get(searchKeys.appId) ??
+      consentData?.application.id;
+    const signOutUrl = new URL('/oidc/session/end', window.location.origin);
+
+    if (applicationId) {
+      signOutUrl.searchParams.set('client_id', applicationId);
+    }
+
+    window.location.assign(signOutUrl.href);
+  }, [consentData?.application.id]);
 
   const consentHandler = useCallback(async () => {
     setIsConsentLoading(true);
@@ -37,7 +87,7 @@ const Consent = () => {
     setIsConsentLoading(false);
 
     if (error) {
-      await handleError(error);
+      await handleConsentError(error);
 
       return;
     }
@@ -45,14 +95,14 @@ const Consent = () => {
     if (result?.redirectTo) {
       await redirectTo(result.redirectTo);
     }
-  }, [asyncConsent, handleError, redirectTo, selectedOrganization?.id]);
+  }, [asyncConsent, handleConsentError, redirectTo, selectedOrganization?.id]);
 
   useEffect(() => {
     const getConsentInfoHandler = async () => {
       const [error, result] = await asyncGetConsentInfo();
 
       if (error) {
-        await handleError(error);
+        await handleConsentError(error);
 
         return;
       }
@@ -68,17 +118,31 @@ const Consent = () => {
     };
 
     void getConsentInfoHandler();
-  }, [asyncGetConsentInfo, handleError]);
+  }, [asyncGetConsentInfo, handleConsentError]);
+
+  if (isAccessDenied) {
+    return (
+      <ErrorPage
+        isNavbarHidden
+        title="error.access_denied"
+        message="error.application_access_denied"
+        primaryAction={{
+          title: 'account_center.sessions.revoke_session',
+          onClick: signOut,
+        }}
+      />
+    );
+  }
 
   if (!consentData) {
     return null;
   }
 
   const {
-    application: { displayName, name, termsOfUseUrl, privacyPolicyUrl },
+    application: { termsOfUseUrl, privacyPolicyUrl },
   } = consentData;
 
-  const applicationName = displayName ?? name;
+  const { unregisteredClientHost, applicationName } = getClientDisplayData(consentData);
   const showTerms = Boolean(termsOfUseUrl ?? privacyPolicyUrl);
   const { redirectUri } = consentData;
   const redirectUriOrigin = consentData.redirectUri
@@ -93,6 +157,12 @@ const Consent = () => {
       }}
       thirdPartyBranding={consentData.application.branding}
     >
+      {unregisteredClientHost && (
+        <UnregisteredClientNotice
+          className={styles.unregisteredClientNotice}
+          host={unregisteredClientHost}
+        />
+      )}
       <UserProfile user={consentData.user} />
       <ScopesListCard
         userScopes={consentData.missingOIDCScope}
@@ -144,7 +214,7 @@ const Consent = () => {
             }}
           >
             {t('description.authorize_agreement_with_redirect', {
-              name,
+              name: applicationName,
               uri: redirectUriOrigin,
             })}
           </Trans>
@@ -164,7 +234,7 @@ const Consent = () => {
             }}
           >
             {t('description.authorize_agreement', {
-              name,
+              name: applicationName,
             })}
           </Trans>
         </div>

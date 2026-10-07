@@ -7,39 +7,33 @@ import {
   userMfaDataKey,
   userMfaSettingsResponseGuard,
   jsonObjectGuard,
-  type User,
 } from '@logto/schemas';
 import { conditional } from '@silverhand/essentials';
 import { z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
-import { encryptUserPassword } from '#src/libraries/user.utils.js';
+import { buildUserPasswordPayloadFromPassword } from '#src/libraries/user.utils.js';
 import koaGuard from '#src/middleware/koa-guard.js';
+import { assertFirstPartyClient } from '#src/utils/assert-first-party-client.js';
 import assertThat from '#src/utils/assert-that.js';
-import { assertUserHasRemainingIdentifier } from '#src/utils/user.js';
+import { assertUserHasRemainingIdentifier, assertUsernameAllowed } from '#src/utils/user.js';
 
 import { PasswordValidator } from '../experience/classes/libraries/password-validator.js';
 import type { UserRouter, RouterInitArgs } from '../types.js';
 
-import avatarRoutes from './avatar.js';
 import { accountApiPrefix } from './constants.js';
 import emailAndPhoneRoutes from './email-and-phone.js';
 import accountGrantRoutes from './grants.js';
-import heartbeatRoutes from './heartbeat.js';
 import identitiesRoutes from './identities.js';
 import logtoConfigRoutes from './logto-config.js';
 import mfaVerificationsRoutes from './mfa-verifications.js';
 import koaAccountCenter from './middlewares/koa-account-center.js';
 import accountSessionRoutes from './sessions.js';
 import thirdPartyTokensRoutes from './third-party-tokens.js';
+import accountTrustedDeviceRoutes from './trusted-device.js';
+import accountUserAssetsRoutes from './user-assets.js';
 import { getAccountCenterFilteredProfile, getScopedProfile } from './utils/get-scoped-profile.js';
-
-const hasSecurityVerificationMethod = ({
-  passwordEncrypted,
-  primaryEmail,
-  primaryPhone,
-}: Pick<User, 'passwordEncrypted' | 'primaryEmail' | 'primaryPhone'>) =>
-  Boolean(passwordEncrypted) || Boolean(primaryEmail) || Boolean(primaryPhone);
+import { hasSecurityVerificationMethod } from './utils/has-security-verification-method.js';
 
 export default function accountRoutes<T extends UserRouter>(...args: RouterInitArgs<T>) {
   const [router, { queries, libraries }] = args;
@@ -55,8 +49,6 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
 
   router.use(koaAccountCenter(queries));
 
-  avatarRoutes(...args);
-
   router.get(
     `${accountApiPrefix}`,
     koaGuard({
@@ -65,8 +57,8 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
     }),
     async (ctx, next) => {
       const { id: userId, scopes } = ctx.auth;
-      const profile = await getScopedProfile(queries, libraries, scopes, userId);
-      ctx.body = getAccountCenterFilteredProfile(profile, ctx.accountCenter);
+      const { profile, user } = await getScopedProfile(queries, libraries, scopes, userId);
+      ctx.body = getAccountCenterFilteredProfile(profile, ctx.accountCenter, user);
       return next();
     }
   );
@@ -77,16 +69,14 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
       body: z.object({
         name: z.string().nullable().optional(),
         avatar: z.string().url().nullable().optional(),
-
         username: z.string().regex(usernameRegEx).nullable().optional(),
-
         customData: jsonObjectGuard.optional(),
       }),
       response: userProfileResponseGuard.partial(),
-      status: [200, 400, 401, 422],
+      status: [200, 400, 401, 403, 422],
     }),
     async (ctx, next) => {
-      const { id: userId, scopes, identityVerified } = ctx.auth;
+      const { id: userId, scopes, identityVerified, clientId } = ctx.auth;
       const { body } = ctx.guard;
       const { name, avatar, username, customData } = body;
       const { fields } = ctx.accountCenter;
@@ -107,11 +97,11 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
         customData === undefined || fields.customData === AccountCenterControlValue.Edit,
         'account_center.field_not_editable'
       );
-
       assertThat(scopes.has(UserScope.Profile), 'auth.unauthorized');
       if (customData !== undefined) {
         assertThat(scopes.has(UserScope.CustomData), 'auth.unauthorized');
       }
+      await assertFirstPartyClient(queries, clientId);
 
       if (username !== undefined) {
         assertThat(
@@ -126,6 +116,8 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
           ]);
           assertUserHasRemainingIdentifier(user, { username: null }, ssoIdentities.length);
         } else {
+          const { usernamePolicy } = await findDefaultSignInExperience();
+          assertUsernameAllowed(usernamePolicy, username);
           await checkIdentifierCollision({ username }, userId);
         }
       }
@@ -143,8 +135,8 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
 
       ctx.appendDataHookContext('User.Data.Updated', { user: updatedUser });
 
-      const profile = await getScopedProfile(queries, libraries, scopes, userId);
-      ctx.body = getAccountCenterFilteredProfile(profile, ctx.accountCenter);
+      const { profile } = await getScopedProfile(queries, libraries, scopes, userId);
+      ctx.body = getAccountCenterFilteredProfile(profile, ctx.accountCenter, updatedUser);
 
       return next();
     }
@@ -155,10 +147,10 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
     koaGuard({
       body: userProfileGuard,
       response: userProfileGuard,
-      status: [200, 400],
+      status: [200, 400, 403],
     }),
     async (ctx, next) => {
-      const { id: userId, scopes } = ctx.auth;
+      const { id: userId, scopes, clientId } = ctx.auth;
       const { body } = ctx.guard;
       const { fields } = ctx.accountCenter;
 
@@ -166,12 +158,13 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
         fields.profile === AccountCenterControlValue.Edit,
         'account_center.field_not_editable'
       );
-
       assertThat(scopes.has(UserScope.Profile), 'auth.unauthorized');
 
       if (body.address !== undefined) {
         assertThat(scopes.has(UserScope.Address), 'auth.unauthorized');
       }
+
+      await assertFirstPartyClient(queries, clientId);
 
       const updatedUser = await updateUserById(userId, {
         profile: body,
@@ -179,7 +172,7 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
 
       ctx.appendDataHookContext('User.Data.Updated', { user: updatedUser });
 
-      const profile = await getScopedProfile(queries, libraries, scopes, userId);
+      const { profile } = await getScopedProfile(queries, libraries, scopes, userId);
       ctx.body = profile.profile;
 
       return next();
@@ -190,11 +183,13 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
     `${accountApiPrefix}/password`,
     koaGuard({
       body: z.object({ password: z.string().min(1) }),
-      status: [204, 400, 401, 422],
+      status: [204, 400, 401, 403, 422],
     }),
     async (ctx, next) => {
-      const { id: userId, identityVerified } = ctx.auth;
+      const { id: userId, identityVerified, clientId } = ctx.auth;
       const { password } = ctx.guard.body;
+
+      await assertFirstPartyClient(queries, clientId);
 
       const user = await findUserById(userId);
       if (hasSecurityVerificationMethod(user)) {
@@ -214,13 +209,10 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
       const passwordPolicyChecker = new PasswordValidator(signInExperience.passwordPolicy, user);
       await passwordPolicyChecker.validatePassword(password, user);
 
-      const { passwordEncrypted, passwordEncryptionMethod } = await encryptUserPassword(password);
-      const updatedUser = await updateUserById(userId, {
-        passwordEncrypted,
-        passwordEncryptionMethod,
-        passwordUpdatedAt: Date.now(),
-        isPasswordExpired: false,
-      });
+      const updatedUser = await updateUserById(
+        userId,
+        await buildUserPasswordPayloadFromPassword(password)
+      );
 
       ctx.appendDataHookContext('User.Data.Updated', { user: updatedUser });
 
@@ -267,10 +259,10 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
         skipMfaOnSignIn: z.boolean(),
       }),
       response: userMfaSettingsResponseGuard,
-      status: [200, 400, 401],
+      status: [200, 400, 401, 403],
     }),
     async (ctx, next) => {
-      const { id: userId, identityVerified, scopes } = ctx.auth;
+      const { id: userId, identityVerified, scopes, clientId } = ctx.auth;
 
       assertThat(
         identityVerified,
@@ -280,6 +272,8 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
         scopes.has(UserScope.Identities),
         new RequestError({ code: 'auth.unauthorized', status: 401 })
       );
+      await assertFirstPartyClient(queries, clientId);
+
       const { skipMfaOnSignIn } = ctx.guard.body;
       const { fields } = ctx.accountCenter;
       assertThat(
@@ -314,6 +308,7 @@ export default function accountRoutes<T extends UserRouter>(...args: RouterInitA
   identitiesRoutes(...args);
   mfaVerificationsRoutes(...args);
   accountSessionRoutes(...args);
-  heartbeatRoutes(...args);
+  accountTrustedDeviceRoutes(...args);
   accountGrantRoutes(...args);
+  accountUserAssetsRoutes(...args);
 }

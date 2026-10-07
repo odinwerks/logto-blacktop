@@ -5,7 +5,7 @@ create type users_password_encryption_method as enum ('Argon2i', 'Argon2id', 'Ar
 create table users (
   tenant_id varchar(21) not null
     references tenants (id) on update cascade on delete cascade,
-  id varchar(12) not null,
+  id varchar(128) not null,
   username varchar(128),
   primary_email varchar(128),
   primary_phone varchar(128),
@@ -17,6 +17,7 @@ create table users (
   /** Additional OpenID Connect standard claims that are not included in user's properties. */
   profile jsonb /* @use UserProfile */ not null default '{}'::jsonb,
   application_id varchar(21),
+  cimd_client_id varchar(2048),
   identities jsonb /* @use Identities */ not null default '{}'::jsonb,
   custom_data jsonb /* @use JsonObject */ not null default '{}'::jsonb,
   logto_config jsonb /* @use JsonObject */ not null default '{}'::jsonb,
@@ -45,6 +46,11 @@ create index users__name
 
 create index users_mfa_verifications_gin
   on users using gin (mfa_verifications jsonb_path_ops);
+
+/* Supports case-insensitive username lookups and case-flip conflict detection. */
+create index users__tenant_lower_username
+  on users (tenant_id, lower(username))
+  where username is not null;
 
 create trigger set_updated_at
   before update on users

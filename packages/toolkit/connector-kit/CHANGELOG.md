@@ -1,5 +1,32 @@
 # Change Log
 
+## 5.1.2
+
+### Patch Changes
+
+- 1326394: disallow combining the `none` prompt with other prompt values in OIDC configuration
+
+## 5.1.1
+
+### Patch Changes
+
+- Updated dependencies [7464c6a97a]
+  - @logto/language-kit@1.4.0
+
+## 5.1.0
+
+### Minor Changes
+
+- e7b6e9de1: add SMTP2GO email connector for transactional auth emails via the SMTP2GO send API
+
+  Export shared SMTP mailbox parsing and formatting utilities from `@logto/connector-kit`, and adopt them in the MailJunky connector
+
+### Patch Changes
+
+- b7386a5113: fix a runtime crash on iOS 15 and older Safari when loading the experience or demo apps
+
+  `urlRegEx` used a lookbehind assertion (`(?<![\w.])`), which Safari < 16.4 cannot parse. Because the regex is a top-level literal bundled into the experience app, loading the app threw `SyntaxError: Invalid regular expression: invalid group specifier name` before any code ran. The boundary now uses a `(?:^|[^\w.])` group, which is behaviorally equivalent for `.test()` and parses on all supported browsers.
+
 ## 5.0.1
 
 ### Patch Changes
@@ -54,9 +81,9 @@
 
   ```ts
   await logtoClient.signIn({
-    redirectUri: "https://your.app/callback",
+    redirectUri: 'https://your.app/callback',
     extraParams: {
-      ui_locales: "fr-CA fr en",
+      ui_locales: 'fr-CA fr en',
     },
   });
   ```
@@ -114,8 +141,8 @@ If you are using Email/SMS as a MFA method, you should update your connector con
   1. Direct replacement
 
   ```ts
-  replaceSendMessageKeysWithPayload("Your verification code is {{code}}", {
-    code: "123456",
+  replaceSendMessageKeysWithPayload('Your verification code is {{code}}', {
+    code: '123456',
   });
   // 'Your verification code is 123456'
   ```
@@ -123,30 +150,25 @@ If you are using Email/SMS as a MFA method, you should update your connector con
   2. Deep property access
 
   ```ts
-  replaceSendMessageKeysWithPayload(
-    "Your logo is {{organization.branding.logoUrl}}",
-    { organization: { branding: { logoUrl: "https://example.com/logo.png" } } },
-  );
+  replaceSendMessageKeysWithPayload('Your logo is {{organization.branding.logoUrl}}', {
+    organization: { branding: { logoUrl: 'https://example.com/logo.png' } },
+  });
   // 'Your logo is https://example.com/logo.png'
   ```
 
   3. Missing properties
 
   ```ts
-  replaceSendMessageKeysWithPayload(
-    "Your logo is {{organization.branding.logoUrl}}",
-    { organization: { name: "foo" } },
-  );
+  replaceSendMessageKeysWithPayload('Your logo is {{organization.branding.logoUrl}}', {
+    organization: { name: 'foo' },
+  });
   // 'Your logo is '
   ```
 
   4. Preservation of missing variables
 
   ```ts
-  replaceSendMessageKeysWithPayload(
-    "Your application is {{application.name}}",
-    {},
-  );
+  replaceSendMessageKeysWithPayload('Your application is {{application.name}}', {});
   // 'Your application is {{application.name}}'
   ```
 

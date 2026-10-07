@@ -47,6 +47,7 @@ export const accountCenterSections: AccountCenterFieldSection[] = [
             key: 'mfa',
             title: 'sign_in_exp.account_center.fields.mfa',
           },
+          { key: 'passkey', title: 'sign_in_exp.account_center.fields.passkey' },
         ],
       },
       {
@@ -57,6 +58,10 @@ export const accountCenterSections: AccountCenterFieldSection[] = [
           {
             key: 'session',
             title: 'sign_in_exp.account_center.fields.sessions',
+          },
+          {
+            key: 'trustedDevice',
+            title: 'sign_in_exp.account_center.fields.trusted_devices',
           },
         ],
       },

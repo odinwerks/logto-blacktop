@@ -1,3 +1,4 @@
+import actions from './actions.js';
 import api_resource_details from './api-resource-details.js';
 import api_resources from './api-resources.js';
 import application_details from './application-details.js';
@@ -105,6 +106,7 @@ const admin_console = {
   protected_app,
   jwt_claims,
   invitation,
+  actions,
   signing_keys,
   organization_template,
   organization_role_details,

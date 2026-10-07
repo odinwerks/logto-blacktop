@@ -5,6 +5,7 @@ import type { FC, ReactNode } from 'react';
 import BarGraph from '@/assets/icons/bar-graph.svg?react';
 import Bolt from '@/assets/icons/bolt.svg?react';
 import Box from '@/assets/icons/box.svg?react';
+import Code from '@/assets/icons/code.svg?react';
 import Connection from '@/assets/icons/connection.svg?react';
 import Gear from '@/assets/icons/gear.svg?react';
 import Hook from '@/assets/icons/hook.svg?react';
@@ -19,6 +20,7 @@ import SecurityLock from '@/assets/icons/security-lock.svg?react';
 import Security from '@/assets/icons/security.svg?react';
 import EnterpriseSso from '@/assets/icons/single-sign-on.svg?react';
 import Web from '@/assets/icons/web.svg?react';
+import useIsActionsEnabled from '@/hooks/use-is-actions-enabled';
 
 type SidebarItem = {
   Icon: FC;
@@ -49,6 +51,7 @@ export const useSidebarMenuItems = (): {
   sections: SidebarSection[];
   firstItem: Optional<SidebarItem>;
 } => {
+  const isActionsEnabled = useIsActionsEnabled();
   const allSections: SidebarSection[] = [
     {
       title: 'overview',
@@ -127,6 +130,13 @@ export const useSidebarMenuItems = (): {
     {
       title: 'developer',
       items: [
+        {
+          Icon: Code,
+          title: 'actions',
+          path: 'actions',
+          // Actions are still under development and should be released as one feature.
+          isHidden: !isActionsEnabled,
+        },
         {
           Icon: JwtClaims,
           title: 'customize_jwt',

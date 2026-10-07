@@ -36,6 +36,11 @@ const security = {
       description:
         "Alternativa intelligente di CAPTCHA di Cloudflare che offre protezione dai bot non invasiva assicurando un'esperienza utente senza puzzle visivi.",
     },
+    cap: {
+      name: 'Cap',
+      description:
+        'CAPTCHA open source e self-hosted basato su proof-of-work, senza puzzle visivi né servizi di terze parti, ideale per le regioni in cui altri servizi CAPTCHA non sono raggiungibili.',
+    },
   },
   captcha_details: {
     back_to_security: 'Torna alla sicurezza',
@@ -51,6 +56,10 @@ const security = {
     domain_placeholder: 'www.google.com (predefinito) o recaptcha.net',
     recaptcha_key_id: 'ID chiave reCAPTCHA',
     recaptcha_api_key: 'Chiave API del progetto',
+    cap_endpoint: 'Endpoint di Cap',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      'Questo endpoint usa HTTP, adatto solo allo sviluppo locale. I browser bloccano le richieste HTTP da una pagina di accesso HTTPS e la chiave segreta verrebbe inviata non crittografata. Usa HTTPS in produzione.',
     deletion_description: 'Sei sicuro di voler eliminare questo fornitore di CAPTCHA?',
     captcha_deleted: 'Fornitore di CAPTCHA eliminato con successo',
     setup_captcha: 'Configura CAPTCHA',
@@ -59,6 +68,10 @@ const security = {
     mode_checkbox: 'Casella di controllo',
     mode_notice:
       'La modalità di verifica è definita nelle impostazioni della chiave reCAPTCHA in Google Cloud Console. Per cambiare la modalità qui è necessario un tipo di chiave corrispondente.',
+    score_threshold: 'Soglia del punteggio',
+    score_threshold_description:
+      'I punteggi inferiori alla soglia vengono rifiutati. 0.0 consente tutti, 1.0 solo punteggi perfetti. Il valore predefinito è 0.5.',
+    score_threshold_error: 'La soglia del punteggio deve essere compresa tra 0 e 1.',
   },
   password_policy: {
     password_requirements: 'Requisiti per la password',
@@ -94,20 +107,39 @@ const security = {
       'Richiedi agli utenti di reimpostare la password dopo un numero stabilito di giorni. Gli utenti che accedono tramite SSO o passkey non sono interessati.',
     enable_password_expiration: 'Abilita la scadenza della password',
     enable_password_expiration_description:
-      'Richiedi agli utenti di reimpostare periodicamente la password. Gli utenti esistenti senza una data di modifica della password registrata verranno valutati in base alla data di creazione del loro account.',
+      'Richiedi agli utenti di reimpostare periodicamente la password. Gli utenti esistenti senza una data di modifica della password registrata verranno valutati a partire dalla data di attivazione di questa politica.',
     enable_password_expiration_tip:
       'Puoi abilitare la scadenza della password solo dopo aver configurato almeno un metodo di recupero password con un connettore valido nell’esperienza di accesso.',
     expiration_period: 'Periodo di validità della password (giorni)',
     expiration_period_description:
       'Numero di giorni in cui una password rimane valida prima di scadere.',
     expiration_period_error:
-      'Il periodo di validità della password deve essere di almeno 1 giorno.',
-    expiration_reminder: 'Promemoria di scadenza (giorni prima della scadenza)',
-    expiration_reminder_description:
-      "Numero di giorni prima della scadenza per avvisare gli utenti e richiedere la reimpostazione della password. Gli utenti possono saltare il promemoria e procedere con l'accesso.",
-    expiration_reminder_error:
-      'Il periodo del promemoria di scadenza deve essere compreso tra 0 e il periodo di validità ({{max}} giorni).',
+      'Il periodo di validità della password deve essere compreso tra {{min}} e {{max}} giorni.',
+    password_expiration_recovery_reminder:
+      'Alcuni utenti potrebbero non avere un indirizzo email o un numero di telefono per ricevere un codice di recupero della password e quindi non potranno reimpostare una password scaduta. Richiedi un indirizzo email o un numero di telefono durante la registrazione per assicurarti che ogni utente possa recuperare la propria password.',
   },
+  verification_code_policy: {
+    card_title: 'Codice di verifica',
+    card_description:
+      'Configura la durata di scadenza e il numero massimo di tentativi per i codici di verifica usati nei flussi di accesso, registrazione e reimpostazione della password.',
+    enable: {
+      title: 'Personalizza le impostazioni del codice di verifica',
+      description:
+        'Consenti la personalizzazione della durata di scadenza del codice di verifica e del numero massimo di tentativi.',
+    },
+    expiration_duration: {
+      title: 'Durata di scadenza (secondi)',
+      description: "La durata in secondi per cui un codice di verifica rimane valido dopo l'invio.",
+      error_message: 'La durata di scadenza deve essere compresa tra 60 e 3600 secondi.',
+    },
+    max_retry_attempts: {
+      title: 'Numero massimo di tentativi',
+      description:
+        'Numero massimo di tentativi di verifica non riusciti consentiti prima che il codice venga invalidato.',
+      error_message: 'Il numero massimo di tentativi deve essere compreso tra 1 e 100.',
+    },
+  },
+
   sentinel_policy: {
     card_title: 'Blocco identificatore',
     card_description:
@@ -149,6 +181,25 @@ const security = {
     card_title: 'Lista di blocco email',
     card_description:
       'Prendi il controllo della tua base utenti bloccando indirizzi email ad alto rischio o indesiderati.',
+    custom_email_allowlist: {
+      title: 'Consenti indirizzi email personalizzati',
+      description:
+        'Aggiungi regole per consentire solo domini email, indirizzi email o pattern con caratteri jolly specifici per nuove registrazioni e nuove email collegate. Esempi: bar@example.com, @example.com, foo*@example.com, *@example.com. I domini gmail.com e googlemail.com sono considerati equivalenti e i punti nella parte locale vengono ignorati, quindi foo.bar@gmail.com corrisponde a foobar@googlemail.com.',
+      placeholder: 'Inserisci un indirizzo email, un dominio o un pattern con caratteri jolly',
+      duplicate_error: 'Indirizzo email, dominio o pattern email con caratteri jolly già aggiunto',
+      invalid_format_error:
+        'Deve essere un indirizzo email valido (bar@example.com), un dominio (@example.com) o un pattern email con caratteri jolly (foo*@example.com, *@example.com)',
+      warnings: {
+        identical_entries:
+          'Alcune voci della lista consentita esistono anche nelle regole di blocco. Le email corrispondenti potrebbero comunque essere bloccate.',
+        blocked_exact_email:
+          'Alcune email esatte della lista consentita corrispondono a una regola di blocco. Le email corrispondenti potrebbero comunque essere bloccate.',
+        blocked_subaddressing:
+          'Alcune voci della lista consentita contengono il segno più (+), ma il sottoindirizzamento email è bloccato.',
+        effectively_unusable:
+          'In base a questi controlli, la lista consentita attuale potrebbe non permettere il passaggio di alcuna nuova email.',
+      },
+    },
     disposable_email: {
       title: 'Blocca indirizzi email usa e getta',
       description:
@@ -162,12 +213,12 @@ const security = {
     custom_email_address: {
       title: 'Blocca indirizzi email personalizzati',
       description:
-        "Aggiungi domini email specifici o indirizzi email che non possono registrarsi o collegarsi tramite l'UI.",
-      placeholder:
-        "Inserisci l'indirizzo email o il dominio bloccato (ad es., bar@example.com, @example.com)",
-      duplicate_error: 'Indirizzo email o dominio già aggiunto',
+        "Aggiungi regole per impedire a domini email, indirizzi email o pattern con caratteri jolly specifici di registrarsi o collegarsi tramite l'UI. Esempi: bar@example.com, @example.com, foo*@example.com, *@example.com. I domini gmail.com e googlemail.com sono considerati equivalenti e i punti nella parte locale vengono ignorati, quindi foo.bar@gmail.com corrisponde a foobar@googlemail.com.",
+      placeholder: 'Inserisci un indirizzo email, un dominio o un pattern con caratteri jolly',
+      duplicate_error:
+        'Indirizzo email, dominio o modello di indirizzo email con caratteri jolly già aggiunto',
       invalid_format_error:
-        'Deve essere un indirizzo email valido (bar@example.com) o un dominio (@example.com)',
+        'Deve essere un indirizzo email valido (bar@example.com), un dominio (@example.com) o un modello di indirizzo email con caratteri jolly (foo*@example.com, *@example.com)',
     },
   },
 };

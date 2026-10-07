@@ -1,4 +1,4 @@
-import { emailOrEmailDomainRegEx } from '@logto/core-kit';
+import { isEmailBlocklistItem, matchesEmailBlocklistItem } from '@logto/core-kit';
 import { type EmailBlocklistPolicy } from '@logto/schemas';
 import { conditional, deduplicate } from '@silverhand/essentials';
 import { got } from 'got';
@@ -8,11 +8,11 @@ import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import assertThat from '#src/utils/assert-that.js';
 
-const validateCustomBlockListFormat = (list: string[]) => {
-  const invalidItems = new Set();
+const validateCustomEmailListFormat = (list: string[]) => {
+  const invalidItems = new Set<string>();
 
   for (const item of list) {
-    if (!emailOrEmailDomainRegEx.test(item)) {
+    if (!isEmailBlocklistItem(item)) {
       invalidItems.add(item);
     }
   }
@@ -20,9 +20,9 @@ const validateCustomBlockListFormat = (list: string[]) => {
   return invalidItems;
 };
 
-const parseCustomBlocklist = (customBlocklist: string[]) => {
-  const deduplicated = deduplicate(customBlocklist);
-  const invalidItems = validateCustomBlockListFormat(deduplicated);
+const parseCustomEmailList = (list: string[]) => {
+  const deduplicated = deduplicate(list);
+  const invalidItems = validateCustomEmailListFormat(deduplicated);
 
   if (invalidItems.size > 0) {
     throw new RequestError({
@@ -36,17 +36,18 @@ const parseCustomBlocklist = (customBlocklist: string[]) => {
 };
 
 /**
- * This function will deduplicate the custom blocklist (if not undefined) and validate the format of each item.
+ * This function will deduplicate the custom blocklist and allowlist (if not undefined) and validate the format of each item.
  * If any item is invalid, it throws a RequestError with the details of the invalid items.
  */
 export const parseEmailBlocklistPolicy = (
   emailBlocklistPolicy: EmailBlocklistPolicy
 ): EmailBlocklistPolicy => {
-  const { customBlocklist, ...rest } = emailBlocklistPolicy;
+  const { customAllowlist, customBlocklist, ...rest } = emailBlocklistPolicy;
 
   return {
     ...rest,
-    ...conditional(customBlocklist && { customBlocklist: parseCustomBlocklist(customBlocklist) }),
+    ...conditional(customAllowlist && { customAllowlist: parseCustomEmailList(customAllowlist) }),
+    ...conditional(customBlocklist && { customBlocklist: parseCustomEmailList(customBlocklist) }),
   };
 };
 
@@ -120,16 +121,20 @@ export const validateEmailAgainstBlocklistPolicy = async (
   emailBlocklistPolicy: EmailBlocklistPolicy,
   email: string
 ) => {
-  const { customBlocklist, blockDisposableAddresses, blockSubaddressing } = emailBlocklistPolicy;
+  const { customAllowlist, customBlocklist, blockDisposableAddresses, blockSubaddressing } =
+    emailBlocklistPolicy;
   const domain = email.split('@')[1];
 
   assertThat(domain, new RequestError('session.email_blocklist.invalid_email'));
 
   // Guard email subaddressing if enabled
   if (blockSubaddressing) {
-    const subaddressingRegex = new RegExp(`^.*\\+.*@${domain}$`);
+    // Subaddressing puts a `+` in the local part (e.g. `user+tag@example.com`). Check the local
+    // part directly instead of building a `RegExp` from the user-controlled domain — a plain
+    // string check is simpler and avoids interpreting user input as a pattern.
+    const localPart = email.split('@')[0] ?? '';
     assertThat(
-      !subaddressingRegex.test(email),
+      !localPart.includes('+'),
       new RequestError({
         code: 'session.email_blocklist.email_subaddressing_not_allowed',
         status: 422,
@@ -137,16 +142,27 @@ export const validateEmailAgainstBlocklistPolicy = async (
     );
   }
 
+  // Guard custom email allowlist if provided.
+  if (customAllowlist && customAllowlist.length > 0) {
+    const isCustomAllowlisted = customAllowlist.some((item) =>
+      matchesEmailBlocklistItem(item, email)
+    );
+
+    assertThat(
+      isCustomAllowlisted,
+      new RequestError({
+        code: 'session.email_blocklist.email_not_allowed',
+        status: 422,
+        email,
+      })
+    );
+  }
+
   // Guard custom email address/domain if provided
   if (customBlocklist) {
-    const isCustomBlocklisted = customBlocklist.some((item) => {
-      // Guard email domain
-      if (item.startsWith('@')) {
-        return domain === item.slice(1);
-      }
-
-      return email === item;
-    });
+    const isCustomBlocklisted = customBlocklist.some((item) =>
+      matchesEmailBlocklistItem(item, email)
+    );
 
     assertThat(
       !isCustomBlocklisted,
@@ -165,13 +181,13 @@ export const validateEmailAgainstBlocklistPolicy = async (
 };
 
 export const isEmailBlocklistPolicyEnabled = (emailBlockListPolicy: EmailBlocklistPolicy) => {
-  const { blockDisposableAddresses, blockSubaddressing, customBlocklist } = emailBlockListPolicy;
+  const { blockDisposableAddresses, blockSubaddressing, customAllowlist, customBlocklist } =
+    emailBlockListPolicy;
 
-  /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
-  return (
-    blockDisposableAddresses ||
-    blockSubaddressing ||
-    (customBlocklist && customBlocklist.length > 0)
-  );
-  /* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
+  return [
+    blockDisposableAddresses === true,
+    blockSubaddressing === true,
+    (customAllowlist?.length ?? 0) > 0,
+    (customBlocklist?.length ?? 0) > 0,
+  ].some(Boolean);
 };

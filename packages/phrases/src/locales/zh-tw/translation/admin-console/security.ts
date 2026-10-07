@@ -34,6 +34,11 @@ const security = {
       description:
         'Cloudflare 的智慧型 CAPTCHA 替代方案，提供非侵入性的機器人保護，同時確保不需要視覺拼圖的無縫使用者體驗。',
     },
+    cap: {
+      name: 'Cap',
+      description:
+        '開源、可自行託管的工作量證明 CAPTCHA，不需要視覺拼圖或第三方服務，適合無法存取其他 CAPTCHA 服務的地區。',
+    },
   },
   captcha_details: {
     back_to_security: '返回安全',
@@ -49,6 +54,10 @@ const security = {
     domain_placeholder: 'www.google.com（預設）或 recaptcha.net',
     recaptcha_key_id: 'reCAPTCHA 金鑰 ID',
     recaptcha_api_key: '專案的 API 金鑰',
+    cap_endpoint: 'Cap 端點',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      '此端點使用 HTTP，僅適用於本機開發。瀏覽器會封鎖 HTTPS 登入頁發出的 HTTP 請求，且密鑰將以明文傳輸。正式環境請使用 HTTPS。',
     deletion_description: '你確定要刪除此 CAPTCHA 提供商嗎？',
     captcha_deleted: 'CAPTCHA 提供商刪除成功',
     setup_captcha: '設定 CAPTCHA',
@@ -57,6 +66,10 @@ const security = {
     mode_checkbox: '複選框驗證',
     mode_notice:
       '驗證模式在 Google Cloud Console 的 reCAPTCHA 金鑰設定中定義。更改此處的模式需要匹配的金鑰類型。',
+    score_threshold: '分數門檻',
+    score_threshold_description:
+      '低於門檻的分數會被拒絕。0.0 允許所有分數，1.0 只允許滿分。預設值為 0.5。',
+    score_threshold_error: '分數門檻必須介於 0 到 1 之間。',
   },
   password_policy: {
     password_requirements: '密碼需求',
@@ -86,17 +99,34 @@ const security = {
       '要求用戶在設定的天數後重置密碼。通過 SSO 或通行金鑰登錄的用戶不受影響。',
     enable_password_expiration: '啟用密碼過期',
     enable_password_expiration_description:
-      '要求用戶定期重置密碼。對於沒有記錄密碼更改日期的現有用戶，將根據其帳戶創建日期進行評估。',
+      '要求用戶定期重置密碼。對於沒有記錄密碼更改日期的現有用戶，將從此政策啟用之日起進行評估。',
     enable_password_expiration_tip:
       '只有在登入體驗中配置至少一種帶有有效連接器的忘記密碼方式後，才能啟用密碼過期。',
     expiration_period: '密碼有效期限（天）',
     expiration_period_description: '密碼在過期前保持有效的天數。密碼有效期限必須至少為 1 天。',
-    expiration_period_error: '密碼有效期限必須至少為 1 天。',
-    expiration_reminder: '過期提醒（過期前天數）',
-    expiration_reminder_description:
-      '在過期前多少天提醒用戶並提示重置密碼。用戶可以跳過提醒並繼續登錄。過期提醒期限必須在 0 和有效期限（{{max}} 天）之間。',
-    expiration_reminder_error: '過期提醒期限必須在 0 和有效期限（{{max}} 天）之間。',
+    expiration_period_error: '密碼有效期限必須在 {{min}} 至 {{max}} 天之間。',
+    password_expiration_recovery_reminder:
+      '部分使用者可能沒有電子郵件地址或電話號碼來接收密碼復原驗證碼，因此無法重設已過期的密碼。請在註冊時要求提供電子郵件地址或電話號碼，以確保每位使用者都能復原其密碼。',
   },
+  verification_code_policy: {
+    card_title: '驗證碼',
+    card_description: '設定登入、註冊和密碼重設流程中驗證碼的過期時長與最大重試次數。',
+    enable: {
+      title: '自訂驗證碼設定',
+      description: '允許自訂驗證碼的過期時長與最大重試次數。',
+    },
+    expiration_duration: {
+      title: '過期時長（秒）',
+      description: '驗證碼傳送後保持有效的時長（秒）。',
+      error_message: '過期時長必須介於 60 到 3600 秒之間。',
+    },
+    max_retry_attempts: {
+      title: '最大重試次數',
+      description: '驗證碼失效前允許的最大驗證失敗次數。',
+      error_message: '最大重試次數必須介於 1 到 100 之間。',
+    },
+  },
+
   sentinel_policy: {
     card_title: '識別符鎖定',
     card_description:
@@ -132,6 +162,21 @@ const security = {
   blocklist: {
     card_title: '電子郵件封鎖名單',
     card_description: '通過封鎖高風險或不需要的電子郵件地址來控管你的用戶群。',
+    custom_email_allowlist: {
+      title: '允許自訂電子郵件地址',
+      description:
+        '新增規則，僅允許特定的電子郵件網域、電子郵件地址或萬用字元模式用於新註冊和新連結的電子郵件。例如：bar@example.com、@example.com、foo*@example.com、*@example.com。gmail.com 和 googlemail.com 網域會被視為等同，且本地部分中的點號會被忽略，因此 foo.bar@gmail.com 與 foobar@googlemail.com 相符。',
+      placeholder: '輸入電子郵件地址、網域或萬用字元模式',
+      duplicate_error: '電子郵件地址、網域或萬用字元電子郵件地址模式已新增',
+      invalid_format_error:
+        '必須是有效的電子郵件地址（bar@example.com）、網域（@example.com）或萬用字元電子郵件地址模式（foo*@example.com，*@example.com）',
+      warnings: {
+        identical_entries: '部分允許清單項目也存在於阻擋規則中。相符的電子郵件仍可能被阻擋。',
+        blocked_exact_email: '部分精確電子郵件允許項目符合阻擋規則。相符的電子郵件仍可能被阻擋。',
+        blocked_subaddressing: '部分允許清單項目包含加號（+），但電子郵件子位址已被阻擋。',
+        effectively_unusable: '根據這些檢查，目前允許清單可能無法讓任何新的電子郵件通過。',
+      },
+    },
     disposable_email: {
       title: '封鎖一次性電子郵件地址',
       description:
@@ -144,10 +189,12 @@ const security = {
     },
     custom_email_address: {
       title: '封鎖自訂電子郵件地址',
-      description: '添加無法註冊或通過 UI 連結的特定電子郵件域或電子郵件地址。',
-      placeholder: '輸入被封鎖的電子郵件地址或域（例如，bar@example.com, @example.com）',
-      duplicate_error: '電子郵件地址或域已添加',
-      invalid_format_error: '必須是有效的電子郵件地址(bar@example.com)或域(@example.com)',
+      description:
+        '新增規則，封鎖特定的電子郵件網域、電子郵件地址或萬用字元模式透過 UI 註冊或連結。例如：bar@example.com、@example.com、foo*@example.com、*@example.com。gmail.com 和 googlemail.com 網域會被視為等同，且本地部分中的點號會被忽略，因此 foo.bar@gmail.com 與 foobar@googlemail.com 相符。',
+      placeholder: '輸入電子郵件地址、網域或萬用字元模式',
+      duplicate_error: '電子郵件地址、域或萬用字元電子郵件地址模式已添加',
+      invalid_format_error:
+        '必須是有效的電子郵件地址（bar@example.com）、域（@example.com）或萬用字元電子郵件地址模式（foo*@example.com, *@example.com）',
     },
   },
 };

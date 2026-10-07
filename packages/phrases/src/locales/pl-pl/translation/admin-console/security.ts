@@ -36,6 +36,11 @@ const security = {
       description:
         'Inteligentna alternatywa dla CAPTCHA od Cloudflare, zapewniająca ochronę przed botami bez zakłócania użytkownika i gwarantująca płynne doświadczenie bez wizualnych łamigłówek.',
     },
+    cap: {
+      name: 'Cap',
+      description:
+        'Otwartoźródłowa, samodzielnie hostowana CAPTCHA oparta na proof-of-work, bez wizualnych łamigłówek i usług zewnętrznych – idealna dla regionów, w których inne usługi CAPTCHA są niedostępne.',
+    },
   },
   captcha_details: {
     back_to_security: 'Powrót do bezpieczeństwa',
@@ -51,6 +56,10 @@ const security = {
     domain_placeholder: 'www.google.com (domyślna) lub recaptcha.net',
     recaptcha_key_id: 'ID klucza reCAPTCHA',
     recaptcha_api_key: 'Klucz API projektu',
+    cap_endpoint: 'Endpoint Cap',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      'Ten punkt końcowy używa HTTP, co nadaje się tylko do lokalnego programowania. Przeglądarki blokują żądania HTTP ze strony logowania HTTPS, a klucz tajny zostałby wysłany bez szyfrowania. W środowisku produkcyjnym użyj HTTPS.',
     deletion_description: 'Czy na pewno chcesz usunąć tego dostawcę CAPTCHA?',
     captcha_deleted: 'Pomyślnie usunięto dostawcę CAPTCHA',
     setup_captcha: 'Skonfiguruj CAPTCHA',
@@ -59,6 +68,10 @@ const security = {
     mode_checkbox: 'Pole wyboru',
     mode_notice:
       'Tryb weryfikacji jest zdefiniowany w ustawieniach klucza reCAPTCHA w Google Cloud Console. Zmiana trybu tutaj wymaga odpowiedniego typu klucza.',
+    score_threshold: 'Próg punktacji',
+    score_threshold_description:
+      'Wyniki poniżej progu są odrzucane. 0.0 pozwala na wszystkie, 1.0 tylko na idealne wyniki. Domyślnie 0.5.',
+    score_threshold_error: 'Próg punktacji musi wynosić od 0 do 1.',
   },
   password_policy: {
     password_requirements: 'Wymagania dotyczące hasła',
@@ -92,19 +105,38 @@ const security = {
       'Wymagaj od użytkowników zresetowania hasła po określonej liczbie dni. Użytkownicy logujący się przez SSO lub klucz dostępu nie są objęci tą zasadą.',
     enable_password_expiration: 'Włącz wygasanie haseł',
     enable_password_expiration_description:
-      'Wymagaj od użytkowników okresowego resetowania hasła. Istniejący użytkownicy bez zapisanej daty zmiany hasła zostaną ocenieni na podstawie daty utworzenia konta.',
+      'Wymagaj od użytkowników okresowego resetowania hasła. Istniejący użytkownicy bez zapisanej daty zmiany hasła zostaną ocenieni na podstawie daty włączenia tej zasady.',
     enable_password_expiration_tip:
       'Wygasanie hasła można włączyć dopiero po skonfigurowaniu w doświadczeniu logowania co najmniej jednej metody odzyskiwania hasła z poprawnym konektorem.',
     expiration_period: 'Okres ważności hasła (dni)',
     expiration_period_description:
       'Liczba dni, przez które hasło pozostaje ważne przed wygaśnięciem.',
-    expiration_period_error: 'Okres ważności hasła musi wynosić co najmniej 1 dzień.',
-    expiration_reminder: 'Przypomnienie o wygaśnięciu (dni przed wygaśnięciem)',
-    expiration_reminder_description:
-      'Liczba dni przed wygaśnięciem, aby ostrzec użytkowników i zachęcić do resetowania hasła. Użytkownicy mogą pominąć przypomnienie i kontynuować logowanie.',
-    expiration_reminder_error:
-      'Okres przypomnienia o wygaśnięciu musi mieścić się w przedziale od 0 do okresu ważności ({{max}} dni).',
+    expiration_period_error: 'Okres ważności hasła musi wynosić od {{min}} do {{max}} dni.',
+    password_expiration_recovery_reminder:
+      'Niektórzy użytkownicy mogą nie mieć adresu e-mail ani numeru telefonu, aby otrzymać kod odzyskiwania hasła, więc nie będą mogli zresetować wygasłego hasła. Wymagaj adresu e-mail lub numeru telefonu podczas rejestracji, aby każdy użytkownik mógł odzyskać swoje hasło.',
   },
+  verification_code_policy: {
+    card_title: 'Kod weryfikacyjny',
+    card_description:
+      'Skonfiguruj czas wygaśnięcia i maksymalną liczbę ponownych prób dla kodów weryfikacyjnych używanych podczas logowania, rejestracji i resetowania hasła.',
+    enable: {
+      title: 'Dostosuj ustawienia kodu weryfikacyjnego',
+      description:
+        'Zezwalaj na dostosowanie czasu wygaśnięcia kodu weryfikacyjnego i maksymalnej liczby ponownych prób.',
+    },
+    expiration_duration: {
+      title: 'Czas wygaśnięcia (sekundy)',
+      description: 'Czas w sekundach, przez jaki kod weryfikacyjny pozostaje ważny po wysłaniu.',
+      error_message: 'Czas wygaśnięcia musi wynosić od 60 do 3600 sekund.',
+    },
+    max_retry_attempts: {
+      title: 'Maksymalna liczba ponownych prób',
+      description:
+        'Maksymalna liczba nieudanych prób weryfikacji dozwolona przed unieważnieniem kodu.',
+      error_message: 'Maksymalna liczba ponownych prób musi wynosić od 1 do 100.',
+    },
+  },
+
   sentinel_policy: {
     card_title: 'Blokada identyfikatora',
     card_description:
@@ -146,6 +178,26 @@ const security = {
     card_title: 'Lista blokad email',
     card_description:
       'Przejmij kontrolę nad bazą użytkowników, blokując adresy email o wysokim ryzyku lub niepożądane.',
+    custom_email_allowlist: {
+      title: 'Zezwalaj na niestandardowe adresy e-mail',
+      description:
+        'Dodaj reguły zezwalające tylko na określone domeny e-mail, adresy e-mail lub wzorce z symbolami wieloznacznymi dla nowych rejestracji i nowo powiązanych e-maili. Przykłady: bar@example.com, @example.com, foo*@example.com, *@example.com. Domeny gmail.com i googlemail.com są traktowane jako równoważne, a kropki w części lokalnej są ignorowane, więc foo.bar@gmail.com pasuje do foobar@googlemail.com.',
+      placeholder: 'Wpisz adres e-mail, domenę lub wzorzec z symbolem wieloznacznym',
+      duplicate_error:
+        'Adres e-mail, domena lub wzorzec z symbolem wieloznacznym został już dodany',
+      invalid_format_error:
+        'Musi to być prawidłowy adres e-mail (bar@example.com), domena (@example.com) lub wzorzec z symbolem wieloznacznym (foo*@example.com, *@example.com)',
+      warnings: {
+        identical_entries:
+          'Niektóre wpisy listy dozwolonych znajdują się także w regułach blokowania. Pasujące e-maile mogą nadal zostać zablokowane.',
+        blocked_exact_email:
+          'Niektóre dokładne adresy e-mail z listy dozwolonych pasują do reguły blokowania. Pasujące e-maile mogą nadal zostać zablokowane.',
+        blocked_subaddressing:
+          'Niektóre wpisy listy dozwolonych zawierają znak plus (+), ale subadresowanie e-maili jest blokowane.',
+        effectively_unusable:
+          'Na podstawie tych kontroli obecna lista dozwolonych może nie przepuścić żadnego nowego e-maila.',
+      },
+    },
     disposable_email: {
       title: 'Zablokuj jednorazowe adresy email',
       description:
@@ -159,12 +211,12 @@ const security = {
     custom_email_address: {
       title: 'Zablokuj niestandardowe adresy email',
       description:
-        'Dodaj określone domeny email lub adresy email, które nie mogą się rejestrować lub powiązać przez UI.',
-      placeholder:
-        'Wprowadź zablokowany adres email lub domenę (np. bar@example.com, @example.com)',
-      duplicate_error: 'Adres email lub domena już dodana',
+        'Dodaj reguły blokujące określone domeny e-mail, adresy e-mail lub wzorce z symbolami wieloznacznymi przed rejestracją lub powiązaniem przez UI. Przykłady: bar@example.com, @example.com, foo*@example.com, *@example.com. Domeny gmail.com i googlemail.com są traktowane jako równoważne, a kropki w części lokalnej są ignorowane, więc foo.bar@gmail.com pasuje do foobar@googlemail.com.',
+      placeholder: 'Wpisz adres e-mail, domenę lub wzorzec z symbolem wieloznacznym',
+      duplicate_error:
+        'Adres email, domena lub wzorzec adresu email z symbolem wieloznacznym już dodany',
       invalid_format_error:
-        'Musi być ważnym adresem email(bar@example.com) lub domeną(@example.com)',
+        'Musi być ważnym adresem email (bar@example.com), domeną (@example.com) lub wzorcem adresu email z symbolem wieloznacznym (foo*@example.com, *@example.com)',
     },
   },
 };

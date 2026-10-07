@@ -1,5 +1,6 @@
 import {
   S3Client,
+  S3ServiceException,
   PutObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
@@ -8,7 +9,13 @@ import {
   CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 
-import type { UploadFile } from './types.js';
+import type {
+  DownloadFile,
+  GetFileProperties,
+  IsFileExisted,
+  StorageProvider,
+  UploadFile,
+} from './types.js';
 
 const getRegionFromEndpoint = (endpoint?: string) => {
   if (!endpoint) {
@@ -106,17 +113,27 @@ export const buildS3Storage = ({
     }
   };
 
-  /** Checks whether an object exists in the S3 bucket. Returns `false` rather than throwing on a `NotFound` error. */
-  const isFileExisted = async (objectKey: string): Promise<boolean> => {
+  const isFileExisted: IsFileExisted = async (objectKey) => {
     try {
       await client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }));
+
       return true;
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'NotFound') {
+      // `HeadObject` has no response body, so a missing object only shows as a 404.
+      if (error instanceof S3ServiceException && error.$metadata.httpStatusCode === 404) {
         return false;
       }
+
       throw error;
     }
+  };
+
+  const getFileProperties: GetFileProperties = async (objectKey) => {
+    const { ContentLength } = await client.send(
+      new HeadObjectCommand({ Bucket: bucket, Key: objectKey })
+    );
+
+    return { contentLength: ContentLength };
   };
 
   /**
@@ -163,23 +180,21 @@ export const buildS3Storage = ({
     return keys;
   };
 
-  /**
-   * Downloads an object from the S3 bucket and returns its body as a
-   * `ReadableStream` along with optional content metadata.
-   */
-  const downloadFile = async (
-    objectKey: string
-  ): Promise<{ body: ReadableStream; contentType?: string; contentLength?: number }> => {
-    const result = await client.send(new GetObjectCommand({ Bucket: bucket, Key: objectKey }));
-
-    if (!result.Body) {
-      throw new Error(`S3 returned empty body for object ${objectKey}`);
-    }
+  const downloadFile: DownloadFile = async (objectKey, offset, count) => {
+    const { Body, ContentLength, ContentType } = await client.send(
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+        Range: buildRange(offset, count),
+      })
+    );
 
     return {
-      body: result.Body.transformToWebStream(),
-      contentType: result.ContentType,
-      contentLength: result.ContentLength,
+      contentLength: ContentLength,
+      contentType: ContentType,
+      // The Node.js runtime of the SDK always answers with a Node.js readable stream.
+      // eslint-disable-next-line no-restricted-syntax -- See above.
+      readableStreamBody: Body as NodeJS.ReadableStream | undefined,
     };
   };
 
@@ -195,5 +210,24 @@ export const buildS3Storage = ({
     );
   };
 
-  return { uploadFile, deleteFile, isFileExisted, listFiles, downloadFile, copyFile };
+  return {
+    uploadFile,
+    downloadFile,
+    isFileExisted,
+    getFileProperties,
+    deleteFile,
+    listFiles,
+    copyFile,
+  } satisfies StorageProvider;
+};
+
+/** The HTTP `Range` of `count` bytes starting at `offset`, like the Azure Blob `download()`. */
+const buildRange = (offset?: number, count?: number) => {
+  if (offset === undefined && count === undefined) {
+    return;
+  }
+
+  const start = offset ?? 0;
+
+  return `bytes=${start}-${count === undefined ? '' : start + count - 1}`;
 };

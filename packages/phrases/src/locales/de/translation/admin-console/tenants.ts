@@ -10,12 +10,55 @@ const tenants = {
     oidc_configs: 'OIDC-Konfigurationen',
     subscription: 'Plan und Abrechnung',
     billing_history: 'Abrechnungshistorie',
+    license: 'Lizenz',
+  },
+  license: {
+    purchase_title: 'SELF-HOSTED-PLÄNE',
+    purchase_description:
+      'Self-Hosted Pro und Enterprise schalten kostenpflichtige Funktionen auf deiner eigenen Instanz frei, etwa das Ausblenden des Logto-Brandings, eine eigene UI, IdP-initiiertes SSO, Zusammenarbeit in der Konsole und unbegrenzte SAML-Anwendungen. Kaufe einen Plan, um deinen Lizenzschlüssel zu erhalten.',
+    purchase_button: 'Self-Hosted-Pläne ansehen',
+    install_title: 'LIZENZ INSTALLIEREN',
+    install_description:
+      'Füge den Lizenzschlüssel ein, den du nach dem Kauf eines Self-Hosted-Plans erhalten hast.',
+    install_button: 'Lizenz installieren',
+    key_field: 'Lizenzschlüssel',
+    key_field_description:
+      'Der Schlüssel wird auf deiner Instanz geprüft und verlässt sie nie. Hole dir einen neuen Schlüssel aus deinem Logto-Konto, wenn der vorhandene abgelaufen ist.',
+    key_placeholder: 'Füge hier deinen Lizenzschlüssel ein',
+    installed_toast: 'Lizenz erfolgreich installiert.',
+    details_title: 'LIZENZ',
+    details_description: 'Die auf dieser Instanz installierte Lizenz und was sie freischaltet.',
+    plan_field: 'Plan',
+    environment_field: 'Umgebung',
+    environment_production: 'Produktion',
+    environment_non_production: 'Nicht-Produktion',
+    expires_at_field: 'Läuft ab am',
+    installed_at_field: 'Installiert am',
+    last_refreshed_at_field: 'Zuletzt aktualisiert am',
+    grace_ends_at_field: 'Kulanzzeit endet am',
+    refresh_expired_description:
+      'Der Lizenzschlüssel ist am {{expiresAt}} abgelaufen. Lizenzierte Funktionen bleiben bis {{graceEndsAt}} verfügbar, während Logto versucht, ihn zu aktualisieren.',
+    refresh_refused_description:
+      'Die Lizenzaktualisierung wurde abgelehnt, weil die Lizenz {{reason}} ist. Lizenzierte Funktionen bleiben bis {{graceEndsAt}} verfügbar.',
+    refusal_reason_canceled: 'gekündigt',
+    refusal_reason_unpaid: 'unbezahlt',
+    refusal_reason_expired: 'abgelaufen',
+    refusal_reason_revoked: 'widerrufen',
+    refusal_reason_unknown: 'nicht verfügbar',
+    grace_expired_description:
+      'Die Kulanzzeit der Lizenz endete am {{graceEndsAt}}. Diese Bereitstellung verwendet wieder die OSS-Standards. Hole einen neuen Lizenzschlüssel aus Logto Cloud und installiere ihn erneut.',
+    get_fresh_key_button: 'Neuen Lizenzschlüssel abrufen',
+    replace_button: 'Lizenz ersetzen',
   },
   members: {
-    card_title: '',
+    card_title: 'Verwalten Sie Mandanten sicherer mit Logto Cloud',
     card_description:
       'Fügen Sie Ihrem Mandanten Admins oder Mitwirkende hinzu, ohne ein einzelnes Admin-Konto gemeinsam zu nutzen.',
-    card_action: '',
+    card_action: 'Logto Cloud entdecken',
+    self_hosted_card_title: 'Verwalten Sie Mandanten sicherer mit Self-Hosted-Plänen',
+    self_hosted_card_description:
+      'Fügen Sie Ihrem Mandanten Admins oder Mitwirkende hinzu, ohne ein einzelnes Admin-Konto gemeinsam zu nutzen.',
+    self_hosted_card_action: 'Self-Hosted-Pläne entdecken',
   },
   settings: {
     title: 'EINSTELLUNGEN',
@@ -24,7 +67,8 @@ const tenants = {
     tenant_id: 'Mieter-ID',
     tenant_name: 'Mietername',
     tenant_instance: 'Wähle deine Instanz aus',
-    tenant_instance_description: '',
+    tenant_instance_description:
+      'Wählen Sie, wo Ihr Mandant gehostet wird. Wählen Sie Logto Cloud für eine öffentliche geteilte Infrastruktur oder eine private Instanz für dedizierte Ressourcen.',
     tenant_region: 'Gehostete Region der Daten',
     tenant_region_description:
       'Der physische Ort, an dem Ihre Mandantenressourcen (Benutzer, Apps, usw.) gehostet werden. Dies kann nach Erstellung nicht mehr geändert werden.',
@@ -41,8 +85,19 @@ const tenants = {
     tenant_mfa: 'Multi-Faktor-Authentifizierung',
     tenant_mfa_description:
       'Verlangen Sie von Ihren Mitgliedern, dass sie die Multi-Faktor-Authentifizierung einrichten, um auf diesen Mandanten zuzugreifen.',
+    oss_description: 'Verwalten Sie, wie Mitglieder auf die Konsole dieser Instanz zugreifen.',
+    tenant_mfa_confirm_title: 'MFA für alle Mitglieder verlangen?',
+    tenant_mfa_confirm_description:
+      'Diese Mitglieder haben MFA noch nicht eingerichtet. Sie bleiben angemeldet und werden bei ihrer nächsten Anmeldung aufgefordert, MFA einzurichten:',
+    tenant_mfa_confirm_self:
+      'Sie haben MFA ebenfalls noch nicht eingerichtet. Richten Sie es vor Ihrer nächsten Anmeldung in Ihren Kontoeinstellungen ein.',
+    tenant_mfa_confirm_button: 'MFA verlangen',
+    tenant_mfa_setup_required:
+      'Dieser Mandant verlangt Multi-Faktor-Authentifizierung. Richten Sie sie jetzt ein, sonst werden Sie bei Ihrer nächsten Anmeldung dazu aufgefordert.',
+    tenant_mfa_setup_action: 'MFA einrichten',
     enterprise_sso: 'Enterprise SSO',
-    enterprise_sso_description: '',
+    enterprise_sso_description:
+      'Verfügbar in kostenpflichtigen Plänen. Kontaktieren Sie uns, um Enterprise SSO zu aktivieren, damit alle Mitglieder sich mit dem Identitätsanbieter Ihrer Organisation bei der Logto Cloud Console anmelden können.',
   },
   full_env_tag: {
     development: 'Entwicklung',

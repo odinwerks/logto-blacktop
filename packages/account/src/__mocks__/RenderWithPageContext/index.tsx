@@ -7,6 +7,8 @@ import {
   SignInIdentifier,
   SignInMode,
   Theme,
+  defaultTrustedDevicePolicy,
+  defaultUsernamePolicy,
   type AccountCenter,
   type UserProfileResponse,
 } from '@logto/schemas';
@@ -113,6 +115,7 @@ export const mockSignInExperienceSettings = {
       MfaFactor.PhoneVerificationCode,
     ],
   },
+  trustedDevice: defaultTrustedDevicePolicy,
   adaptiveMfa: {},
   singleSignOnEnabled: true,
   supportEmail: null,
@@ -120,11 +123,12 @@ export const mockSignInExperienceSettings = {
   unknownSessionRedirectUrl: null,
   captchaPolicy: {},
   sentinelPolicy: {},
-  emailBlocklistPolicy: {},
+  verificationCodePolicy: {},
   passkeySignIn: {},
   isDevelopmentTenant: false,
   signUpProfileFields: null,
-  passwordExpiration: { enabled: false },
+  passwordExpiration: {},
+  usernamePolicy: defaultUsernamePolicy,
 } satisfies SignInExperienceResponse;
 
 export const mockUserInfo = {
@@ -138,6 +142,7 @@ export const mockUserInfo = {
   identities: {},
   profile: {},
   hasPassword: true,
+  hasSecurityVerificationMethod: true,
 } satisfies Partial<UserProfileResponse>;
 
 const noopAsync = async (): Promise<void> => undefined;

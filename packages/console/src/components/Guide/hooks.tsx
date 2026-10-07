@@ -1,12 +1,16 @@
+import { ApplicationType } from '@logto/schemas';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { guides } from '@/assets/docs/guides';
 import { type Guide } from '@/assets/docs/guides/types';
+import { isCloud as isCloudEnv, isDevFeaturesEnabled, isProtectedAppEnabled } from '@/consts/env';
 import { thirdPartyApp } from '@/consts/external-links';
 import TextLink from '@/ds-components/TextLink';
 import useDocumentationUrl from '@/hooks/use-documentation-url';
+import useDynamicApp from '@/hooks/use-dynamic-app';
 import {
+  dynamicAppGuideId,
   thirdPartyAppCategory,
   type AppGuideCategory,
   type StructuredAppGuideMetadata,
@@ -40,10 +44,25 @@ export const useAppGuideMetadata = (): {
 } => {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { getDocumentationUrl } = useDocumentationUrl();
+  const { enabled: isDynamicAppEnabled, isLoading: isDynamicAppLoading } = useDynamicApp();
 
   const appGuides = useMemo(
-    () => guides.filter(({ metadata: { target } }) => target !== 'API'),
-    []
+    () =>
+      guides.filter(
+        ({ id, metadata: { target, isCloud, isDevFeature } }) =>
+          target !== 'API' &&
+          (isCloudEnv ||
+            !isCloud ||
+            (isProtectedAppEnabled && target === ApplicationType.Protected)) &&
+          (isDevFeaturesEnabled || !isDevFeature) &&
+          /**
+           * The dynamic app card only offers to turn the feature on, so it is pointless once
+           * enabled. It also stays hidden while the config is in flight, otherwise it would flash
+           * in and out for tenants that already enabled it.
+           */
+          (id !== dynamicAppGuideId || !(isDynamicAppEnabled || isDynamicAppLoading))
+      ),
+    [isDynamicAppEnabled, isDynamicAppLoading]
   );
 
   const getFilteredAppGuideMetadata = useCallback(

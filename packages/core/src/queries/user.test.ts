@@ -1,9 +1,7 @@
 import { MfaFactor, Users } from '@logto/schemas';
 import { createMockPool, createMockQueryResult, sql } from '@silverhand/slonik';
-import Sinon from 'sinon';
 
 import { mockUser } from '#src/__mocks__/index.js';
-import { EnvSet } from '#src/env-set/index.js';
 import { DeletionError } from '#src/errors/SlonikError/index.js';
 import { convertToIdentifiers } from '#src/utils/sql.js';
 import type { QueryType } from '#src/utils/test-utils.js';
@@ -32,21 +30,12 @@ const {
   hasUserWithIdentity,
   hasUserWithPhone,
   updateUserById,
+  updateUserTotpMfaVerificationLastUsed,
   deleteUserById,
   deleteUserIdentity,
 } = createUserQueries(pool);
 
-const stubIsCaseSensitiveUsername = (isCaseSensitiveUsername: boolean) =>
-  Sinon.stub(EnvSet, 'values').value({
-    ...EnvSet.values,
-    isCaseSensitiveUsername,
-  });
-
 describe('user query', () => {
-  beforeEach(() => {
-    stubIsCaseSensitiveUsername(true);
-  });
-
   const { table, fields } = convertToIdentifiers(Users);
   const databaseValue = {
     ...mockUser,
@@ -71,11 +60,10 @@ describe('user query', () => {
       return createMockQueryResult([databaseValue]);
     });
 
-    await expect(findUserByUsername(mockUser.username!)).resolves.toEqual(databaseValue);
+    await expect(findUserByUsername(mockUser.username!, true)).resolves.toEqual(databaseValue);
   });
 
   it('findUserByUsername (case insensitive)', async () => {
-    stubIsCaseSensitiveUsername(false);
     const expectSql = sql`
       select ${sql.join(Object.values(fields), sql`,`)}
       from ${table}
@@ -89,7 +77,7 @@ describe('user query', () => {
       return createMockQueryResult([databaseValue]);
     });
 
-    await expect(findUserByUsername(mockUser.username!)).resolves.toEqual(databaseValue);
+    await expect(findUserByUsername(mockUser.username!, false)).resolves.toEqual(databaseValue);
   });
 
   it('findUserByEmail', async () => {
@@ -234,11 +222,10 @@ describe('user query', () => {
       return createMockQueryResult([{ exists: true }]);
     });
 
-    await expect(hasUser(mockUser.username!)).resolves.toEqual(true);
+    await expect(hasUser(mockUser.username!, true)).resolves.toEqual(true);
   });
 
   it('hasUser (case insensitive)', async () => {
-    stubIsCaseSensitiveUsername(false);
     const expectSql = sql`
       SELECT EXISTS(
         select ${fields.id}
@@ -254,7 +241,7 @@ describe('user query', () => {
       return createMockQueryResult([{ exists: true }]);
     });
 
-    await expect(hasUser(mockUser.username!)).resolves.toEqual(true);
+    await expect(hasUser(mockUser.username!, false)).resolves.toEqual(true);
   });
 
   it('hasUserWithId', async () => {
@@ -353,6 +340,66 @@ describe('user query', () => {
     });
 
     await expect(updateUserById(id, { username })).resolves.toEqual(databaseValue);
+  });
+
+  it('updateUserTotpMfaVerificationLastUsed', async () => {
+    const id = 'foo';
+    const mfaVerificationId = 'totp-id';
+    const usedTimeStep = 100;
+    const lastUsedAt = '2024-01-01T00:00:00.000Z';
+    const expectSql = sql`
+      update ${table}
+      set ${fields.mfaVerifications} = (
+        select jsonb_agg(
+          case
+            when item->>'id' = $1 and item->>'type' = $2
+              then item || jsonb_build_object(
+                'lastUsedAt', $3::text,
+                'lastUsedTimeStep', $4::integer
+              )
+            else item
+          end
+          order by ordinal
+        )
+        from jsonb_array_elements(${fields.mfaVerifications}::jsonb) with ordinality as mfa(item, ordinal)
+      )
+      where ${fields.id} = $5
+        and exists (
+          select 1
+          from jsonb_array_elements(${fields.mfaVerifications}::jsonb) as mfa(item)
+          where item->>'id' = $6
+            and item->>'type' = $7
+            and (
+              not (item ? 'lastUsedTimeStep')
+              or case
+                when jsonb_typeof(item->'lastUsedTimeStep') = 'number'
+                  then (item->>'lastUsedTimeStep')::integer < $8::integer
+                else false
+              end
+            )
+        )
+      returning *
+    `;
+
+    mockQuery.mockImplementationOnce(async (sql, values) => {
+      expectSqlAssert(sql, expectSql.sql);
+      expect(values).toEqual([
+        mfaVerificationId,
+        MfaFactor.TOTP,
+        lastUsedAt,
+        usedTimeStep,
+        id,
+        mfaVerificationId,
+        MfaFactor.TOTP,
+        usedTimeStep,
+      ]);
+
+      return createMockQueryResult([databaseValue]);
+    });
+
+    await expect(
+      updateUserTotpMfaVerificationLastUsed(id, mfaVerificationId, usedTimeStep, lastUsedAt)
+    ).resolves.toEqual(databaseValue);
   });
 
   it('deleteUserById', async () => {

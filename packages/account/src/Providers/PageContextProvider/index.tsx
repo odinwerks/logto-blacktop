@@ -6,7 +6,6 @@ import { getAccountCenterSettings } from '@ac/apis/account-center';
 import { getSignInExperienceSettings } from '@ac/apis/sign-in-experience';
 import { getUserInfo } from '@ac/apis/user';
 import useApi from '@ac/hooks/use-api';
-import { useSessionHeartbeat } from '@ac/hooks/use-session-heartbeat';
 import { changeLanguage, getPreferredLanguage } from '@ac/i18n/utils';
 import { getUiLocales } from '@ac/utils/account-center-route';
 import { getThemeBySystemPreference, subscribeToSystemTheme } from '@ac/utils/theme';
@@ -188,8 +187,6 @@ const PageContextProvider = ({ children }: Props) => {
       unsubscribe();
     };
   }, [experienceSettings]);
-
-  useSessionHeartbeat(isAuthenticated);
 
   const platform = getInitialPlatform();
 

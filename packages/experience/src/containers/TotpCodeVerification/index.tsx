@@ -52,7 +52,7 @@ const TotpCodeVerification = <T extends UserMfaFlow>(props: Props<T>) => {
       await onSubmit(code.join(''), props);
       setIsSubmitting(false);
     },
-    [onSubmit, isSubmitting, props]
+    [isSubmitting, onSubmit, props]
   );
 
   return (

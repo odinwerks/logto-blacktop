@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Seite nicht gefunden',
@@ -14,6 +15,8 @@ const account_center = {
     sidebar_security: 'Sicherheit',
     sidebar_sessions: 'Sitzungen',
     support: 'Hilfe',
+    user_menu: 'Benutzermenü',
+    sign_out: 'Abmelden',
   },
   verification: {
     title: 'Sicherheitsüberprüfung',
@@ -126,6 +129,22 @@ const account_center = {
     email_removed: 'E-Mail-Adresse wurde erfolgreich entfernt.',
     phone_removed: 'Telefonnummer wurde erfolgreich entfernt.',
     username_removed: 'Benutzername erfolgreich entfernt.',
+    trusted_devices: {
+      title: 'Vertrauenswürdige MFA-Geräte',
+      current_device: 'Aktuelles Gerät',
+      expires_on: 'Läuft am {{date}} ab',
+      unknown_location: 'Unbekannter Standort',
+      remove: 'Entfernen',
+      removed: 'Vertrauenswürdiges Gerät wurde erfolgreich entfernt.',
+      loading: 'Wird geladen...',
+      empty: 'Keine vertrauenswürdigen Geräte.',
+      load_failed:
+        'Vertrauenswürdige Geräte konnten nicht geladen werden. Bitte versuche es erneut.',
+      retry: 'Erneut versuchen',
+      remove_confirmation_title: 'Vertrauenswürdiges Gerät entfernen?',
+      remove_confirmation_description:
+        'Bei deiner nächsten Anmeldung auf diesem Gerät musst du MFA erneut abschließen. Deine aktuelle Sitzung bleibt aktiv.',
+    },
   },
   social: {
     linked: '{{connector}} wurde erfolgreich verknüpft.',
@@ -285,13 +304,16 @@ const account_center = {
     third_party_apps_load_failed:
       'Drittanbieter-Apps konnten nicht geladen werden. Bitte versuche es erneut.',
     granted_at: 'Autorisiert {{date}}',
+    dynamic_app: 'Dynamische App',
+    client_id: 'Client-ID: {{clientId}}',
     revoke_grant: 'Entfernen',
     revoke_grant_title: 'Drittanbieter-App-Zugriff entfernen',
     revoke_grant_description:
-      'Dadurch wird der gesamte dieser Anwendung gewährte Zugriff widerrufen. Möchten Sie wirklich fortfahren?',
+      'Dadurch wird der dieser Anwendung gewährte Zugriff widerrufen. Bereits ausgestellte Zugriffstokens können bis zu ihrem Ablauf gültig bleiben. Möchten Sie wirklich fortfahren?',
     revoke_grant_failed:
       'Einige Berechtigungen konnten nicht widerrufen werden. Bitte versuchen Sie es erneut.',
   },
 };
 
 export default Object.freeze(account_center);
+/* eslint-enable max-lines */

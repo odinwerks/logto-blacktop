@@ -36,6 +36,11 @@ const security = {
       description:
         "Cloudflare'in akıllı CAPTCHA alternatifi, görsel bulmaca olmadan kullanıcı dostu bir deneyim sunarken aynı zamanda bot koruması sağlar.",
     },
+    cap: {
+      name: 'Cap',
+      description:
+        'Görsel bulmaca veya üçüncü taraf hizmet gerektirmeyen, iş kanıtı tabanlı, açık kaynaklı ve kendi sunucunuzda barındırılan CAPTCHA; diğer CAPTCHA hizmetlerine erişilemeyen bölgeler için idealdir.',
+    },
   },
   captcha_details: {
     back_to_security: 'Güvenliğe dön',
@@ -51,6 +56,10 @@ const security = {
     domain_placeholder: 'www.google.com (varsayılan) veya recaptcha.net',
     recaptcha_key_id: 'reCAPTCHA anahtar ID',
     recaptcha_api_key: 'Projenin API anahtarı',
+    cap_endpoint: 'Cap uç noktası',
+    cap_endpoint_placeholder: 'https://cap.example.com',
+    cap_endpoint_http_notice:
+      'Bu uç nokta HTTP kullanıyor ve yalnızca yerel geliştirme için uygundur. Tarayıcılar HTTPS oturum açma sayfasından yapılan HTTP isteklerini engeller ve gizli anahtar şifrelenmeden gönderilir. Üretimde HTTPS kullanın.',
     deletion_description: 'Bu CAPTCHA sağlayıcısını silmek istediğinizden emin misiniz?',
     captcha_deleted: 'CAPTCHA sağlayıcısı başarıyla silindi',
     setup_captcha: "CAPTCHA'yı ayarla",
@@ -59,6 +68,10 @@ const security = {
     mode_checkbox: 'Onay kutusu',
     mode_notice:
       "Doğrulama modu, Google Cloud Console'daki reCAPTCHA anahtar ayarlarında tanımlanır. Buradaki modu değiştirmek için eşleşen bir anahtar türü gerekir.",
+    score_threshold: 'Puan eşiği',
+    score_threshold_description:
+      "Eşiğin altındaki puanlar reddedilir. 0.0 tümünü kabul eder, 1.0 yalnızca mükemmel puanları kabul eder. Varsayılan değer 0.5'tir.",
+    score_threshold_error: 'Puan eşiği 0 ile 1 arasında olmalıdır.',
   },
   password_policy: {
     password_requirements: 'Parola gereksinimleri',
@@ -91,18 +104,38 @@ const security = {
       'Kullanıcıların belirli bir gün sayısından sonra parolalarını sıfırlamasını gerektirir. SSO veya geçiş anahtarı (passkey) ile oturum açan kullanıcılar etkilenmez.',
     enable_password_expiration: 'Parola sona ermeyi etkinleştir',
     enable_password_expiration_description:
-      'Kullanıcıların parolalarını periyodik olarak sıfırlamasını gerektirir. Kayıtlı bir parola değiştirme tarihi olmayan mevcut kullanıcılar, hesap oluşturma tarihlerine göre değerlendirilecektir.',
+      'Kullanıcıların parolalarını periyodik olarak sıfırlamasını gerektirir. Kayıtlı bir parola değiştirme tarihi olmayan mevcut kullanıcılar, bu politikanın etkinleştirildiği tarihten itibaren değerlendirilecektir.',
     enable_password_expiration_tip:
       'Parola sona ermesini yalnızca oturum açma deneyiminde geçerli bir bağlayıcıya sahip en az bir şifremi unuttum yöntemi yapılandırdıktan sonra etkinleştirebilirsiniz.',
     expiration_period: 'Parola geçerlilik süresi (gün)',
     expiration_period_description: 'Bir parolanın süresi dolmadan önce geçerli kaldığı gün sayısı.',
-    expiration_period_error: 'Parola geçerlilik süresi en az 1 gün olmalıdır.',
-    expiration_reminder: 'Sona erme hatırlatıcısı (sona ermeden önceki gün sayısı)',
-    expiration_reminder_description:
-      'Kullanıcıları uyarmak ve parola sıfırlamaya yönlendirmek için sona ermeden önceki gün sayısı. Kullanıcılar hatırlatıcıyı atlayabilir ve oturum açmaya devam edebilir.',
-    expiration_reminder_error:
-      'Sona erme hatırlatıcı süresi 0 ile geçerlilik süresi ({{max}} gün) arasında olmalıdır.',
+    expiration_period_error: 'Parola geçerlilik süresi {{min}} ile {{max}} gün arasında olmalıdır.',
+    password_expiration_recovery_reminder:
+      'Bazı kullanıcıların parola kurtarma kodu almak için bir e-posta adresi veya telefon numarası olmayabilir, bu nedenle süresi dolmuş bir parolayı sıfırlayamazlar. Her kullanıcının parolasını kurtarabilmesini sağlamak için kayıt sırasında bir e-posta adresi veya telefon numarası zorunlu kılın.',
   },
+  verification_code_policy: {
+    card_title: 'Doğrulama kodu',
+    card_description:
+      'Oturum açma, kaydolma ve parola sıfırlama akışlarında kullanılan doğrulama kodları için sona erme süresini ve maksimum yeniden deneme sayısını yapılandırın.',
+    enable: {
+      title: 'Doğrulama kodu ayarlarını özelleştir',
+      description:
+        'Doğrulama kodu sona erme süresinin ve maksimum yeniden deneme sayısının özelleştirilmesine izin ver.',
+    },
+    expiration_duration: {
+      title: 'Sona erme süresi (saniye)',
+      description:
+        'Bir doğrulama kodunun gönderildikten sonra geçerli kaldığı saniye cinsinden süre.',
+      error_message: 'Sona erme süresi 60 ile 3600 saniye arasında olmalıdır.',
+    },
+    max_retry_attempts: {
+      title: 'Maksimum yeniden deneme sayısı',
+      description:
+        'Kod geçersiz kılınmadan önce izin verilen maksimum başarısız doğrulama denemesi sayısı.',
+      error_message: 'Maksimum yeniden deneme sayısı 1 ile 100 arasında olmalıdır.',
+    },
+  },
+
   sentinel_policy: {
     card_title: 'Kimlik kilitleme',
     card_description:
@@ -144,6 +177,26 @@ const security = {
     card_title: 'E-posta engelleme listesi',
     card_description:
       'Yüksek riskli veya istenmeyen e-posta adreslerini engelleyerek kullanıcı tabanınızı kontrol edin.',
+    custom_email_allowlist: {
+      title: 'Özel e-posta adreslerine izin ver',
+      description:
+        'Yeni kayıtlar ve yeni bağlanan e-postalar için yalnızca belirli e-posta alan adlarına, e-posta adreslerine veya joker karakterli kalıplara izin veren kurallar ekleyin. Örnekler: bar@example.com, @example.com, foo*@example.com, *@example.com. gmail.com ve googlemail.com alan adları eşdeğer kabul edilir ve yerel bölümdeki noktalar yok sayılır; bu nedenle foo.bar@gmail.com, foobar@googlemail.com ile eşleşir.',
+      placeholder: 'E-posta adresi, alan adı veya joker karakterli kalıp girin',
+      duplicate_error:
+        'E-posta adresi, alan adı veya joker karakterli e-posta kalıbı zaten eklendi',
+      invalid_format_error:
+        'Geçerli bir e-posta adresi (bar@example.com), alan adı (@example.com) veya joker karakterli e-posta kalıbı (foo*@example.com, *@example.com) olmalıdır',
+      warnings: {
+        identical_entries:
+          'Bazı izin listesi girdileri engelleme kurallarında da bulunuyor. Eşleşen e-postalar yine de engellenebilir.',
+        blocked_exact_email:
+          'Bazı tam izin listesi e-postaları bir engelleme kuralıyla eşleşiyor. Eşleşen e-postalar yine de engellenebilir.',
+        blocked_subaddressing:
+          'Bazı izin listesi girdileri artı işareti (+) içeriyor, ancak e-posta alt adresleme engellenmiş durumda.',
+        effectively_unusable:
+          'Bu kontrollere göre mevcut izin listesi hiçbir yeni e-postanın geçmesine izin vermeyebilir.',
+      },
+    },
     disposable_email: {
       title: 'Geçici e-posta adreslerini engelle',
       description:
@@ -157,12 +210,12 @@ const security = {
     custom_email_address: {
       title: 'Özel e-posta adreslerini engelle',
       description:
-        'Belirli e-posta alan adlarını veya kullanıcı arayüzü aracılığıyla kaydolamayacak veya bağlantı kuramayacak e-posta adreslerini ekleyin.',
-      placeholder:
-        'Engellenen e-posta adresini veya alan adını girin (örn., bar@example.com, @example.com)',
-      duplicate_error: 'E-posta adresi veya alan adı zaten eklendi',
+        'Belirli e-posta alan adlarının, e-posta adreslerinin veya joker karakterli kalıpların kullanıcı arayüzü aracılığıyla kaydolmasını veya bağlantı kurmasını engelleyen kurallar ekleyin. Örnekler: bar@example.com, @example.com, foo*@example.com, *@example.com. gmail.com ve googlemail.com alan adları eşdeğer kabul edilir ve yerel bölümdeki noktalar yok sayılır; bu nedenle foo.bar@gmail.com, foobar@googlemail.com ile eşleşir.',
+      placeholder: 'E-posta adresi, alan adı veya joker karakterli kalıp girin',
+      duplicate_error:
+        'E-posta adresi, alan adı veya joker karakterli e-posta adresi kalıbı zaten eklendi',
       invalid_format_error:
-        'Geçerli bir e-posta adresi (bar@example.com) veya alan adı (@example.com) olmalıdır',
+        'Geçerli bir e-posta adresi (bar@example.com), alan adı (@example.com) veya joker karakterli e-posta adresi kalıbı (foo*@example.com, *@example.com) olmalıdır',
     },
   },
 };

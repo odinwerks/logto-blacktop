@@ -22,7 +22,10 @@ type NullablePick<T, K extends keyof T> = {
   [P in K]: Nullable<T[P]>;
 };
 export type SessionInstanceWithExtension = SessionInstance &
-  NullablePick<OidcSessionExtension, 'lastSubmission' | 'clientId' | 'accountId' | 'lastActiveAt'>;
+  NullablePick<
+    OidcSessionExtension,
+    'lastSubmission' | 'clientId' | 'cimdClientId' | 'accountId' | 'lastActiveAt'
+  >;
 
 export class OidcSessionExtensionsQueries {
   public readonly insert = buildInsertIntoWithPool(this.pool)(OidcSessionExtensions, {
@@ -33,6 +36,7 @@ export class OidcSessionExtensionsQueries {
         fields.updatedAt,
         fields.accountId,
         fields.clientId,
+        fields.cimdClientId,
       ],
     },
     returning: true,
@@ -74,6 +78,7 @@ export class OidcSessionExtensionsQueries {
           ...Object.values(modelInstanceFieldsWithoutTenantId),
           fields.lastSubmission,
           fields.clientId,
+          fields.cimdClientId,
           fields.accountId,
           fields.lastActiveAt,
         ],
@@ -101,6 +106,7 @@ export class OidcSessionExtensionsQueries {
           ...Object.values(modelInstanceFieldsWithoutTenantId),
           fields.lastSubmission,
           fields.clientId,
+          fields.cimdClientId,
           fields.accountId,
           fields.lastActiveAt,
         ],
@@ -116,9 +122,8 @@ export class OidcSessionExtensionsQueries {
         and ${modelInstanceFields.expiresAt} > ${convertToTimestamp()}
     `);
   }
-
   /**
-   * Upserts last_active_at for the given session.
+   * Blacktop: heartbeat — upserts last_active_at for the given session.
    * The WHERE clause enforces a 25-second minimum interval — if last_active_at is
    * less than 25 s old the DO UPDATE branch is skipped (rowCount === 0).
    * Returns true if the timestamp was written, false if rate-limited.

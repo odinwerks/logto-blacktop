@@ -1,4 +1,13 @@
-import { LogResult, token, interaction, LogKeyUnknown, jwtCustomizer, saml } from '@logto/schemas';
+import {
+  LogResult,
+  token,
+  interaction,
+  action,
+  LogKeyUnknown,
+  jwtCustomizer,
+  saml,
+  trustedDevice,
+} from '@logto/schemas';
 import type { Log } from '@logto/schemas';
 import { pickDefault } from '@logto/shared/esm';
 
@@ -46,6 +55,8 @@ describe('logRoutes', () => {
         {
           payload: { userId, applicationId },
           logKey,
+          startTime: undefined,
+          endTime: undefined,
           includeKeyPrefix: [
             token.Type.ExchangeTokenBy,
             token.Type.RevokeToken,
@@ -53,6 +64,8 @@ describe('logRoutes', () => {
             interaction.prefix,
             jwtCustomizer.prefix,
             saml.prefix,
+            action.prefix,
+            trustedDevice.prefix,
             LogKeyUnknown,
           ],
         },
@@ -61,6 +74,8 @@ describe('logRoutes', () => {
       expect(findLogs).toHaveBeenCalledWith(5, 0, {
         payload: { userId, applicationId },
         logKey,
+        startTime: undefined,
+        endTime: undefined,
         includeKeyPrefix: [
           token.Type.ExchangeTokenBy,
           token.Type.RevokeToken,
@@ -68,6 +83,8 @@ describe('logRoutes', () => {
           interaction.prefix,
           jwtCustomizer.prefix,
           saml.prefix,
+          action.prefix,
+          trustedDevice.prefix,
           LogKeyUnknown,
         ],
       });
@@ -137,15 +154,15 @@ describe('logRoutes', () => {
         );
       });
 
-      it('returns 400 when start_time >= end_time', async () => {
+      it('returns 400 when start_time > end_time', async () => {
         const response = await logRequest.get(`/logs?start_time=2000&end_time=1000`);
         expect(response.status).toEqual(400);
         expect(countLogs).not.toHaveBeenCalled();
       });
 
-      it('returns 400 when start_time equals end_time', async () => {
+      it('succeeds when start_time equals end_time (inclusive bounds)', async () => {
         const response = await logRequest.get(`/logs?start_time=1000&end_time=1000`);
-        expect(response.status).toEqual(400);
+        expect(response.status).toEqual(200);
       });
 
       it('returns 400 when start_time is not a finite number', async () => {

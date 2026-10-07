@@ -1,14 +1,21 @@
 import { InteractionHookEvent } from '@logto/schemas';
 
-describe('webhook event visibility', () => {
-  afterEach(() => {
-    jest.resetModules();
-    jest.clearAllMocks();
-  });
+import {
+  availableHookEvents,
+  interactionHookEvents,
+  schemaGroupedDataHookEvents,
+} from './webhooks';
 
-  it('always includes the adaptive MFA hook event', async () => {
-    const { interactionHookEvents } = await import('./webhooks');
+it('includes the adaptive MFA hook event', () => {
+  expect(interactionHookEvents).toContain(InteractionHookEvent.PostSignInAdaptiveMfaTriggered);
+});
 
-    expect(interactionHookEvents).toContain(InteractionHookEvent.PostSignInAdaptiveMfaTriggered);
-  });
+it('exposes and groups trusted-device events', () => {
+  expect(availableHookEvents).toEqual(
+    expect.arrayContaining(['TrustedDevice.Created', 'TrustedDevice.Deleted'])
+  );
+  expect(schemaGroupedDataHookEvents).toContainEqual([
+    'TrustedDevice',
+    ['TrustedDevice.Created', 'TrustedDevice.Deleted'],
+  ]);
 });

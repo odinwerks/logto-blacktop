@@ -18,17 +18,11 @@ import { accountApiPrefix } from './account/constants.js';
 import accountRoutes from './account/index.js';
 import accountCentersRoutes from './account-center/index.js';
 import adminUserRoutes from './admin-user/index.js';
-import applicationOrganizationRoutes from './applications/application-organization.js';
-import applicationProtectedAppMetadataRoutes from './applications/application-protected-app-metadata.js';
-import applicationRoleRoutes from './applications/application-role.js';
-import applicationSecretRoutes from './applications/application-secret.js';
-import applicationSignInExperienceRoutes from './applications/application-sign-in-experience.js';
-import applicationUserConsentOrganizationRoutes from './applications/application-user-consent-organization.js';
-import applicationUserConsentScopeRoutes from './applications/application-user-consent-scope.js';
 import applicationRoutes from './applications/application.js';
 import authnRoutes from './authn.js';
 import appAssetsServeRoutes from './app-assets-serve.js';
 import captchaProviderRoutes from './captcha-provider/index.js';
+import cimdRoutes from './cimd.js';
 import connectorRoutes from './connector/index.js';
 import customPhraseRoutes from './custom-phrase.js';
 import customProfileFieldsRoutes from './custom-profile-fields.js';
@@ -79,18 +73,7 @@ const createRouters = (tenant: TenantContext) => {
   managementRouter.use(koaTenantGuard(tenant.id, tenant.queries));
   managementRouter.use(koaManagementApiHooks(tenant.libraries.hooks));
 
-  // TODO: FIXME @sijie @darcy mount these routes in `applicationRoutes` instead
   applicationRoutes(managementRouter, tenant);
-  applicationRoleRoutes(managementRouter, tenant);
-  applicationProtectedAppMetadataRoutes(managementRouter, tenant);
-  applicationOrganizationRoutes(managementRouter, tenant);
-  applicationSecretRoutes(managementRouter, tenant);
-
-  // Third-party application related routes
-  applicationUserConsentScopeRoutes(managementRouter, tenant);
-  applicationSignInExperienceRoutes(managementRouter, tenant);
-  applicationUserConsentOrganizationRoutes(managementRouter, tenant);
-
   logtoConfigRoutes(managementRouter, tenant);
   connectorRoutes(managementRouter, tenant);
   resourceRoutes(managementRouter, tenant);
@@ -118,6 +101,7 @@ const createRouters = (tenant: TenantContext) => {
   sentinelActivitiesRoutes(managementRouter, tenant);
   customProfileFieldsRoutes(managementRouter, tenant);
   secretsRoutes(managementRouter, tenant);
+  cimdRoutes(managementRouter, tenant);
 
   // General anonymous router for publicly accessible APIs
   const anonymousRouter: AnonymousRouter = new Router();

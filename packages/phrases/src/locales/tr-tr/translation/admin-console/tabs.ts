@@ -1,4 +1,5 @@
 const tabs = {
+  actions: 'Actions',
   get_started: 'Başla',
   dashboard: 'Gösterge Paneli',
   applications: 'Uygulamalar',

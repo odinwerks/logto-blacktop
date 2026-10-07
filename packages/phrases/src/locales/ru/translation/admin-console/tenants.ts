@@ -10,12 +10,54 @@ const tenants = {
     oidc_configs: 'Конфигурации OIDC',
     subscription: 'План и выставление счетов',
     billing_history: 'История выставления счетов',
+    license: 'Лицензия',
+  },
+  license: {
+    purchase_title: 'SELF-HOSTED ПЛАНЫ',
+    purchase_description:
+      'Self-hosted Про и Корпоративный планы открывают платные возможности на вашем экземпляре: скрытие брендинга Logto, собственный интерфейс, SSO по инициативе поставщика удостоверений, совместная работа в консоли и неограниченное число SAML-приложений. Купите план, чтобы получить лицензионный ключ.',
+    purchase_button: 'Посмотреть self-hosted планы',
+    install_title: 'УСТАНОВКА ЛИЦЕНЗИИ',
+    install_description: 'Вставьте лицензионный ключ, полученный после покупки self-hosted плана.',
+    install_button: 'Установить лицензию',
+    key_field: 'Лицензионный ключ',
+    key_field_description:
+      'Ключ проверяется на вашем экземпляре и никогда его не покидает. Если срок действия ключа истёк, получите новый в своей учётной записи Logto.',
+    key_placeholder: 'Вставьте лицензионный ключ сюда',
+    installed_toast: 'Лицензия успешно установлена.',
+    details_title: 'ЛИЦЕНЗИЯ',
+    details_description: 'Лицензия, установленная на этом экземпляре, и что она даёт.',
+    plan_field: 'План',
+    environment_field: 'Окружение',
+    environment_production: 'Продакшн',
+    environment_non_production: 'Не продакшн',
+    expires_at_field: 'Действует до',
+    installed_at_field: 'Установлена',
+    last_refreshed_at_field: 'Последнее обновление',
+    grace_ends_at_field: 'Льготный период заканчивается',
+    refresh_expired_description:
+      'Срок действия лицензионного ключа истёк {{expiresAt}}. Лицензионные функции будут доступны до {{graceEndsAt}}, пока Logto пытается обновить ключ.',
+    refresh_refused_description:
+      'Обновление лицензии отклонено, поскольку лицензия {{reason}}. Лицензионные функции будут доступны до {{graceEndsAt}}.',
+    refusal_reason_canceled: 'отменена',
+    refusal_reason_unpaid: 'не оплачена',
+    refusal_reason_expired: 'истекла',
+    refusal_reason_revoked: 'отозвана',
+    refusal_reason_unknown: 'недоступна',
+    grace_expired_description:
+      'Льготный период лицензии закончился {{graceEndsAt}}. Этот экземпляр вернулся к настройкам OSS по умолчанию. Получите новый ключ в Logto Cloud и установите его снова.',
+    get_fresh_key_button: 'Получить новый лицензионный ключ',
+    replace_button: 'Заменить лицензию',
   },
   members: {
-    card_title: '',
+    card_title: 'Управляйте арендаторами безопаснее с Logto Cloud',
     card_description:
       'Добавляйте администраторов или участников в своего арендатора без совместного использования одной учетной записи администратора.',
-    card_action: '',
+    card_action: 'Открыть Logto Cloud',
+    self_hosted_card_title: 'Управляйте арендаторами безопаснее с self-hosted планами',
+    self_hosted_card_description:
+      'Добавляйте администраторов или участников в своего арендатора без совместного использования одной учетной записи администратора.',
+    self_hosted_card_action: 'Открыть self-hosted планы',
   },
   settings: {
     title: 'НАСТРОЙКИ',
@@ -24,7 +66,8 @@ const tenants = {
     tenant_id: 'ID арендатора',
     tenant_name: 'Имя арендатора',
     tenant_instance: 'Выберите ваш экземпляр',
-    tenant_instance_description: '',
+    tenant_instance_description:
+      'Выберите, где будет размещен ваш арендатор. Выберите Logto Cloud для общей публичной инфраструктуры или частный экземпляр для выделенных ресурсов.',
     tenant_region: 'Регион размещения данных',
     tenant_region_description:
       'Физическое местоположение, где размещены ваши ресурсы арендатора (пользователи, приложения и т. д.). Это нельзя изменить после создания.',
@@ -40,8 +83,19 @@ const tenants = {
     tenant_mfa: 'Многофакторная аутентификация',
     tenant_mfa_description:
       'Требуйте от участников настроить многофакторную аутентификацию для доступа к этому арендатору.',
+    oss_description: 'Управляйте тем, как участники получают доступ к консоли на этом экземпляре.',
+    tenant_mfa_confirm_title: 'Требовать MFA от всех участников?',
+    tenant_mfa_confirm_description:
+      'Эти участники ещё не настроили MFA. Они останутся в системе, и при следующем входе им будет предложено её настроить:',
+    tenant_mfa_confirm_self:
+      'Вы тоже ещё не настроили MFA. Настройте её в параметрах учётной записи до следующего входа.',
+    tenant_mfa_confirm_button: 'Требовать MFA',
+    tenant_mfa_setup_required:
+      'Этот арендатор требует многофакторную аутентификацию. Настройте её сейчас, иначе это потребуется при следующем входе.',
+    tenant_mfa_setup_action: 'Настроить MFA',
     enterprise_sso: 'Enterprise SSO',
-    enterprise_sso_description: '',
+    enterprise_sso_description:
+      'Доступно в платных планах. Свяжитесь с нами, чтобы включить Enterprise SSO, чтобы все участники могли входить в консоль Logto Cloud, используя поставщика идентификации вашей организации.',
   },
   full_env_tag: {
     development: 'Разработка',

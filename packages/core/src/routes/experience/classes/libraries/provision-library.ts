@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { Component, CoreEvent, getEventName } from '@logto/app-insights/custom-event';
 import { appInsights } from '@logto/app-insights/node';
 import {
@@ -11,6 +12,7 @@ import {
   OrganizationInvitationStatus,
   SignInMode,
   TenantRole,
+  type JsonObject,
   userMfaDataKey,
   userOnboardingDataKey,
   type User,
@@ -21,18 +23,25 @@ import { condArray, conditional, conditionalArray, trySafe } from '@silverhand/e
 
 import { EnvSet } from '#src/env-set/index.js';
 import { truncateMembershipDelta } from '#src/libraries/hook/utils.js';
+import { buildUserPasswordPayload } from '#src/libraries/user.utils.js';
+import { type JitOrganization } from '#src/queries/organization/email-domains.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 import { buildAppInsightsTelemetry } from '#src/utils/request.js';
 import { getTenantId } from '#src/utils/tenant.js';
 
-import { type InteractionProfile, type WithHooksAndLogsContext } from '../../types.js';
+import {
+  type InteractionProfile,
+  type InteractionUserProvisioningProfile,
+  type WithHooksAndLogsContext,
+} from '../../types.js';
 import { toUserSocialIdentityData } from '../utils.js';
 
+import {
+  assertEnterpriseSsoIdentityAvailable,
+  getProfileIdentifierCollisionPayload,
+} from './provisioning-profile.js';
+
 type OrganizationProvisionPayload =
-  | {
-      userId: string;
-      email: string;
-    }
   | {
       userId: string;
       ssoConnectorId: string;
@@ -41,6 +50,44 @@ type OrganizationProvisionPayload =
       userId: string;
       organizationIds: string[];
     };
+
+type ProvisioningCustomDataOptions = {
+  mergeCustomData?: boolean;
+};
+
+type CreateUserOptions = {
+  checkIdentifierCollision?: boolean;
+} & ProvisioningCustomDataOptions;
+
+type UpdateUserOptions = ProvisioningCustomDataOptions;
+
+const mergeCreateUserCustomData = (
+  existingCustomData: JsonObject | undefined,
+  customData: JsonObject | undefined
+): JsonObject | undefined => {
+  const mergedCustomData =
+    customData && Object.keys(customData).length > 0
+      ? {
+          ...customData,
+          ...existingCustomData,
+        }
+      : existingCustomData;
+
+  return mergedCustomData && Object.keys(mergedCustomData).length > 0
+    ? mergedCustomData
+    : undefined;
+};
+
+const mergeUpdateUserCustomData = (
+  existingCustomData: JsonObject | undefined,
+  customData: JsonObject | undefined
+): JsonObject | undefined =>
+  customData && Object.keys(customData).length > 0
+    ? {
+        ...existingCustomData,
+        ...customData,
+      }
+    : undefined;
 
 export class ProvisionLibrary {
   constructor(
@@ -54,10 +101,16 @@ export class ProvisionLibrary {
    * - Provision all JIT organizations for the user if necessary.
    * - Assign the first user to the admin role and the default tenant organization membership. [OSS only]
    */
-  async createUser(profile: InteractionProfile) {
+  async createUser(
+    profile: InteractionProfile,
+    {
+      checkIdentifierCollision: shouldCheckIdentifierCollision = false,
+      mergeCustomData: shouldMergeCustomData = false,
+    }: CreateUserOptions = {}
+  ) {
     const {
       libraries: {
-        users: { generateUserId, insertUser },
+        users: { checkIdentifierCollision, generateUserId, insertUser },
         socials: { upsertSocialTokenSetSecret },
         ssoConnectors: { upsertEnterpriseSsoTokenSetSecret },
       },
@@ -70,24 +123,39 @@ export class ProvisionLibrary {
       jitOrganizationIds,
       socialConnectorTokenSetSecret,
       enterpriseSsoConnectorTokenSetSecret,
+      passwordEncrypted,
+      passwordEncryptionMethod,
       ...rest
     } = profile;
 
+    if (shouldCheckIdentifierCollision) {
+      await checkIdentifierCollision(getProfileIdentifierCollisionPayload(profile));
+      await assertEnterpriseSsoIdentityAvailable(
+        this.tenantContext.queries.userSsoIdentities,
+        enterpriseSsoIdentity
+      );
+    }
+
     const { isCreatingFirstAdminUser, initialUserRoles, customData } =
       await this.getUserProvisionContext(profile);
+    const customDataForInsert = shouldMergeCustomData
+      ? mergeCreateUserCustomData(customData, profile.customData)
+      : customData;
 
     const [user] = await insertUser(
       {
         id: await generateUserId(),
         ...rest,
-        ...conditional(socialIdentity && { identities: toUserSocialIdentityData(socialIdentity) }),
-        ...conditional(customData && { customData }),
         ...conditional(
-          rest.passwordEncrypted && {
-            passwordUpdatedAt: Date.now(),
-            isPasswordExpired: false,
-          }
+          passwordEncrypted &&
+            passwordEncryptionMethod &&
+            buildUserPasswordPayload({
+              passwordEncrypted,
+              passwordEncryptionMethod,
+            })
         ),
+        ...conditional(socialIdentity && { identities: toUserSocialIdentityData(socialIdentity) }),
+        ...conditional(customDataForInsert && { customData: customDataForInsert }),
         logtoConfig: {
           [userMfaDataKey]: { enabled: false },
         },
@@ -130,6 +198,54 @@ export class ProvisionLibrary {
     return user;
   }
 
+  async updateUser(
+    userId: string,
+    provisioningProfile: InteractionUserProvisioningProfile,
+    { mergeCustomData: shouldMergeCustomData = false }: UpdateUserOptions = {}
+  ) {
+    const { queries, libraries } = this.tenantContext;
+
+    await libraries.users.checkIdentifierCollision(
+      getProfileIdentifierCollisionPayload(provisioningProfile),
+      userId
+    );
+
+    const { passwordEncrypted, passwordEncryptionMethod, customData, profile, ...updateProfile } =
+      provisioningProfile;
+    const { customDataForUpdate, existingUser } = await this.resolveCustomDataForUpdate(
+      userId,
+      customData,
+      shouldMergeCustomData
+    );
+    const profileForUpdate = await this.resolveProfileForUpdate(
+      userId,
+      profile,
+      customDataForUpdate,
+      existingUser
+    );
+    const updatePayload = this.buildUpdateUserPayload({
+      updateProfile,
+      profileForUpdate,
+      customDataForUpdate,
+      passwordEncrypted,
+      passwordEncryptionMethod,
+    });
+
+    if (Object.keys(updatePayload).length === 0) {
+      return queries.users.findUserById(userId);
+    }
+
+    const user = await queries.users.updateUserById(
+      userId,
+      updatePayload,
+      customDataForUpdate === undefined ? 'merge' : 'replace'
+    );
+
+    this.ctx.appendDataHookContext('User.Data.Updated', { user });
+
+    return user;
+  }
+
   async addSsoIdentityToUser(
     userId: string,
     enterpriseSsoIdentity: Required<InteractionProfile>['enterpriseSsoIdentity']
@@ -148,8 +264,9 @@ export class ProvisionLibrary {
   }
 
   /**
-   * Add the user to the specified organizations. This function is called when an existing
-   * user is invited to organization(s) by admin through one-time token (e.g. Magic link).
+   * Add the user to the JIT organizations resolved from the enterprise SSO connector or from the
+   * explicit organization IDs (e.g. an admin invite carried by a one-time token / Magic link).
+   * For email-domain JIT, use `provisionJitOrganizationByEmailDomain` instead.
    */
   async provisionJitOrganization(payload: OrganizationProvisionPayload) {
     const {
@@ -158,27 +275,131 @@ export class ProvisionLibrary {
 
     const provisionedOrganizations = await usersLibraries.provisionOrganizations(payload);
 
+    this.appendMembershipUpdatedHooks(payload.userId, provisionedOrganizations);
+
+    return provisionedOrganizations;
+  }
+
+  /**
+   * Provision the user with JIT organizations based on the email domain.
+   */
+  private async provisionJitOrganizationByEmailDomain(userId: string, email: string) {
+    const {
+      libraries: { users: usersLibraries },
+    } = this.tenantContext;
+
+    const provisionedOrganizations = await usersLibraries.provisionOrganizationsByEmailDomain(
+      userId,
+      email
+    );
+
+    this.appendMembershipUpdatedHooks(userId, provisionedOrganizations);
+
+    return provisionedOrganizations;
+  }
+
+  private appendMembershipUpdatedHooks(
+    userId: string,
+    provisionedOrganizations: readonly JitOrganization[]
+  ) {
     for (const { organizationId } of provisionedOrganizations) {
       this.ctx.appendDataHookContext('Organization.Membership.Updated', {
         organizationId,
-        ...truncateMembershipDelta({ addedUserIds: [payload.userId] }),
+        ...truncateMembershipDelta({ addedUserIds: [userId] }),
       });
     }
-
-    return provisionedOrganizations;
   }
 
   /**
    * This method is used to get the provision context for a new user registration.
    * It will return the provision context based on the current tenant and the request context.
    */
+  private async resolveProfileForUpdate(
+    userId: string,
+    profile: InteractionUserProvisioningProfile['profile'],
+    customDataForUpdate: JsonObject | undefined,
+    existingUser?: User
+  ) {
+    const profilePatch =
+      profile !== undefined && Object.keys(profile).length > 0 ? profile : undefined;
+
+    if (profilePatch === undefined || customDataForUpdate === undefined) {
+      return profilePatch;
+    }
+
+    const user = existingUser ?? (await this.tenantContext.queries.users.findUserById(userId));
+
+    return {
+      ...user.profile,
+      ...profilePatch,
+    };
+  }
+
+  private buildUpdateUserPayload({
+    updateProfile,
+    profileForUpdate,
+    customDataForUpdate,
+    passwordEncrypted,
+    passwordEncryptionMethod,
+  }: {
+    updateProfile: Omit<
+      InteractionUserProvisioningProfile,
+      'passwordEncrypted' | 'passwordEncryptionMethod' | 'customData' | 'profile'
+    >;
+    profileForUpdate: InteractionUserProvisioningProfile['profile'];
+    customDataForUpdate: JsonObject | undefined;
+    passwordEncrypted: InteractionUserProvisioningProfile['passwordEncrypted'];
+    passwordEncryptionMethod: InteractionUserProvisioningProfile['passwordEncryptionMethod'];
+  }) {
+    return {
+      ...updateProfile,
+      ...conditional(profileForUpdate !== undefined && { profile: profileForUpdate }),
+      ...conditional(customDataForUpdate !== undefined && { customData: customDataForUpdate }),
+      ...conditional(
+        passwordEncrypted &&
+          passwordEncryptionMethod &&
+          buildUserPasswordPayload({
+            passwordEncrypted,
+            passwordEncryptionMethod,
+          })
+      ),
+    };
+  }
+
+  private async resolveCustomDataForUpdate(
+    userId: string,
+    customData: JsonObject | undefined,
+    shouldMergeCustomData: boolean
+  ): Promise<{ customDataForUpdate: JsonObject | undefined; existingUser?: User }> {
+    if (customData === undefined) {
+      return { customDataForUpdate: undefined };
+    }
+
+    if (!shouldMergeCustomData) {
+      return {
+        customDataForUpdate: Object.keys(customData).length > 0 ? customData : undefined,
+      };
+    }
+
+    if (Object.keys(customData).length === 0) {
+      return { customDataForUpdate: undefined };
+    }
+
+    const existingUser = await this.tenantContext.queries.users.findUserById(userId);
+
+    return {
+      customDataForUpdate: mergeUpdateUserCustomData(existingUser.customData, customData),
+      existingUser,
+    };
+  }
+
   private async getUserProvisionContext(profile: InteractionProfile): Promise<{
     /** Admin user provisioning flag */
     isCreatingFirstAdminUser: boolean;
     /** Initial user roles for admin tenant users */
     initialUserRoles: string[];
     /** Skip onboarding flow if the new user has pending Cloud invitations */
-    customData?: { [userOnboardingDataKey]: UserOnboardingData };
+    customData?: JsonObject;
   }> {
     const {
       provider,
@@ -280,10 +501,7 @@ export class ProvisionLibrary {
     if (primaryEmail) {
       return [
         ...extraJitOrganizations,
-        ...(await this.provisionJitOrganization({
-          userId,
-          email: primaryEmail,
-        })),
+        ...(await this.provisionJitOrganizationByEmailDomain(userId, primaryEmail)),
       ];
     }
   }
@@ -332,3 +550,4 @@ export class ProvisionLibrary {
     });
   };
 }
+/* eslint-enable max-lines */
