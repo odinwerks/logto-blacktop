@@ -114,6 +114,11 @@ const security = {
       'Anzahl der Tage, die ein Passwort gültig bleibt, bevor es abläuft.',
     expiration_period_error:
       'Die Passwort-Gültigkeitsdauer muss zwischen {{min}} und {{max}} Tagen liegen.',
+    expiration_reminder: 'Ablauf-Erinnerung (Tage vor Ablauf)',
+    expiration_reminder_description:
+      'Anzahl der Tage vor Ablauf, um Benutzer zu warnen und sie zum Zurücksetzen des Passworts aufzufordern. Benutzer können die Erinnerung überspringen und mit der Anmeldung fortfahren.',
+    expiration_reminder_error:
+      'Der Zeitraum für die Ablauf-Erinnerung muss zwischen 0 und der Gültigkeitsdauer ({{max}} Tage) liegen.',
     password_expiration_recovery_reminder:
       'Einige Benutzer haben möglicherweise keine E-Mail-Adresse oder Telefonnummer, um einen Code zur Passwortwiederherstellung zu erhalten, und können daher ein abgelaufenes Passwort nicht zurücksetzen. Verlange bei der Registrierung eine E-Mail-Adresse oder Telefonnummer, damit jeder Benutzer sein Passwort wiederherstellen kann.',
   },

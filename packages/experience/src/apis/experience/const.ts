@@ -13,3 +13,11 @@ export const experienceApiRoutes = Object.freeze({
 export type VerificationResponse = {
   verificationId: string;
 };
+
+export type PasswordExpirationReminder = {
+  daysUntilExpiration: number;
+};
+
+export type PasswordVerificationResponse = VerificationResponse & {
+  reminder?: PasswordExpirationReminder;
+};

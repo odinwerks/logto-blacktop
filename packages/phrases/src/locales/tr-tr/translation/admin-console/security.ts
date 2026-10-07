@@ -110,6 +110,11 @@ const security = {
     expiration_period: 'Parola geçerlilik süresi (gün)',
     expiration_period_description: 'Bir parolanın süresi dolmadan önce geçerli kaldığı gün sayısı.',
     expiration_period_error: 'Parola geçerlilik süresi {{min}} ile {{max}} gün arasında olmalıdır.',
+    expiration_reminder: 'Sona erme hatırlatıcısı (sona ermeden önceki gün sayısı)',
+    expiration_reminder_description:
+      'Kullanıcıları uyarmak ve parola sıfırlamaya yönlendirmek için sona ermeden önceki gün sayısı. Kullanıcılar hatırlatıcıyı atlayabilir ve oturum açmaya devam edebilir.',
+    expiration_reminder_error:
+      'Sona erme hatırlatıcı süresi 0 ile geçerlilik süresi ({{max}} gün) arasında olmalıdır.',
     password_expiration_recovery_reminder:
       'Bazı kullanıcıların parola kurtarma kodu almak için bir e-posta adresi veya telefon numarası olmayabilir, bu nedenle süresi dolmuş bir parolayı sıfırlayamazlar. Her kullanıcının parolasını kurtarabilmesini sağlamak için kayıt sırasında bir e-posta adresi veya telefon numarası zorunlu kılın.',
   },

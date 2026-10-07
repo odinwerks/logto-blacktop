@@ -448,10 +448,15 @@ export type PasswordExpirationPolicy =
        * them a full valid period instead of expiring them against their account creation date.
        */
       enabledAt?: number;
+      /**
+       * Number of days before expiration at which the user is reminded to reset their password.
+       * The reminder is skip-able. Optional — when absent or 0, no reminder is shown.
+       */
+      reminderPeriodDays?: number;
     };
 
-// Intentionally not `.strict()` for backward compatibility: legacy rows may carry removed fields
-// (e.g. `reminderPeriodDays`), which are stripped on parse instead of rejected.
+// Intentionally not `.strict()` for backward compatibility: legacy rows may carry removed fields,
+// which are stripped on parse instead of rejected.
 export const passwordExpirationPolicyGuard = z.union([
   z.object({
     enabled: z.literal(false).optional(),
@@ -460,6 +465,7 @@ export const passwordExpirationPolicyGuard = z.union([
     enabled: z.literal(true),
     validPeriodDays: z.number().int().min(1),
     enabledAt: z.number().int().nonnegative().optional(),
+    reminderPeriodDays: z.number().int().min(0).optional(),
   }),
 ]) satisfies z.ZodType<PasswordExpirationPolicy>;
 

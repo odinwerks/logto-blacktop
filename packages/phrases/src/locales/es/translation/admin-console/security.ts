@@ -114,6 +114,11 @@ const security = {
       'Número de días que una contraseña permanece válida antes de expirar.',
     expiration_period_error:
       'El período de validez de la contraseña debe estar entre {{min}} y {{max}} días.',
+    expiration_reminder: 'Recordatorio de expiración (días antes del vencimiento)',
+    expiration_reminder_description:
+      'Número de días antes del vencimiento para advertir a los usuarios y solicitar un restablecimiento de contraseña. Los usuarios pueden omitir el recordatorio y continuar con el inicio de sesión.',
+    expiration_reminder_error:
+      'El periodo del recordatorio de expiración debe estar entre 0 y el periodo de validez ({{max}} días).',
     password_expiration_recovery_reminder:
       'Es posible que algunos usuarios no tengan una dirección de correo electrónico o un número de teléfono para recibir un código de recuperación de contraseña, por lo que no podrán restablecer una contraseña caducada. Exige una dirección de correo electrónico o un número de teléfono en el registro para asegurarte de que todos los usuarios puedan recuperar su contraseña.',
   },

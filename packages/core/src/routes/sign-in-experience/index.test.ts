@@ -610,6 +610,44 @@ describe('PATCH /sign-in-exp', () => {
     });
   });
 
+  it('should accept and persist a reminderPeriodDays shorter than validPeriodDays', async () => {
+    const response = await signInExperienceRequester.patch('/sign-in-exp').send({
+      passwordExpiration: {
+        enabled: true,
+        validPeriodDays: 30,
+        reminderPeriodDays: 5,
+      },
+    });
+
+    expect(response).toMatchObject({
+      status: 200,
+      body: {
+        ...mockSignInExperience,
+        passwordExpiration: {
+          enabled: true,
+          validPeriodDays: 30,
+          reminderPeriodDays: 5,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- jest `expect.any` is typed as `any`
+          enabledAt: expect.any(Number),
+        },
+      },
+    });
+  });
+
+  it('should reject password expiration updates when reminderPeriodDays is not less than validPeriodDays', async () => {
+    const response = await signInExperienceRequester.patch('/sign-in-exp').send({
+      passwordExpiration: {
+        enabled: true,
+        validPeriodDays: 30,
+        reminderPeriodDays: 30,
+      },
+    });
+
+    expect(response).toMatchObject({
+      status: 422,
+    });
+  });
+
   it('should guard support email field format', async () => {
     const exception = await signInExperienceRequester
       .patch('/sign-in-exp')

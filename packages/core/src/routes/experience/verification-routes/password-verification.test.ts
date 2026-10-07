@@ -49,7 +49,9 @@ mockEsm('../classes/libraries/sentinel-guard.js', () => ({
 const passwordVerificationRecord = {
   id: 'password-verification-id',
   verify: jest.fn(),
-  verifyPasswordExpiration: jest.fn().mockImplementation(resolveVoid),
+  verifyPasswordExpiration: jest
+    .fn()
+    .mockImplementation(async () => ({ kind: 'success', user: mockUser })),
   markAsVerified: jest.fn(),
 };
 
@@ -253,7 +255,10 @@ describe('password verification route PostFirstFactorVerification fallback', () 
     jest.clearAllMocks();
 
     passwordVerificationRecord.verify.mockResolvedValue(mockUser);
-    passwordVerificationRecord.verifyPasswordExpiration.mockImplementation(resolveVoid);
+    passwordVerificationRecord.verifyPasswordExpiration.mockImplementation(async () => ({
+      kind: 'success',
+      user: mockUser,
+    }));
     appendPasswordPayloadToActionProvisioningProfile.mockImplementation(
       async (profile: Record<string, unknown>) => ({
         ...profile,
@@ -524,7 +529,10 @@ describe('password verification route subject-bound variant', () => {
     jest.clearAllMocks();
 
     passwordVerificationRecord.verify.mockResolvedValue(subject);
-    passwordVerificationRecord.verifyPasswordExpiration.mockImplementation(resolveVoid);
+    passwordVerificationRecord.verifyPasswordExpiration.mockImplementation(async () => ({
+      kind: 'success',
+      user: subject,
+    }));
     findUserById.mockResolvedValue(subject);
     getSignInExperienceData.mockResolvedValue({
       signIn: { methods: [passwordSignInMethod(SignInIdentifier.Email)] },
