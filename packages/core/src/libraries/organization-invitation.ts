@@ -292,7 +292,12 @@ export class OrganizationInvitationLibrary {
       emailConnector.sendMessage({
         to,
         type: TemplateType.OrganizationInvitation,
-        payload,
+        // Blacktop: expose invitee email + client IP to connector templates.
+        payload: {
+          email: to,
+          ...(ip && { ip }),
+          ...payload,
+        },
         ...(ip && { ip }),
       });
 
