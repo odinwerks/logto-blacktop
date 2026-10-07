@@ -44,43 +44,36 @@ describe('useBrandingEntitlements', () => {
   beforeEach(resetMockEnv);
 
   describe('outside Cloud', () => {
-    it('keeps both features locked without a license', () => {
+    // Blacktop: self-hosted unlocks all branding controls — no license is required.
+    it('unlocks both features without a license', () => {
       expect(renderWithContext({})).toStrictEqual({
-        isHideLogtoBrandingAvailable: false,
-        isHideLogtoBrandingEnabled: false,
-        isCustomUiCspEnabled: false,
+        isHideLogtoBrandingAvailable: true,
+        isHideLogtoBrandingEnabled: true,
+        isCustomUiCspEnabled: true,
       });
     });
 
-    it('unlocks both features with a license that grants them', () => {
+    it('unlocks both features regardless of license entitlements', () => {
+      const unlocked = {
+        isHideLogtoBrandingAvailable: true,
+        isHideLogtoBrandingEnabled: true,
+        isCustomUiCspEnabled: true,
+      };
+
       expect(
         renderWithContext(withLicense({ hideLogtoBranding: true, bringYourUi: true }))
-      ).toStrictEqual({
-        isHideLogtoBrandingAvailable: true,
-        isHideLogtoBrandingEnabled: true,
-        isCustomUiCspEnabled: true,
-      });
-    });
-
-    it('unlocks each feature by its own license entitlement', () => {
-      expect(renderWithContext(withLicense({ hideLogtoBranding: true }))).toStrictEqual({
-        isHideLogtoBrandingAvailable: true,
-        isHideLogtoBrandingEnabled: true,
-        isCustomUiCspEnabled: false,
-      });
-      expect(renderWithContext(withLicense({ bringYourUi: true }))).toStrictEqual({
-        isHideLogtoBrandingAvailable: false,
-        isHideLogtoBrandingEnabled: false,
-        isCustomUiCspEnabled: true,
-      });
+      ).toStrictEqual(unlocked);
+      expect(renderWithContext(withLicense({ hideLogtoBranding: true }))).toStrictEqual(unlocked);
+      expect(renderWithContext(withLicense({ bringYourUi: true }))).toStrictEqual(unlocked);
+      expect(renderWithContext(withLicense({}))).toStrictEqual(unlocked);
     });
 
     it('ignores the Cloud subscription quota', () => {
       expect(
         renderWithContext({
-          currentSubscriptionQuota: { ...defaultSubscriptionQuota, bringYourUiEnabled: true },
+          currentSubscriptionQuota: { ...defaultSubscriptionQuota, bringYourUiEnabled: false },
         })
-      ).toMatchObject({ isHideLogtoBrandingEnabled: false, isCustomUiCspEnabled: false });
+      ).toMatchObject({ isHideLogtoBrandingEnabled: true, isCustomUiCspEnabled: true });
     });
   });
 

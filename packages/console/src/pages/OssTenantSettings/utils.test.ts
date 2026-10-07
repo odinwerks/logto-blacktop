@@ -1,9 +1,5 @@
-import type { TFuncKey } from 'i18next';
-
 import {
-  getOssTenantMembersUpsellCopyKeys,
   shouldShowOssTenantLicenseTab,
-  shouldShowOssTenantMembersPage,
   shouldShowOssTenantMembersTab,
   shouldShowOssTenantSettingsTab,
 } from './utils';
@@ -69,43 +65,5 @@ describe('shouldShowOssTenantSettingsTab', () => {
   it('hides the tab on cloud and while the self-hosted plans are unreleased', () => {
     expect(shouldShowOssTenantSettingsTab({ ...options, isCloud: true })).toBe(false);
     expect(shouldShowOssTenantSettingsTab({ ...options, isDevFeaturesEnabled: false })).toBe(false);
-  });
-});
-
-describe('shouldShowOssTenantMembersPage', () => {
-  const options = {
-    isCloud: false,
-    isDevFeaturesEnabled: true,
-    isConsoleCollaborationEntitled: true,
-  };
-
-  it('shows the members when the license grants Console collaboration', () => {
-    expect(shouldShowOssTenantMembersPage(options)).toBe(true);
-  });
-
-  it('keeps the upsell without the entitlement', () => {
-    expect(
-      shouldShowOssTenantMembersPage({ ...options, isConsoleCollaborationEntitled: false })
-    ).toBe(false);
-  });
-
-  it('keeps the upsell on cloud and while the self-hosted plans are unreleased', () => {
-    expect(shouldShowOssTenantMembersPage({ ...options, isCloud: true })).toBe(false);
-    expect(shouldShowOssTenantMembersPage({ ...options, isDevFeaturesEnabled: false })).toBe(false);
-  });
-});
-
-describe('getOssTenantMembersUpsellCopyKeys', () => {
-  it('uses self-hosted plans copy for the OSS members upsell card', () => {
-    const copyKeys = getOssTenantMembersUpsellCopyKeys();
-    const titleKey: TFuncKey<'translation', 'admin_console'> = copyKeys.title;
-    const descriptionKey: TFuncKey<'translation', 'admin_console'> = copyKeys.description;
-    const actionKey: TFuncKey<'translation', 'admin_console'> = copyKeys.action;
-
-    expect({ title: titleKey, description: descriptionKey, action: actionKey }).toEqual({
-      title: 'tenants.members.self_hosted_card_title',
-      description: 'tenants.members.self_hosted_card_description',
-      action: 'tenants.members.self_hosted_card_action',
-    });
   });
 });
