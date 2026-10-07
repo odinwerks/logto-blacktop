@@ -95,13 +95,18 @@ export default function verificationRoutes<T extends UserRouter>(
             z.literal(TemplateType.UserPermissionValidation),
           ])
           .optional(),
+        // Blacktop: explicitly request a locale for the verification-code message. Authenticated
+        // callers (e.g. the admin dashboard) use this to override the locale otherwise derived
+        // from the request context. Passed through verbatim (region tags preserved, e.g. `ka-GE`
+        // stays `ka-GE`); the connector handles its own fallback chain.
+        locale: z.string().optional(),
       }),
       response: z.object({ verificationRecordId: z.string(), expiresAt: z.string() }),
       status: [201, 403, 422, 429, 501],
     }),
     async (ctx, next) => {
       const { id: userId, clientId: applicationId } = ctx.auth;
-      const { identifier, templateType: inputTemplateType } = ctx.guard.body;
+      const { identifier, templateType: inputTemplateType, locale: bodyLocale } = ctx.guard.body;
 
       await assertFirstPartyClient(queries, applicationId);
 
@@ -129,9 +134,15 @@ export default function verificationRoutes<T extends UserRouter>(
           ? await libraries.passcodes.buildVerificationCodeContext({ user, applicationId }, ctx)
           : undefined;
 
+      // Blacktop: explicit `locale` (passed verbatim; connectors cannot expand base tags back
+      // to region tags, e.g. ka -> ka-GE) > `ctx.emailI18n` (resolved by koa-email-i18n from
+      // `?lang=`, the ui_locales cookie, Accept-Language) > connector fallback.
+      const overrideLocale = bodyLocale?.trim();
+
       const send = async () =>
         codeVerification.sendVerificationCode({
           ...ctx.emailI18n,
+          ...(overrideLocale && { locale: overrideLocale }),
           ...emailContextPayload,
         });
 

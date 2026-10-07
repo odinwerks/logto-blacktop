@@ -157,7 +157,6 @@ describe('SMSAero SMS connector', () => {
         })
       ).rejects.toThrow(error);
     });
-  });
 
     it('renders localized `{{t.key}}` placeholders from `config.translations`', async () => {
       const mockedPost = nock('https://gate.smsaero.ru')
@@ -189,4 +188,5 @@ describe('SMSAero SMS connector', () => {
 
       expect(mockedPost.isDone()).toBe(true);
     });
+  });
 });

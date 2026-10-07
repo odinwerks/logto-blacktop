@@ -8,8 +8,6 @@ import {
   maxUploadFileSize,
   uploadFileGuard,
 } from '@logto/schemas';
-import { generateStandardId } from '@logto/shared';
-import { format } from 'date-fns';
 import { object } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
@@ -17,13 +15,13 @@ import koaGuard from '#src/middleware/koa-guard.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
-import { buildUploadFile } from '#src/utils/storage/index.js';
+import { buildStorage } from '#src/utils/storage/index.js';
 import { getTenantId } from '#src/utils/tenant.js';
 
 import type { ManagementApiRouter, RouterInitArgs } from './types.js';
 
 export default function userAssetsRoutes<T extends ManagementApiRouter>(
-  ...[router]: RouterInitArgs<T>
+  ...[router, tenant]: RouterInitArgs<T>
 ) {
   router.get(
     '/user-assets/service-status',
@@ -77,23 +75,29 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
       assertThat(storageProviderConfig, 'storage.not_configured');
 
       const userId = ctx.auth.id;
-      const uploadFile = buildUploadFile(storageProviderConfig);
-      const objectKey = `${tenantId}/${userId}/${format(
-        new Date(),
-        'yyyy/MM/dd'
-      )}/${generateStandardId(8)}/${file.originalFilename}`;
+      const storage = buildStorage(storageProviderConfig);
+      // Blacktop: deterministic branding key — `app-assets-serve.ts` proxies `GET
+      // /api/app-assets/:filename` from this prefix.
+      const objectKey = `${tenantId}/app-assets/branding/${file.originalFilename}`;
+      const cacheBust = Date.now();
 
       try {
-        const { url } = await uploadFile(await readFile(file.filepath), objectKey, {
-          contentType: file.mimetype,
-          publicUrl: storageProviderConfig.publicUrl,
-        });
-
-        const result: UserAssets = {
-          url,
-        };
-
-        ctx.body = result;
+        if (storageProviderConfig.publicUrl) {
+          const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
+            contentType: file.mimetype,
+            publicUrl: storageProviderConfig.publicUrl,
+            isPublic: true,
+          });
+          ctx.body = { url: `${url}?v=${cacheBust}` } satisfies UserAssets;
+        } else {
+          await storage.uploadFile(await readFile(file.filepath), objectKey, {
+            contentType: file.mimetype,
+            isPublic: true,
+          });
+          ctx.body = {
+            url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}?v=${cacheBust}`,
+          } satisfies UserAssets;
+        }
       } catch (error: unknown) {
         getConsoleLogFromContext(ctx).error(error);
         throw new RequestError({

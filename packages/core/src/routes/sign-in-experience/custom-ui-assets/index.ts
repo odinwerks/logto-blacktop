@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 
 import { uploadFileGuard, maxUploadFileSize, adminTenantId } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
-import AdmZip from 'adm-zip';
 import { object, z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
@@ -14,6 +13,8 @@ import { buildStorage } from '#src/utils/storage/index.js';
 import { getTenantId } from '#src/utils/tenant.js';
 
 import { type ManagementApiRouter, type RouterInitArgs } from '../../types.js';
+
+import { unzipCustomUiAssets } from './unzip.js';
 
 export default function customUiAssetsRoutes<T extends ManagementApiRouter>(
   ...[router]: RouterInitArgs<T>
@@ -48,37 +49,22 @@ export default function customUiAssetsRoutes<T extends ManagementApiRouter>(
       const customUiAssetId = generateStandardId(8);
 
       try {
-        const zipBuffer = await readFile(file.filepath);
-        const zip = new AdmZip(zipBuffer);
-        const entries = zip.getEntries().filter((entry) => !entry.isDirectory);
+        const data = await readFile(file.filepath);
 
-        // Guard against zip-bomb: check total uncompressed size before extracting
-        const maxUncompressedSize = 50 * 1024 * 1024; // 50MB
-        const totalUncompressedSize = entries.reduce(
-          (sum, entry) => sum + entry.header.size,
-          0
-        );
-        assertThat(
-          totalUncompressedSize <= maxUncompressedSize,
-          new RequestError({
-            code: 'guard.file_size_exceeded',
-            status: 400,
-          })
-        );
-
-        await Promise.all(
-          entries.map(async (entry) => {
-            const objectKey = `${tenantId}/${customUiAssetId}/${entry.entryName}`;
-            const content = entry.getData();
-            await storage.uploadFile(content, objectKey, {
-              publicUrl: storageProviderConfig.publicUrl,
-              isPublic: true,
-            });
-          })
-        );
+        // Blacktop: self-hosted deployments unzip straight into the configured storage, which is
+        // also what the custom-UI serve middleware reads from. Bounded inflate, entry caps and
+        // path sanitization match upstream's unzip (previously an Azure function).
+        await unzipCustomUiAssets(data, `${tenantId}/${customUiAssetId}`, storage.uploadFile);
       } catch (error: unknown) {
+        if (error instanceof RequestError) {
+          throw error;
+        }
+
         getConsoleLogFromContext(ctx).error(error);
-        throw new RequestError({ code: 'storage.upload_error', status: 500 });
+        throw new RequestError(
+          { code: 'storage.upload_error', status: 500 },
+          { details: error instanceof Error ? error.message : String(error) }
+        );
       }
 
       ctx.body = { customUiAssetId };

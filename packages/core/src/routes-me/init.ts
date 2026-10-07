@@ -45,14 +45,13 @@ export default function initMeApis(tenant: TenantContext): Koa {
 
   /**
    * Self-hosted plans: tenant settings managed by the tenant members of a self-hosted deployment:
-   * mandatory Console MFA, and the members and invitations. Removed together with the other
-   * self-hosted plans guards at launch.
+   * mandatory Console MFA, and the members and invitations.
+   * Blacktop: mounted unconditionally — the Console surfaces these pages on self-hosted, so
+   * gating the routes behind dev features leaves the tab calling 404 APIs.
    */
-  if (EnvSet.values.isDevFeaturesEnabled) {
-    tenantRoutes(meRouter, tenant);
-    tenantMemberRoutes(meRouter, tenant);
-    tenantInvitationRoutes(meRouter, tenant);
-  }
+  tenantRoutes(meRouter, tenant);
+  tenantMemberRoutes(meRouter, tenant);
+  tenantInvitationRoutes(meRouter, tenant);
 
   const meApp = new Koa();
   meApp.use(koaCors([EnvSet.values.cloudUrlSet]));

@@ -1,5 +1,3 @@
-import { Readable } from 'node:stream';
-
 import { adminTenantId, StorageProvider } from '@logto/schemas';
 
 import SystemContext from '#src/tenants/SystemContext.js';
@@ -41,7 +39,8 @@ export default function appAssetsServeRoutes<T extends AnonymousRouter>(
     }
 
     const storage = buildStorage(storageProviderConfig);
-    if (!storage.downloadFile) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- optional provider op
+    if (!storage.downloadFile) {
       ctx.status = 500;
       return next();
     }
@@ -72,7 +71,7 @@ export default function appAssetsServeRoutes<T extends AnonymousRouter>(
     const { userId, filename } = ctx.params;
 
     // Validate params — no path traversal
-    if (!userId || !SAFE_ID.test(userId)) {
+    if (!userId || userId.startsWith('.') || !SAFE_ID.test(userId)) {
       ctx.status = 400;
       return next();
     }
@@ -100,7 +99,8 @@ export default function appAssetsServeRoutes<T extends AnonymousRouter>(
     }
 
     const storage = buildStorage(storageProviderConfig);
-    if (!storage.downloadFile) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- optional provider op
+    if (!storage.downloadFile) {
       ctx.status = 500;
       return next();
     }
