@@ -3,13 +3,11 @@ import { useTranslation } from 'react-i18next';
 
 import InfoIcon from '@/assets/icons/info.svg?react';
 import LearnMore from '@/components/LearnMore';
-import { logtoOssFeatureSupportLink } from '@/consts/external-links';
+import { pricingLink, logtoOssFeatureSupportLink } from '@/consts/external-links';
 import { LinkButton } from '@/ds-components/Button';
-import DangerousRaw from '@/ds-components/DangerousRaw';
 import TextLink from '@/ds-components/TextLink';
 
 import styles from './index.module.scss';
-import { getSamlAppLimitBannerContent } from './utils';
 
 type Props = {
   readonly variant: 'inline' | 'footer';
@@ -19,8 +17,7 @@ type Props = {
 
 function SamlAppLimitBanner({ variant, limit, className }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
-  const content = getSamlAppLimitBannerContent({ variant });
-  const description = t(content.descriptionKey, {
+  const description = t('upsell.paywall.saml_applications_oss_limit_notice', {
     limit,
     defaultValue: '',
   });
@@ -39,38 +36,17 @@ function SamlAppLimitBanner({ variant, limit, className }: Props) {
         {description}
         <LearnMore href={logtoOssFeatureSupportLink} />
       </div>
-      {content.secondaryHref ? (
-        <div className={styles.actions}>
-          <LinkButton
-            className={styles.primaryAction}
-            size={variant === 'footer' ? 'large' : 'medium'}
-            type="primary"
-            title={
-              <DangerousRaw>{t(content.actionKey, { productName: 'Logto Cloud' })}</DangerousRaw>
-            }
-            href={content.href}
-            targetBlank="noopener"
-          />
-          <TextLink
-            {...(content.secondaryTargetBlank
-              ? { href: content.secondaryHref }
-              : { to: content.secondaryHref })}
-            targetBlank={content.secondaryTargetBlank}
-          >
-            {t(content.secondaryActionKey)}
-          </TextLink>
-        </div>
-      ) : variant === 'inline' ? (
-        <TextLink className={styles.inlineAction} href={content.href} targetBlank="noopener">
-          {t(content.actionKey)}
+      {variant === 'inline' ? (
+        <TextLink className={styles.inlineAction} href={pricingLink} targetBlank="noopener">
+          {t('upsell.view_plans')}
         </TextLink>
       ) : (
         <LinkButton
           className={styles.footerAction}
           size="large"
           type="primary"
-          title={content.actionKey}
-          href={content.href}
+          title="upsell.view_plans"
+          href={pricingLink}
           targetBlank="noopener"
         />
       )}
