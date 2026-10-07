@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'ページが見つかりません',
@@ -276,6 +277,8 @@ const account_center = {
     title: 'セッション',
     current_session: '現在のセッション',
     signed_in_at: '{{date}} にサインイン',
+    last_active: '最終アクティブ {{date}}',
+    active_now: '現在アクティブ',
     revoke_session: 'サインアウト',
     revoke_session_title: 'セッションからサインアウト',
     revoke_session_description:
@@ -298,3 +301,4 @@ const account_center = {
 };
 
 export default Object.freeze(account_center);
+/* eslint-enable max-lines */

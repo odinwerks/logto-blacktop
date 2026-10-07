@@ -20,6 +20,14 @@ const SessionRow = ({ session, isEditable, isCurrent, onRevoke }: SessionRowProp
   const signedInAt = formatTimestamp(session.payload.loginTs, i18n.language);
   const deviceName = name ?? ip ?? signedInAt;
 
+  const { lastActiveAt } = session;
+  const lastActiveText =
+    lastActiveAt === 'now'
+      ? t('account_center.sessions.active_now')
+      : lastActiveAt
+        ? formatTimestamp(new Date(lastActiveAt).getTime(), i18n.language)
+        : '-';
+
   const metaParts = [location, ip].filter(Boolean);
   const metaText = metaParts.length > 0 ? metaParts.join(' · ') : undefined;
 
@@ -30,6 +38,9 @@ const SessionRow = ({ session, isEditable, isCurrent, onRevoke }: SessionRowProp
         {metaText && <div className={styles.meta}>{metaText}</div>}
         <div className={styles.meta}>
           {t('account_center.sessions.signed_in_at', { date: signedInAt })}
+        </div>
+        <div className={styles.meta}>
+          {t('account_center.sessions.last_active', { date: lastActiveText })}
         </div>
       </div>
       <div className={styles.actions}>

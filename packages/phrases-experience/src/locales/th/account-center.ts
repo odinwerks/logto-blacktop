@@ -271,6 +271,8 @@ const account_center = {
     title: 'เซสชัน',
     current_session: 'เซสชันปัจจุบัน',
     signed_in_at: 'เข้าสู่ระบบเมื่อ {{date}}',
+    last_active: 'ใช้งานล่าสุด {{date}}',
+    active_now: 'กำลังใช้งาน',
     revoke_session: 'ออกจากระบบ',
     revoke_session_title: 'ออกจากระบบเซสชัน',
     revoke_session_description:

@@ -262,6 +262,8 @@ const account_center = {
     title: '会话',
     current_session: '当前会话',
     signed_in_at: '登录于 {{date}}',
+    last_active: '上次活跃 {{date}}',
+    active_now: '当前活跃',
     revoke_session: '退出登录',
     revoke_session_title: '退出会话',
     revoke_session_description: '这将退出该会话并撤销所有关联的访问权限。确定要继续吗？',

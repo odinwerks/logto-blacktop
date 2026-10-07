@@ -1,3 +1,4 @@
+/* eslint-disable @silverhand/fp/no-mutation -- tests stub the shared SystemContext storage config directly */
 import { UserScope } from '@logto/core-kit';
 import {
   AccountCenterControlValue,
@@ -8,28 +9,30 @@ import {
 import { createMockUtils, pickDefault } from '@logto/shared/esm';
 
 import { mockUser } from '#src/__mocks__/index.js';
+import koaErrorHandler from '#src/middleware/koa-error-handler.js';
+import koaI18next from '#src/middleware/koa-i18next.js';
+import type { ManagementApiRouter } from '#src/routes/types.js';
+import type Queries from '#src/tenants/Queries.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 import { MockTenant, type Partial2 } from '#src/test-utils/tenant.js';
 import { createRequester } from '#src/utils/test-utils.js';
-import type { ManagementApiRouter } from '#src/routes/types.js';
 
-import type Queries from '#src/tenants/Queries.js';
 import koaAccountCenter from './middlewares/koa-account-center.js';
 
 const { jest } = import.meta;
 const { mockEsmWithActual } = createMockUtils(jest);
 
 // Mock storage builder
-const mockUploadFileFn = jest.fn();
-const mockListFilesFn = jest.fn();
-const mockDeleteFileFn = jest.fn();
+const mockUploadFileFunction = jest.fn();
+const mockListFilesFunction = jest.fn();
+const mockDeleteFileFunction = jest.fn();
 
 await mockEsmWithActual('#src/utils/storage/index.js', () => ({
-  buildUploadFile: jest.fn(() => ({
-    uploadFile: mockUploadFileFn,
-    listFiles: mockListFilesFn,
-    deleteFile: mockDeleteFileFn,
+  buildStorage: jest.fn(() => ({
+    uploadFile: mockUploadFileFunction,
+    listFiles: mockListFilesFunction,
+    deleteFile: mockDeleteFileFunction,
   })),
 }));
 
@@ -47,10 +50,12 @@ await mockEsmWithActual('./utils/get-scoped-profile.js', () => ({
   getAccountCenterFilteredProfile: mockGetAccountCenterFilteredProfile,
 }));
 
-const mockUpdateUserById = jest.fn().mockImplementation(async (_id: string, data: Partial<User>) => ({
-  ...mockUser,
-  ...data,
-}));
+const mockUpdateUserById = jest
+  .fn()
+  .mockImplementation(async (_id: string, data: Partial<User>) => ({
+    ...mockUser,
+    ...data,
+  }));
 
 const mockedQueries = {
   users: {
@@ -80,12 +85,21 @@ const tenantContext = new MockTenant(undefined, mockedQueries);
 const avatarRoutes = await pickDefault(import('./avatar.js'));
 
 const avatarRequest = createRequester({
+  middlewares: [koaI18next(), koaErrorHandler()],
   authedRoutes: [
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    (router: ManagementApiRouter) => {
+      // Grant the profile scope the route requires; the default test auth has none.
+      router.use(async (ctx, next) => {
+        ctx.auth.scopes = new Set([UserScope.Profile]);
+        ctx.appendDataHookContext = jest.fn();
+        return next();
+      });
+    },
+
     (router: ManagementApiRouter, tenant: TenantContext) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
       router.use(koaAccountCenter(tenant.queries) as any);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       avatarRoutes(router as any, tenant);
     },
   ] as never[],
@@ -98,7 +112,7 @@ const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 
 beforeEach(() => {
   jest.clearAllMocks();
   // Reset SystemContext for each test
-  SystemContext.shared.storageProviderConfig = undefined;
+  Reflect.deleteProperty(SystemContext.shared, 'storageProviderConfig');
 });
 
 afterEach(() => {
@@ -113,7 +127,7 @@ describe('POST /my-account/avatar', () => {
   });
 
   it('should return 400 when file exceeds max size', async () => {
-    // maxUploadFileSize is 20MB (20 * 1024 * 1024 bytes).
+    // MaxUploadFileSize is 20MB (20 * 1024 * 1024 bytes).
     // Create a buffer larger than 20MB to trigger the size guard.
     const largeBuffer = Buffer.allocUnsafe(21 * 1024 * 1024); // 21MB
     const response = await avatarRequest
@@ -124,6 +138,8 @@ describe('POST /my-account/avatar', () => {
   });
 
   it('should return 400 when file is not an allowed image type', async () => {
+    // DetectImageType returns undefined for non-image data
+    // eslint-disable-next-line unicorn/no-useless-undefined -- mock must return undefined
     mockDetectImageType.mockReturnValue(undefined);
 
     const response = await avatarRequest
@@ -137,6 +153,8 @@ describe('POST /my-account/avatar', () => {
   it('should return 400 when magic bytes do not match the claimed MIME', async () => {
     // Upload file with text content but claiming image/png content type.
     // detectImageType returns undefined for non-image bytes.
+    // DetectImageType returns undefined for non-image data
+    // eslint-disable-next-line unicorn/no-useless-undefined -- mock must return undefined
     mockDetectImageType.mockReturnValue(undefined);
 
     const response = await avatarRequest
@@ -175,10 +193,11 @@ describe('POST /my-account/avatar', () => {
   it('should return 401 when token lacks profile scope', async () => {
     // Need to create a new requester without UserScope.Profile in scopes
     const noProfileRequest = createRequester({
+      middlewares: [koaI18next(), koaErrorHandler()],
       authedRoutes: [
         (router: ManagementApiRouter) => {
           // Override the default auth to set specific scopes
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
           router.use(async (ctx, next) => {
             ctx.auth = {
               ...ctx.auth,
@@ -189,11 +208,11 @@ describe('POST /my-account/avatar', () => {
             return next();
           });
         },
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
         (router: ManagementApiRouter, tenant: TenantContext) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
           router.use(koaAccountCenter(tenant.queries) as any);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           avatarRoutes(router as any, tenant);
         },
       ] as never[],
@@ -210,7 +229,7 @@ describe('POST /my-account/avatar', () => {
 
   it('should return 500 when storage provider is not configured', async () => {
     mockDetectImageType.mockReturnValue({ mime: 'image/jpeg', extension: 'jpg' });
-    SystemContext.shared.storageProviderConfig = undefined;
+    Reflect.deleteProperty(SystemContext.shared, 'storageProviderConfig');
 
     const response = await avatarRequest
       .post('/my-account/avatar')
@@ -238,7 +257,6 @@ describe('POST /my-account/avatar', () => {
 
   it('should upload avatar, clean up old files, update user record, and return profile', async () => {
     const now = Date.now();
-    jest.useFakeTimers().setSystemTime(now);
 
     const detected = { mime: 'image/jpeg', extension: 'jpg' };
     mockDetectImageType.mockReturnValue(detected);
@@ -256,19 +274,22 @@ describe('POST /my-account/avatar', () => {
     const profileResponse = {
       id: mockUser.id,
       name: mockUser.name,
-      avatar: 'https://cdn.example.com/admin/foo/you.jpg?v=' + now,
+      avatar: 'https://cdn.example.com/admin/user-assets/foo/you.jpg?v=' + now,
     };
     mockGetScopedProfile.mockResolvedValue(profileResponse);
     mockGetAccountCenterFilteredProfile.mockReturnValue(profileResponse);
 
     // Mock storage: upload succeeds, list returns old files with different extensions
-    mockUploadFileFn.mockResolvedValue({ url: 'https://cdn.example.com/admin/foo/you.jpg' });
-    mockListFilesFn.mockResolvedValue([
-      'admin/foo/you.png',
-      'admin/foo/you.jpg',
-      'admin/foo/you.webp',
+    mockUploadFileFunction.mockResolvedValue({
+      url: 'https://cdn.example.com/admin/user-assets/foo/you.jpg',
+    });
+    mockListFilesFunction.mockResolvedValue([
+      'admin/user-assets/foo/you.png',
+      'admin/user-assets/foo/you.jpg',
+      'admin/user-assets/foo/you.webp',
     ]);
-    mockDeleteFileFn.mockResolvedValue(undefined);
+    // eslint-disable-next-line unicorn/no-useless-undefined -- deleteFile mock resolves void
+    mockDeleteFileFunction.mockResolvedValue(undefined);
 
     const response = await avatarRequest
       .post('/my-account/avatar')
@@ -276,31 +297,36 @@ describe('POST /my-account/avatar', () => {
 
     expect(response.status).toBe(200);
     // Verify upload was called with the correct final key (not a temp key)
-    expect(mockUploadFileFn).toHaveBeenCalledTimes(1);
-    const uploadCallArgs = mockUploadFileFn.mock.calls[0];
-    expect(uploadCallArgs[1]).toBe('admin/foo/you.jpg'); // finalKey, not temp
-    expect(uploadCallArgs[2]).toEqual({
+    expect(mockUploadFileFunction).toHaveBeenCalledTimes(1);
+    const [, uploadedKey, uploadOptions] = mockUploadFileFunction.mock.calls[0] as [
+      unknown,
+      string,
+      { contentType: string; publicUrl: string; isPublic: boolean },
+    ];
+    expect(uploadedKey).toBe('admin/user-assets/foo/you.jpg'); // FinalKey, not temp
+    expect(uploadOptions).toEqual({
       contentType: 'image/jpeg',
       publicUrl: 'https://cdn.example.com',
+      isPublic: true,
     });
 
     // Verify cleanup deleted old files with different extensions
-    expect(mockDeleteFileFn).toHaveBeenCalledTimes(2);
-    expect(mockDeleteFileFn).toHaveBeenCalledWith('admin/foo/you.png');
-    expect(mockDeleteFileFn).toHaveBeenCalledWith('admin/foo/you.webp');
-    expect(mockDeleteFileFn).not.toHaveBeenCalledWith('admin/foo/you.jpg');
+    expect(mockDeleteFileFunction).toHaveBeenCalledTimes(2);
+    expect(mockDeleteFileFunction).toHaveBeenCalledWith('admin/user-assets/foo/you.png');
+    expect(mockDeleteFileFunction).toHaveBeenCalledWith('admin/user-assets/foo/you.webp');
+    expect(mockDeleteFileFunction).not.toHaveBeenCalledWith('admin/user-assets/foo/you.jpg');
 
     // Verify user record was updated
-    expect(mockUpdateUserById).toHaveBeenCalledWith(mockUser.id, {
-      avatar: expect.stringContaining('cdn.example.com/admin/foo/you.jpg?v='),
-    });
+    expect(mockUpdateUserById).toHaveBeenCalledTimes(1);
+    const [, updatePayload] = mockUpdateUserById.mock.calls[0] as [string, { avatar?: string }];
+    expect(updatePayload.avatar).toMatch(
+      /^https:\/\/cdn\.example\.com\/admin\/user-assets\/foo\/you\.jpg\?v=\d+$/
+    );
 
     // Verify profile was returned
     expect(mockGetScopedProfile).toHaveBeenCalled();
     expect(mockGetAccountCenterFilteredProfile).toHaveBeenCalled();
     expect(response.body).toEqual(profileResponse);
-
-    jest.useRealTimers();
   });
 
   it('should return 500 when S3 upload fails', async () => {
@@ -315,7 +341,7 @@ describe('POST /my-account/avatar', () => {
       publicUrl: 'https://cdn.example.com',
     };
 
-    mockUploadFileFn.mockRejectedValue(new Error('S3 upload failed'));
+    mockUploadFileFunction.mockRejectedValue(new Error('S3 upload failed'));
 
     const response = await avatarRequest
       .post('/my-account/avatar')
@@ -327,7 +353,6 @@ describe('POST /my-account/avatar', () => {
 
   it('should still return 200 when cleanup fails (best-effort)', async () => {
     const now = Date.now();
-    jest.useFakeTimers().setSystemTime(now);
 
     mockDetectImageType.mockReturnValue({ mime: 'image/jpeg', extension: 'jpg' });
 
@@ -343,15 +368,17 @@ describe('POST /my-account/avatar', () => {
     const profileResponse = {
       id: mockUser.id,
       name: mockUser.name,
-      avatar: 'https://cdn.example.com/admin/foo/you.jpg?v=' + now,
+      avatar: 'https://cdn.example.com/admin/user-assets/foo/you.jpg?v=' + now,
     };
     mockGetScopedProfile.mockResolvedValue(profileResponse);
     mockGetAccountCenterFilteredProfile.mockReturnValue(profileResponse);
 
     // Upload succeeds
-    mockUploadFileFn.mockResolvedValue({ url: 'https://cdn.example.com/admin/foo/you.jpg' });
+    mockUploadFileFunction.mockResolvedValue({
+      url: 'https://cdn.example.com/admin/user-assets/foo/you.jpg',
+    });
     // Cleanup fails
-    mockListFilesFn.mockRejectedValue(new Error('List failed'));
+    mockListFilesFunction.mockRejectedValue(new Error('List failed'));
 
     const response = await avatarRequest
       .post('/my-account/avatar')
@@ -359,7 +386,6 @@ describe('POST /my-account/avatar', () => {
 
     // Should still succeed (cleanup is best-effort)
     expect(response.status).toBe(200);
-
-    jest.useRealTimers();
   });
 });
+/* eslint-enable @silverhand/fp/no-mutation */

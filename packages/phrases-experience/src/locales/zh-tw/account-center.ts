@@ -264,6 +264,8 @@ const account_center = {
     title: '工作階段',
     current_session: '目前工作階段',
     signed_in_at: '登入於 {{date}}',
+    last_active: '最近活躍 {{date}}',
+    active_now: '目前活躍',
     revoke_session: '登出',
     revoke_session_title: '登出工作階段',
     revoke_session_description: '這將登出該工作階段並撤銷所有相關的存取權限。確定要繼續嗎？',

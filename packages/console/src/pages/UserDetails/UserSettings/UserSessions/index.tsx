@@ -57,13 +57,13 @@ function UserSessions({ userId }: Props) {
               {
                 title: t('user_details.sessions.name_column'),
                 dataIndex: 'name',
-                colSpan: 7,
+                colSpan: 6,
                 render: ({ name }) => name ?? '-',
               },
               {
                 title: t('user_details.sessions.session_id_column'),
                 dataIndex: 'sessionId',
-                colSpan: 6,
+                colSpan: 5,
                 render: ({ sessionId }) => (
                   <div className={styles.sessionId}>
                     <Tooltip
@@ -80,8 +80,24 @@ function UserSessions({ userId }: Props) {
               {
                 title: t('user_details.sessions.location_column'),
                 dataIndex: 'location',
-                colSpan: 5,
+                colSpan: 4,
                 render: ({ location }) => location ?? '-',
+              },
+              {
+                title: t('user_details.sessions.last_active'),
+                dataIndex: 'lastActiveAt',
+                colSpan: 4,
+                render: ({ lastActiveAt }) => {
+                  if (lastActiveAt === undefined) {
+                    return '-';
+                  }
+
+                  if (lastActiveAt === 'now') {
+                    return t('user_details.sessions.active_now');
+                  }
+
+                  return new Date(lastActiveAt).toLocaleString();
+                },
               },
               {
                 title: null,

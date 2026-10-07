@@ -272,6 +272,8 @@ const account_center = {
     title: 'الجلسات',
     current_session: 'الجلسة الحالية',
     signed_in_at: 'تم تسجيل الدخول {{date}}',
+    last_active: 'آخر نشاط {{date}}',
+    active_now: 'نشط الآن',
     revoke_session: 'تسجيل الخروج',
     revoke_session_title: 'تسجيل الخروج من الجلسة',
     revoke_session_description:

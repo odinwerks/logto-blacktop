@@ -277,6 +277,8 @@ const account_center = {
     title: 'نشست‌ها',
     current_session: 'نشست فعلی',
     signed_in_at: 'ورود در {{date}}',
+    last_active: 'آخرین فعالیت {{date}}',
+    active_now: 'اکنون فعال',
     revoke_session: 'خروج',
     revoke_session_title: 'خروج از نشست',
     revoke_session_description:

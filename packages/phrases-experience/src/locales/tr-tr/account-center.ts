@@ -280,6 +280,8 @@ const account_center = {
     title: 'Oturumlar',
     current_session: 'Mevcut oturum',
     signed_in_at: '{{date}} tarihinde giriş yapıldı',
+    last_active: 'Son aktivite {{date}}',
+    active_now: 'Şu anda aktif',
     revoke_session: 'Çıkış yap',
     revoke_session_title: 'Oturumu kapat',
     revoke_session_description:

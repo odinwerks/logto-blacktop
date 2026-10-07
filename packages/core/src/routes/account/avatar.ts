@@ -15,10 +15,11 @@ import { z } from 'zod';
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
 import SystemContext from '#src/tenants/SystemContext.js';
+import { assertFirstPartyClient } from '#src/utils/assert-first-party-client.js';
 import assertThat from '#src/utils/assert-that.js';
+import { getConsoleLogFromContext } from '#src/utils/console.js';
 import { detectImageType } from '#src/utils/file.js';
 import { buildStorage } from '#src/utils/storage/index.js';
-import { getConsoleLogFromContext } from '#src/utils/console.js';
 
 import { type RouterInitArgs, type UserRouter } from '../types.js';
 
@@ -39,10 +40,10 @@ export default function avatarRoutes<T extends UserRouter>(
         file: uploadFileGuard.array().min(1),
       }),
       response: userProfileResponseGuard.partial(),
-      status: [200, 400, 401, 500],
+      status: [200, 400, 401, 403, 500],
     }),
     async (ctx, next) => {
-      const { id: userId, scopes } = ctx.auth;
+      const { id: userId, scopes, clientId } = ctx.auth;
       const { fields } = ctx.accountCenter;
 
       // Validate file is present
@@ -57,7 +58,11 @@ export default function avatarRoutes<T extends UserRouter>(
         'account_center.field_not_editable'
       );
       // Require profile scope for DB update
-      assertThat(scopes.has(UserScope.Profile), 'auth.unauthorized');
+      assertThat(
+        scopes.has(UserScope.Profile),
+        new RequestError({ code: 'auth.unauthorized', status: 401 })
+      );
+      await assertFirstPartyClient(queries, clientId);
 
       // Read file into buffer
       const fileBuffer = await readFile(file.filepath);
@@ -65,22 +70,21 @@ export default function avatarRoutes<T extends UserRouter>(
       // Detect image type via magic bytes
       const detected = detectImageType(fileBuffer);
       assertThat(detected, 'guard.mime_type_not_allowed');
-      assertThat(
-        (allowAvatarMimeTypes as readonly string[]).includes(detected.mime),
-        'guard.mime_type_not_allowed'
-      );
+      const allowedMimeTypes: readonly string[] = allowAvatarMimeTypes;
+      assertThat(allowedMimeTypes.includes(detected.mime), 'guard.mime_type_not_allowed');
 
       // Get storage provider
       const { storageProviderConfig } = SystemContext.shared;
-      assertThat(storageProviderConfig, 'storage.not_configured');
+      assertThat(storageProviderConfig, 'storage.not_configured', 500);
       assertThat(
         storageProviderConfig.provider === StorageProvider.S3Storage,
-        'storage.not_configured'
+        'storage.not_configured',
+        500
       );
       const storage = buildStorage(storageProviderConfig);
 
       // Build storage keys
-      const extension = detected.extension;
+      const { extension } = detected;
       const finalKey = `${adminTenantId}/user-assets/${userId}/you.${extension}`;
       const userPrefix = `${adminTenantId}/user-assets/${userId}/you`;
 
@@ -96,29 +100,25 @@ export default function avatarRoutes<T extends UserRouter>(
       }
 
       // Cleanup old files with other extensions (best-effort, don't fail)
+      const { listFiles, deleteFile } = storage;
       try {
-        if (storage.listFiles && storage.deleteFile) {
-          const existingFiles = await storage.listFiles(userPrefix);
+        if (listFiles && deleteFile) {
+          const existingFiles = await listFiles(userPrefix);
           await Promise.all(
-            existingFiles
-              .filter(key => key !== finalKey)
-              .map(key => storage.deleteFile!(key))
+            existingFiles.filter((key) => key !== finalKey).map(async (key) => deleteFile(key))
           );
         }
       } catch (error: unknown) {
         getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
       }
 
-      // Build the final URL
-      let avatarUrl: string;
-      if (storageProviderConfig.publicUrl) {
-        avatarUrl = `${storageProviderConfig.publicUrl}/${finalKey}`;
-      } else {
-        // Use the user-assets serve route via the current request endpoint
-        avatarUrl = `${envSet.endpoint.origin}/api/user-assets/${userId}/you.${extension}`;
-      }
-      // Add cache-busting
-      avatarUrl = `${avatarUrl}?v=${Date.now()}`;
+      // Build the final URL with cache-busting: prefer the configured CDN base,
+      // otherwise serve through the user-assets proxy route on this endpoint
+      const avatarUrl = `${
+        storageProviderConfig.publicUrl
+          ? `${storageProviderConfig.publicUrl}/${finalKey}`
+          : `${envSet.endpoint.origin}/api/user-assets/${userId}/you.${extension}`
+      }?v=${Date.now()}`;
 
       // Update user record
       const updatedUser = await updateUserById(userId, {

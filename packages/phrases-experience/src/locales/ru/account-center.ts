@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Страница не найдена',
@@ -277,6 +278,8 @@ const account_center = {
     title: 'Сессии',
     current_session: 'Текущая сессия',
     signed_in_at: 'Вход выполнен {{date}}',
+    last_active: 'Последняя активность {{date}}',
+    active_now: 'Активен сейчас',
     revoke_session: 'Выйти',
     revoke_session_title: 'Завершить сессию',
     revoke_session_description:
@@ -298,3 +301,4 @@ const account_center = {
 };
 
 export default Object.freeze(account_center);
+/* eslint-enable max-lines */
