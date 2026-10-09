@@ -30,7 +30,9 @@ const mockQueries = {
 };
 const mockTenant = new MockTenant(undefined, mockQueries);
 const mockHandler = (tenant = mockTenant) => {
-  return buildHandler(tenant.envSet, tenant.queries);
+  return buildHandler(tenant.envSet, tenant.queries, {
+    assertUserHasApplicationAccess: jest.fn(),
+  });
 };
 
 const clientId = 'some_client_id';
@@ -44,6 +46,7 @@ const validClient: Client = {
   clientId,
   grantTypeAllowed: jest.fn().mockResolvedValue(true),
   clientAuthMethod: 'none',
+  metadata: jest.fn(() => ({ client_id: clientId, appLevelAccessControlEnabled: false })),
 };
 
 const createValidSubjectToken = (): SubjectToken => ({

@@ -14,6 +14,8 @@ import validatePresence from 'oidc-provider/lib/helpers/validate_presence.js';
 import instance from 'oidc-provider/lib/helpers/weak_cache.js';
 
 import { type EnvSet } from '#src/env-set/index.js';
+import { assertUserHasApplicationAccessForOidc } from '#src/oidc/application-access-control.js';
+import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
 
@@ -56,8 +58,12 @@ const requiredParameters = Object.freeze([
 /* eslint-disable @silverhand/fp/no-mutation, @typescript-eslint/no-unsafe-assignment */
 export const buildHandler: (
   envSet: EnvSet,
-  queries: Queries
-) => Parameters<Provider['registerGrantType']>['1'] = (envSet, queries) => async (ctx, next) => {
+  queries: Queries,
+  appAccess: Libraries['applicationAccessControl']
+) => Parameters<Provider['registerGrantType']>['1'] = (envSet, queries, appAccess) => async (
+  ctx,
+  next
+) => {
   const { client, params, requestParamScopes, provider } = ctx.oidc;
   const { Account, AccessToken, Grant } = provider;
 
@@ -92,6 +98,15 @@ export const buildHandler: (
   }
 
   ctx.oidc.entity('Account', account);
+
+  await assertUserHasApplicationAccessForOidc(
+    appAccess,
+    client.clientId,
+    account.accountId,
+    ((metadata) => typeof metadata === 'boolean' ? metadata : undefined)(
+            client.metadata().appLevelAccessControlEnabled
+          )
+  );
 
   // Pre-generate grant ID to avoid a separate DB write just to obtain it.
   // oidc-provider's BaseModel.save() skips ID generation when jti is already set.

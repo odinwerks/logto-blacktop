@@ -31,6 +31,9 @@ import validatePresence from 'oidc-provider/lib/helpers/validate_presence.js';
 import instance from 'oidc-provider/lib/helpers/weak_cache.js';
 
 import { type EnvSet } from '#src/env-set/index.js';
+import { assertUserHasApplicationAccessForOidc } from '#src/oidc/application-access-control.js';
+import { getOidcScopesNoLongerAllowed } from '#src/oidc/client-scope.js';
+import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 import assertThat from '#src/utils/assert-that.js';
 
@@ -66,9 +69,13 @@ const requiredParameters = Object.freeze(['refresh_token']) satisfies ReadonlyAr
 /* eslint-disable @silverhand/fp/no-let, @typescript-eslint/no-non-null-assertion, @silverhand/fp/no-mutation, unicorn/no-array-method-this-argument */
 export const buildHandler: (
   envSet: EnvSet,
-  queries: Queries
+  queries: Queries,
+  appAccess: Libraries['applicationAccessControl']
   // eslint-disable-next-line complexity
-) => Parameters<Provider['registerGrantType']>[1] = (envSet, queries) => async (ctx, next) => {
+) => Parameters<Provider['registerGrantType']>[1] = (envSet, queries, appAccess) => async (
+  ctx,
+  next
+) => {
   const { client, params, requestParamScopes, provider } = ctx.oidc;
   const { RefreshToken, Account, AccessToken, Grant, IdToken } = provider;
 
@@ -159,6 +166,15 @@ export const buildHandler: (
     throw new InvalidGrant('refresh token already used');
   }
 
+  await assertUserHasApplicationAccessForOidc(
+    appAccess,
+    client.clientId,
+    account.accountId,
+    ((metadata) => typeof metadata === 'boolean' ? metadata : undefined)(
+            client.metadata().appLevelAccessControlEnabled
+          )
+  );
+
   const { organizationId } = await checkOrganizationAccess(ctx, queries, account);
 
   /* === RFC 0001 === */
@@ -167,6 +183,19 @@ export const buildHandler: (
     !refreshToken.scopes.has(UserScope.Organizations)
   ) {
     throw new InsufficientScope('refresh token missing required scope', UserScope.Organizations);
+  }
+
+  /** Keyed on the token's own scopes: the request may omit `scope` and still pass `organization_id`. */
+  if (
+    organizationId &&
+    getOidcScopesNoLongerAllowed(grant, client, refreshToken.scopes).includes(
+      UserScope.Organizations
+    )
+  ) {
+    throw new InsufficientScope(
+      'requested scope is no longer allowed for the client',
+      UserScope.Organizations
+    );
   }
   /* === End RFC 0001 === */
 
@@ -226,6 +255,15 @@ export const buildHandler: (
 
   /** The scopes requested by the client. If not provided, use the scopes from the refresh token. */
   const scope = params.scope ? requestParamScopes : refreshToken.scopes;
+  /**
+   * Dropped rather than rejected: the client usually sends no `scope` on refresh, so rejecting
+   * would turn a configuration change into an outage it has no way to fix.
+   *
+   * Kept separate from `scope`, which resource and organization issuance match by name — a scope
+   * name there may collide with an OP scope name.
+   */
+  const scopesNoLongerAllowed = getOidcScopesNoLongerAllowed(grant, client, scope);
+  const oidcScope = new Set([...scope].filter((name) => !scopesNoLongerAllowed.includes(name)));
 
   // Note, issue organization token only if `params.resource` is not present.
   // If resource is set, we will issue normal access token with extra claim "organization_id",
@@ -268,7 +306,7 @@ export const buildHandler: (
       );
     } else {
       at.claims = refreshToken.claims;
-      at.scope = grant.getOIDCScopeFiltered(scope);
+      at.scope = grant.getOIDCScopeFiltered(oidcScope);
     }
   }
 
@@ -297,7 +335,7 @@ export const buildHandler: (
       token.scope = 'openid';
     } else {
       // @ts-expect-error -- code from oidc-provider
-      token.scope = grant.getOIDCScopeFiltered(scope);
+      token.scope = grant.getOIDCScopeFiltered(oidcScope);
     }
     // @ts-expect-error -- code from oidc-provider
     token.mask = claims;

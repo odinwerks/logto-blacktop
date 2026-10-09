@@ -45,6 +45,14 @@ import { i18next } from '#src/utils/i18n.js';
 import { type SubscriptionLibrary } from '../libraries/subscription.js';
 import koaTokenUsageGuard from '../middleware/koa-token-usage-guard.js';
 
+import {
+  appLevelAccessControlMetadataKey,
+  assertUserHasApplicationAccessForOidc,
+  extraClientMetadataKeys,
+  hasAppLevelAccessControlChecked,
+  markAppLevelAccessControlCheckedForOidcContext,
+} from './application-access-control.js';
+import { getOidcScopesNoLongerAllowed } from './client-scope.js';
 import defaults from './defaults.js';
 import { deviceFlowConfig, defaultDeviceCodeTtl } from './device-flow.js';
 import {
@@ -263,6 +271,56 @@ export default function initOidc(
         }
       },
     },
+    loadExistingGrant: async (ctx) => {
+      const { account, client, provider, result, session } = ctx.oidc;
+      const grantId =
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Keep oidc-provider's default loadExistingGrant fallback semantics.
+        result?.consent?.grantId || (client && session?.grantIdFor(client.clientId));
+      const shouldCheckApplicationAccess =
+        account &&
+        client &&
+        !hasAppLevelAccessControlChecked(result, client.clientId, account.accountId);
+
+      if (grantId && shouldCheckApplicationAccess) {
+        await assertUserHasApplicationAccessForOidc(
+          libraries.applicationAccessControl,
+          client.clientId,
+          account.accountId,
+          ((metadata) => typeof metadata === 'boolean' ? metadata : undefined)(
+            client.metadata().appLevelAccessControlEnabled
+          )
+        );
+        markAppLevelAccessControlCheckedForOidcContext(
+          ctx.oidc,
+          client.clientId,
+          account.accountId
+        );
+      }
+
+      if (grantId) {
+        const grant = await provider.Grant.find(String(grantId));
+
+        /**
+         * The resume and device verification stacks reload the client but never re-run
+         * `check_scope`, and the consent prompt counts scopes already in the Grant as encountered.
+         * Reject the way a new authorization request for the same scopes would be.
+         */
+        const scopesNoLongerAllowed = getOidcScopesNoLongerAllowed(
+          grant,
+          client,
+          ctx.oidc.requestParamScopes
+        );
+
+        if (scopesNoLongerAllowed.length > 0) {
+          throw new errors.InvalidScope(
+            'requested scope is no longer allowed for the client',
+            scopesNoLongerAllowed.join(' ')
+          );
+        }
+
+        return grant;
+      }
+    },
     extraParams: Object.values(ExtraParamsKey),
     extraTokenClaims: async (ctx, token) => {
       const [tokenExchangeClaims, organizationApiResourceClaims, jwtCustomizedClaims] =
@@ -293,8 +351,20 @@ export default function initOidc(
       };
     },
     extraClientMetadata: {
-      properties: Object.values(CustomClientMetadataKey),
+      properties: [...extraClientMetadataKeys],
       validator: (_, key, value) => {
+        if (key === appLevelAccessControlMetadataKey) {
+          if (value === undefined) {
+            return;
+          }
+
+          if (typeof value !== 'boolean') {
+            throw new errors.InvalidClientMetadata(appLevelAccessControlMetadataKey);
+          }
+
+          return;
+        }
+
         validateCustomClientMetadata(key, value);
       },
     },
@@ -311,6 +381,12 @@ export default function initOidc(
       const user = await tryThat(findUserById(sub), () => {
         throw new errors.InvalidGrant('user not found');
       });
+
+      // Suspension revokes the user's sessions and tokens; reject here as well so any token
+      // that survives a partial revocation still cannot be used.
+      if (user.isSuspended) {
+        throw new errors.InvalidGrant('user is suspended');
+      }
 
       return {
         accountId: sub,
@@ -416,7 +492,7 @@ export default function initOidc(
   });
 
   addOidcEventListeners(tenantId, oidc, queries);
-  registerGrants(oidc, envSet, queries);
+  registerGrants(oidc, envSet, queries, libraries);
 
   // Provide audit log context for event listeners
   oidc.use(koaAuditLog(queries));

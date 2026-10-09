@@ -1,7 +1,10 @@
-import { UsersPasswordEncryptionMethod } from '@logto/schemas';
+import { type User, UsersPasswordEncryptionMethod } from '@logto/schemas';
+import { differenceInDays } from 'date-fns';
 import { argon2Verify, bcryptVerify, md5, sha1, sha256 } from 'hash-wasm';
 
 import RequestError from '#src/errors/RequestError/index.js';
+import type Queries from '#src/tenants/Queries.js';
+import assertThat from '#src/utils/assert-that.js';
 import { legacyVerify } from '#src/utils/password.js';
 
 /**
@@ -78,4 +81,81 @@ export const isPasswordValid = async ({
       return legacyVerify(passwordEncrypted, password);
     }
   }
+};
+
+export type PasswordExpirationReminder = {
+  daysUntilExpiration: number;
+};
+
+export type PasswordExpirationResult =
+  | {
+      kind: 'success';
+      user: User;
+    }
+  | {
+      kind: 'reminder';
+      user: User;
+      reminder: PasswordExpirationReminder;
+    };
+
+/**
+ * Checks the password expiration policy after the password has already been verified.
+ *
+ * Shared by every password sign-in path so a policy change cannot be bypassed through one
+ * router. Callers keep this outside sentinel guards so expired passwords do not count as
+ * failed credential attempts.
+ *
+ * @throws RequestError with 422 status if the password is already expired.
+ * @throws RequestError with 500 status if the expiration policy is misconfigured.
+ */
+export const verifyPasswordExpiration = async (
+  queries: Queries,
+  user: User
+): Promise<PasswordExpirationResult> => {
+  const { passwordExpiration } = await queries.signInExperiences.findDefaultSignInExperience();
+
+  if (!passwordExpiration.enabled) {
+    return {
+      kind: 'success',
+      user,
+    };
+  }
+
+  assertThat(
+    passwordExpiration.validPeriodDays !== undefined && passwordExpiration.validPeriodDays > 0,
+    new RequestError({
+      code: 'sign_in_experiences.password_expiration_invalid_period_days',
+      status: 500,
+    })
+  );
+
+  // validPeriodDays is guaranteed to be defined and > 0 by the assertThat above
+  const { validPeriodDays } = passwordExpiration;
+  const referenceDate = new Date(user.passwordUpdatedAt ?? user.createdAt);
+  const passwordAgeInDays = differenceInDays(new Date(), referenceDate);
+
+  const isPasswordExpired = user.isPasswordExpired || passwordAgeInDays >= validPeriodDays;
+
+  assertThat(!isPasswordExpired, new RequestError({ code: 'password.expired', status: 422 }));
+
+  const reminderPeriodDays = passwordExpiration.reminderPeriodDays ?? 0;
+  const reminderDaysUntilExpiration = validPeriodDays - passwordAgeInDays;
+
+  const isInReminderWindow =
+    reminderPeriodDays > 0 && reminderDaysUntilExpiration <= reminderPeriodDays;
+
+  if (!isInReminderWindow) {
+    return {
+      kind: 'success',
+      user,
+    };
+  }
+
+  return {
+    kind: 'reminder',
+    user,
+    reminder: {
+      daysUntilExpiration: reminderDaysUntilExpiration,
+    },
+  };
 };

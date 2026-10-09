@@ -12,6 +12,7 @@ import { type Optional, isKeyInObject } from '@silverhand/essentials';
 import { sha256 } from 'hash-wasm';
 
 import RequestError from '#src/errors/RequestError/index.js';
+import { verifyPasswordExpiration } from '#src/libraries/user-password-verification.js';
 import { verifySsoOnlyEmailIdentifier } from '#src/libraries/verification-helpers/single-sign-on-guard.js';
 import { verifySocialIdentity } from '#src/libraries/verification-helpers/social-verification.js';
 import type { WithLogContext } from '#src/middleware/koa-audit-log.js';
@@ -60,6 +61,10 @@ const verifyPasswordIdentifier = async (
   const { isSuspended, id } = verifiedUser;
 
   assertThat(!isSuspended, new RequestError({ code: 'user.suspended', status: 401 }));
+
+  // Same policy as the experience API: an expired password cannot complete sign-in. The
+  // deprecated interaction API has no slot to surface the reminder, so it is dropped here.
+  await verifyPasswordExpiration(tenant.queries, verifiedUser);
 
   return { key: 'accountId', value: id };
 };
@@ -252,6 +257,12 @@ const verifyIdentifierPayload: typeof identifierPayloadVerification = async (
       return [undefined, error instanceof Error ? error : new Error(String(error))];
     }
   })();
+
+  // An expired password means the credentials were still correct; like the experience API,
+  // do not count it as a failed credential attempt.
+  if (error instanceof RequestError && error.code === 'password.expired') {
+    throw error;
+  }
 
   const actionResult = error ? SentinelActionResult.Failed : SentinelActionResult.Success;
 
