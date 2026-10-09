@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: recursive
 
       # compare the current codebase with HEAD and check if there are any changes under the alterations folder
       # if the event is a pull request, we need to compare the merge base with HEAD, otherwise we compare the current commit with the previous commit
