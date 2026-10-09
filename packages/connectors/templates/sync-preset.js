@@ -62,6 +62,16 @@ const sync = async () => {
         const packageDirectory = path.join(packagesDirectory, packageName);
         const packageJsonPath = path.join(packageDirectory, 'package.json');
 
+        // Skip directories without a package.json (e.g. an uninitialized git submodule in CI).
+        if (
+          !(await fs.access(packageJsonPath).then(
+            () => true,
+            () => false
+          ))
+        ) {
+          return;
+        }
+
         // Sync package.json
         const current = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'));
 
