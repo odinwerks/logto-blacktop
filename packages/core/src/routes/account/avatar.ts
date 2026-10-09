@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 import { UserScope } from '@logto/core-kit';
 import {
   AccountCenterControlValue,
-  adminTenantId,
   allowAvatarMimeTypes,
   maxUploadFileSize,
   StorageProvider,
@@ -19,6 +18,7 @@ import { assertFirstPartyClient } from '#src/utils/assert-first-party-client.js'
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
 import { detectImageType } from '#src/utils/file.js';
+import { storeUserAvatar } from '#src/utils/storage/assets.js';
 import { buildStorage } from '#src/utils/storage/index.js';
 
 import { type RouterInitArgs, type UserRouter } from '../types.js';
@@ -81,44 +81,23 @@ export default function avatarRoutes<T extends UserRouter>(
         'storage.not_configured',
         500
       );
-      const storage = buildStorage(storageProviderConfig);
-
-      // Build storage keys
-      const { extension } = detected;
-      const finalKey = `${adminTenantId}/user-assets/${userId}/you.${extension}`;
-      const userPrefix = `${adminTenantId}/user-assets/${userId}/you`;
-
-      // Upload directly to final key (PutObject overwrites same-key atomically)
-      try {
-        await storage.uploadFile(fileBuffer, finalKey, {
-          contentType: detected.mime,
-          publicUrl: storageProviderConfig.publicUrl,
-          isPublic: true,
-        });
-      } catch {
+      // Overwrite `you.{ext}`, then drop the user's other avatar objects
+      const consoleLog = getConsoleLogFromContext(ctx);
+      const avatarUrl = await storeUserAvatar({
+        storage: buildStorage(storageProviderConfig),
+        storageProviderConfig,
+        userId,
+        data: fileBuffer,
+        contentType: detected.mime,
+        extension: detected.extension,
+        endpointOrigin: envSet.endpoint.origin,
+        logError: (message, error) => {
+          consoleLog.error(message, error);
+        },
+      }).catch((error: unknown) => {
+        consoleLog.error(error);
         throw new RequestError({ code: 'storage.upload_error', status: 500 });
-      }
-
-      // Cleanup old files with other extensions (best-effort, don't fail)
-      const { listFiles, deleteFile } = storage;
-      try {
-        if (listFiles && deleteFile) {
-          const existingFiles = await listFiles(userPrefix);
-          await Promise.all(
-            existingFiles.filter((key) => key !== finalKey).map(async (key) => deleteFile(key))
-          );
-        }
-      } catch (error: unknown) {
-        getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
-      }
-
-      // Build the final URL with cache-busting: prefer the configured CDN base,
-      // otherwise serve through the user-assets proxy route on this endpoint
-      const avatarUrl = `${
-        storageProviderConfig.publicUrl
-          ? `${storageProviderConfig.publicUrl}/${finalKey}`
-          : `${envSet.endpoint.origin}/api/user-assets/${userId}/you.${extension}`
-      }?v=${Date.now()}`;
+      });
 
       // Update user record
       const updatedUser = await updateUserById(userId, {

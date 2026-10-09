@@ -27,8 +27,11 @@ import {
   encryptUserPassword,
 } from '#src/libraries/user.utils.js';
 import koaGuard from '#src/middleware/koa-guard.js';
+import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
+import { removeUserAssets } from '#src/utils/storage/assets.js';
+import { buildStorage } from '#src/utils/storage/index.js';
 
 import { parseLegacyPassword } from '../../utils/password.js';
 import { captureDeveloperEvent } from '../../utils/posthog.js';
@@ -529,6 +532,16 @@ export default function adminUserBasicsRoutes<T extends ManagementApiRouter>(
       }
 
       await deleteUserById(userId);
+
+      // Blacktop: the user's avatar objects go with the user. Best-effort: the user is already gone.
+      const { storageProviderConfig } = SystemContext.shared;
+      if (storageProviderConfig) {
+        try {
+          await removeUserAssets(buildStorage(storageProviderConfig), userId);
+        } catch (error: unknown) {
+          getConsoleLogFromContext(ctx).error(`Failed to delete the assets of user ${userId}.`, error);
+        }
+      }
 
       if (tenantId === adminTenantId) {
         captureDeveloperEvent(userId, ProductEvent.DeveloperDeleted);

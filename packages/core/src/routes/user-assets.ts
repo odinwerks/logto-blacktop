@@ -15,6 +15,7 @@ import koaGuard from '#src/middleware/koa-guard.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
+import { getBrandingAssetKey, sanitizeAssetFilename } from '#src/utils/storage/assets.js';
 import { buildStorage } from '#src/utils/storage/index.js';
 import { getTenantId } from '#src/utils/tenant.js';
 
@@ -74,11 +75,11 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
       const { storageProviderConfig } = SystemContext.shared;
       assertThat(storageProviderConfig, 'storage.not_configured');
 
-      const userId = ctx.auth.id;
       const storage = buildStorage(storageProviderConfig);
-      // Blacktop: deterministic branding key — `app-assets-serve.ts` proxies `GET
-      // /api/app-assets/:filename` from this prefix.
-      const objectKey = `${tenantId}/app-assets/branding/${file.originalFilename}`;
+      // Blacktop: deterministic branding key (same name replaces the object) — `app-assets-serve.ts`
+      // proxies `GET /api/app-assets/:filename` from this prefix.
+      const filename = sanitizeAssetFilename(file.originalFilename);
+      const objectKey = getBrandingAssetKey(tenantId, filename);
       const cacheBust = Date.now();
 
       try {
@@ -90,12 +91,13 @@ export default function userAssetsRoutes<T extends ManagementApiRouter>(
           });
           ctx.body = { url: `${url}?v=${cacheBust}` } satisfies UserAssets;
         } else {
+          // Only the proxy route reads it, so the object stays private
           await storage.uploadFile(await readFile(file.filepath), objectKey, {
             contentType: file.mimetype,
-            isPublic: true,
+            isPublic: false,
           });
           ctx.body = {
-            url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}?v=${cacheBust}`,
+            url: `${tenant.envSet.endpoint.origin}/api/app-assets/${filename}?v=${cacheBust}`,
           } satisfies UserAssets;
         }
       } catch (error: unknown) {

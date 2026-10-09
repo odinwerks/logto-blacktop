@@ -2,6 +2,8 @@ import { StorageProvider } from '@logto/schemas';
 import { createMockUtils, pickDefault } from '@logto/shared/esm';
 
 import { mockUser } from '#src/__mocks__/index.js';
+import koaErrorHandler from '#src/middleware/koa-error-handler.js';
+import koaI18next from '#src/middleware/koa-i18next.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import { MockTenant } from '#src/test-utils/tenant.js';
 import { createRequester } from '#src/utils/test-utils.js';
@@ -15,7 +17,7 @@ const mockListFilesFunction = jest.fn();
 const mockDeleteFileFunction = jest.fn();
 
 mockEsm('#src/utils/storage/index.js', () => ({
-  buildUploadFile: jest.fn(() => ({
+  buildStorage: jest.fn(() => ({
     uploadFile: mockUploadFileFunction,
     listFiles: mockListFilesFunction,
     deleteFile: mockDeleteFileFunction,
@@ -24,9 +26,14 @@ mockEsm('#src/utils/storage/index.js', () => ({
 
 const userAssetsRoutes = await pickDefault(import('./user-assets.js'));
 
+// The route picks the avatar path from the magic bytes, not the claimed MIME type
+const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+const jpeg = Buffer.from('ffd8ffe000104a464946', 'hex');
+
 describe('me user-assets routes', () => {
   const tenantContext = new MockTenant();
   const meRequest = createRequester({
+    middlewares: [koaI18next(), koaErrorHandler()] as never[],
     authedRoutes: [
       (router) => {
         router.use(async (ctx, next) => {
@@ -50,7 +57,7 @@ describe('me user-assets routes', () => {
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    jest.spyOn(Date, 'now').mockRestore();
   });
 
   it('GET /user-assets/service-status should return not_configured when storage is not set', async () => {
@@ -107,15 +114,15 @@ describe('me user-assets routes', () => {
     expect(response.body.code).toBe('guard.mime_type_not_allowed');
   });
 
-  it('POST /user-assets should return 500 when storage is not configured', async () => {
+  it('POST /user-assets should return 400 when storage is not configured', async () => {
     const response = await meRequest
       .post('/user-assets')
       .attach('file', Buffer.from('test'), { filename: 'test.png', contentType: 'image/png' });
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(400);
     expect(response.body.code).toBe('storage.not_configured');
   });
 
-  it('POST /user-assets with non-image should use app-assets path (publicUrl)', async () => {
+  it('POST /user-assets with non-image should use the branding path (publicUrl)', async () => {
     // eslint-disable-next-line @silverhand/fp/no-mutation
     SystemContext.shared.storageProviderConfig = {
       provider: StorageProvider.S3Storage,
@@ -127,7 +134,7 @@ describe('me user-assets routes', () => {
     };
 
     mockUploadFileFunction.mockResolvedValue({
-      url: 'https://cdn.example.com/admin/app-assets/logo.zip',
+      url: 'https://cdn.example.com/admin/app-assets/branding/logo.zip',
     });
 
     const response = await meRequest
@@ -135,14 +142,16 @@ describe('me user-assets routes', () => {
       .attach('file', Buffer.from('zip'), { filename: 'logo.zip', contentType: 'application/zip' });
 
     expect(response.status).toBe(200);
-    expect(response.body.url).toBe('https://cdn.example.com/admin/app-assets/logo.zip');
+    expect(response.body.url).toMatch(
+      /^https:\/\/cdn\.example\.com\/admin\/app-assets\/branding\/logo\.zip\?v=\d+$/
+    );
     expect(mockUploadFileFunction).toHaveBeenCalledTimes(1);
-    expect(mockUploadFileFunction.mock.calls[0]?.[1]).toBe('admin/app-assets/logo.zip');
+    expect(mockUploadFileFunction.mock.calls[0]?.[1]).toBe('admin/app-assets/branding/logo.zip');
     expect(mockListFilesFunction).not.toHaveBeenCalled();
     expect(mockDeleteFileFunction).not.toHaveBeenCalled();
   });
 
-  it('POST /user-assets with non-image should use app-assets path (no publicUrl)', async () => {
+  it('POST /user-assets with a non-avatar image should use the branding path (no publicUrl)', async () => {
     // eslint-disable-next-line @silverhand/fp/no-mutation
     SystemContext.shared.storageProviderConfig = {
       provider: StorageProvider.S3Storage,
@@ -156,21 +165,23 @@ describe('me user-assets routes', () => {
 
     const response = await meRequest
       .post('/user-assets')
-      .attach('file', Buffer.from('zip'), { filename: 'logo.zip', contentType: 'application/zip' });
+      .attach('file', Buffer.from('<svg/>'), { filename: 'my logo.svg', contentType: 'image/svg+xml' });
 
     expect(response.status).toBe(200);
-    expect(response.body.url).toBe(
-      `${tenantContext.envSet.endpoint.origin}/api/app-assets/logo.zip`
+    // Served by `/api/app-assets/:filename`, which reads `{tenantId}/app-assets/branding/`
+    expect(response.body.url).toMatch(
+      new RegExp(`^${tenantContext.envSet.endpoint.origin}/api/app-assets/my-logo\\.svg\\?v=\\d+$`)
     );
     expect(mockUploadFileFunction).toHaveBeenCalledTimes(1);
-    expect(mockUploadFileFunction.mock.calls[0]?.[1]).toBe('admin/app-assets/logo.zip');
+    expect(mockUploadFileFunction.mock.calls[0]?.[1]).toBe('admin/app-assets/branding/my-logo.svg');
+    expect(mockUploadFileFunction.mock.calls[0]?.[2]).toMatchObject({ isPublic: false });
     expect(mockListFilesFunction).not.toHaveBeenCalled();
     expect(mockDeleteFileFunction).not.toHaveBeenCalled();
   });
 
   it('POST /user-assets with image should use user-assets path, cleanup old files, and add cache-busting (publicUrl)', async () => {
     const now = Date.now();
-    jest.useFakeTimers().setSystemTime(now);
+    jest.spyOn(Date, 'now').mockReturnValue(now);
 
     // eslint-disable-next-line @silverhand/fp/no-mutation
     SystemContext.shared.storageProviderConfig = {
@@ -194,7 +205,7 @@ describe('me user-assets routes', () => {
 
     const response = await meRequest
       .post('/user-assets')
-      .attach('file', Buffer.from('png'), { filename: 'avatar.png', contentType: 'image/png' });
+      .attach('file', png, { filename: 'avatar.png', contentType: 'image/png' });
 
     expect(response.status).toBe(200);
     expect(response.body.url).toBe(
@@ -204,19 +215,18 @@ describe('me user-assets routes', () => {
     expect(mockUploadFileFunction.mock.calls[0]?.[1]).toBe('admin/user-assets/foo/you.png');
 
     expect(mockListFilesFunction).toHaveBeenCalledTimes(1);
-    expect(mockListFilesFunction).toHaveBeenCalledWith('admin/user-assets/foo/you.');
+    expect(mockListFilesFunction).toHaveBeenCalledWith('admin/user-assets/foo/');
 
     expect(mockDeleteFileFunction).toHaveBeenCalledTimes(2);
     expect(mockDeleteFileFunction).toHaveBeenCalledWith('admin/user-assets/foo/you.jpg');
     expect(mockDeleteFileFunction).toHaveBeenCalledWith('admin/user-assets/foo/you.webp');
     expect(mockDeleteFileFunction).not.toHaveBeenCalledWith('admin/user-assets/foo/you.png');
 
-    jest.useRealTimers();
   });
 
   it('POST /user-assets with image should use user-assets path, cleanup, and add cache-busting (no publicUrl)', async () => {
     const now = Date.now();
-    jest.useFakeTimers().setSystemTime(now);
+    jest.spyOn(Date, 'now').mockReturnValue(now);
 
     // eslint-disable-next-line @silverhand/fp/no-mutation
     SystemContext.shared.storageProviderConfig = {
@@ -233,7 +243,7 @@ describe('me user-assets routes', () => {
 
     const response = await meRequest
       .post('/user-assets')
-      .attach('file', Buffer.from('png'), { filename: 'avatar.png', contentType: 'image/png' });
+      .attach('file', png, { filename: 'avatar.png', contentType: 'image/png' });
 
     expect(response.status).toBe(200);
     expect(response.body.url).toBe(
@@ -243,16 +253,15 @@ describe('me user-assets routes', () => {
     expect(mockUploadFileFunction.mock.calls[0]?.[1]).toBe('admin/user-assets/foo/you.png');
 
     expect(mockListFilesFunction).toHaveBeenCalledTimes(1);
-    expect(mockListFilesFunction).toHaveBeenCalledWith('admin/user-assets/foo/you.');
+    expect(mockListFilesFunction).toHaveBeenCalledWith('admin/user-assets/foo/');
 
     expect(mockDeleteFileFunction).not.toHaveBeenCalled();
 
-    jest.useRealTimers();
   });
 
   it('POST /user-assets with image should still return 200 when cleanup fails (best-effort)', async () => {
     const now = Date.now();
-    jest.useFakeTimers().setSystemTime(now);
+    jest.spyOn(Date, 'now').mockReturnValue(now);
 
     // eslint-disable-next-line @silverhand/fp/no-mutation
     SystemContext.shared.storageProviderConfig = {
@@ -271,14 +280,13 @@ describe('me user-assets routes', () => {
 
     const response = await meRequest
       .post('/user-assets')
-      .attach('file', Buffer.from('jpg'), { filename: 'avatar.jpg', contentType: 'image/jpeg' });
+      .attach('file', jpeg, { filename: 'avatar.jpg', contentType: 'image/jpeg' });
 
     expect(response.status).toBe(200);
     expect(response.body.url).toBe(
       `https://cdn.example.com/admin/user-assets/foo/you.jpg?v=${now}`
     );
 
-    jest.useRealTimers();
   });
 
   it('POST /user-assets should return 500 when upload fails', async () => {
@@ -295,7 +303,7 @@ describe('me user-assets routes', () => {
 
     const response = await meRequest
       .post('/user-assets')
-      .attach('file', Buffer.from('png'), { filename: 'avatar.png', contentType: 'image/png' });
+      .attach('file', png, { filename: 'avatar.png', contentType: 'image/png' });
 
     expect(response.status).toBe(500);
     expect(response.body.code).toBe('storage.upload_error');

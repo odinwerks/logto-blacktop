@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises';
 
-import { consoleLog } from '@logto/cli/lib/utils.js';
 import {
   userAssetsServiceStatusGuard,
   allowUploadMimeTypes,
@@ -9,6 +8,7 @@ import {
   userAssetsGuard,
   adminTenantId,
   uploadFileGuard,
+  allowAvatarMimeTypes,
 } from '@logto/schemas';
 import { object } from 'zod';
 
@@ -18,9 +18,18 @@ import type { RouterInitArgs } from '#src/routes/types.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
+import { detectImageType } from '#src/utils/file.js';
+import {
+  getBrandingAssetKey,
+  isPublicAsset,
+  sanitizeAssetFilename,
+  storeUserAvatar,
+} from '#src/utils/storage/assets.js';
 import { buildStorage } from '#src/utils/storage/index.js';
 
 import type { AuthedMeRouter } from './types.js';
+
+const avatarMimeTypes: readonly string[] = allowAvatarMimeTypes;
 
 /**
  * Duplicated from `/user-assets` management API and used specifically for admin tenant.
@@ -79,40 +88,48 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
       const { storageProviderConfig } = SystemContext.shared;
       assertThat(storageProviderConfig, 'storage.not_configured');
 
-      const userId = ctx.auth.id;
-      const isImage = file.mimetype.startsWith('image/');
-      const extension = file.mimetype.split('/')[1] ?? 'bin';
-
-      // Blacktop: deterministic keys — avatars overwrite `user-assets/{userId}/you.{ext}` so the
-      // proxy URL `/api/user-assets/:userId/:filename` stays stable; other uploads go to
-      // `app-assets/` which `app-assets-serve.ts` proxies.
+      // Blacktop: deterministic keys. An avatar image (by its magic bytes, not the claimed type)
+      // replaces the user's `user-assets/{userId}/you.{ext}`; anything else (zip, svg, ico, ...) is
+      // stored like a branding asset, which `/api/app-assets/:filename` proxies.
+      const data = await readFile(file.filepath);
+      const detected = detectImageType(data);
       const storage = buildStorage(storageProviderConfig);
-      const objectKey = isImage
-        ? `${adminTenantId}/user-assets/${userId}/you.${extension}`
-        : `${adminTenantId}/app-assets/${file.originalFilename}`;
+      const { publicUrl } = storageProviderConfig;
+      const consoleLog = getConsoleLogFromContext(ctx);
 
       try {
-        if (storageProviderConfig.publicUrl) {
-          const { url } = await storage.uploadFile(await readFile(file.filepath), objectKey, {
-            contentType: file.mimetype,
-            publicUrl: storageProviderConfig.publicUrl,
-            isPublic: true,
+        if (detected && avatarMimeTypes.includes(detected.mime)) {
+          const url = await storeUserAvatar({
+            storage,
+            storageProviderConfig,
+            userId: ctx.auth.id,
+            data,
+            contentType: detected.mime,
+            extension: detected.extension,
+            endpointOrigin: tenant.envSet.endpoint.origin,
+            logError: (message, error) => {
+              consoleLog.error(message, error);
+            },
           });
-
-          ctx.body = isImage ? { url: `${url}?v=${Date.now()}` } : ({ url } satisfies UserAssets);
+          ctx.body = { url } satisfies UserAssets;
         } else {
-          await storage.uploadFile(await readFile(file.filepath), objectKey, {
-            contentType: file.mimetype,
-            isPublic: true,
-          });
-
-          ctx.body = isImage
-            ? {
-                url: `${tenant.envSet.endpoint.origin}/api/user-assets/${userId}/you.${extension}?v=${Date.now()}`,
-              }
-            : ({
-                url: `${tenant.envSet.endpoint.origin}/api/app-assets/${file.originalFilename}`,
-              } satisfies UserAssets);
+          const filename = sanitizeAssetFilename(file.originalFilename);
+          const uploaded = await storage.uploadFile(
+            data,
+            getBrandingAssetKey(adminTenantId, filename),
+            {
+              contentType: file.mimetype,
+              publicUrl,
+              isPublic: isPublicAsset(storageProviderConfig),
+            }
+          );
+          ctx.body = {
+            url: `${
+              publicUrl
+                ? uploaded.url
+                : `${tenant.envSet.endpoint.origin}/api/app-assets/${filename}`
+            }?v=${Date.now()}`,
+          } satisfies UserAssets;
         }
       } catch (error: unknown) {
         consoleLog.error(error);
@@ -120,23 +137,6 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
           code: 'storage.upload_error',
           status: 500,
         });
-      }
-
-      // Upload succeeded — clean up old avatars with different extensions (images only)
-      if (isImage) {
-        try {
-          if (storage.listFiles && storage.deleteFile) {
-            const prefix = `${adminTenantId}/user-assets/${userId}/you.`;
-            const existingFiles = await storage.listFiles(prefix);
-            await Promise.all(
-              existingFiles
-                .filter((key) => key !== objectKey)
-                .map(async (key) => storage.deleteFile?.(key))
-            );
-          }
-        } catch (error: unknown) {
-          getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
-        }
       }
 
       return next();

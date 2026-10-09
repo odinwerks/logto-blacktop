@@ -24,7 +24,7 @@ SystemContext.shared.storageProviderConfig = storageProviderConfig;
 const mockUploadFile = jest.fn(async () => ({ url: 'http://localhost:9000/test-bucket/key' }));
 
 await mockEsmWithActual('#src/utils/storage/index.js', () => ({
-  buildUploadFile: jest.fn(() => ({
+  buildStorage: jest.fn(() => ({
     uploadFile: mockUploadFile,
   })),
 }));

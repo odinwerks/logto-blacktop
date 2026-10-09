@@ -23,6 +23,12 @@ type DownloadFileResponse = {
   contentLength?: number;
   contentType?: string;
   readableStreamBody?: NodeJS.ReadableStream;
+  /**
+   * Blacktop: the stored object's own validators (only the S3 provider sets them), so a proxy can
+   * answer conditional requests without hashing the stream.
+   */
+  etag?: string;
+  lastModified?: Date;
 };
 
 /**
@@ -64,5 +70,5 @@ export type Storage = {
 export type StorageProvider = Storage & {
   deleteFile?: (objectKey: string) => Promise<void>;
   listFiles?: (prefix: string) => Promise<string[]>;
-  copyFile?: (sourceKey: string, destKey: string) => Promise<void>;
+  copyFile?: (sourceKey: string, destKey: string, isPublic?: boolean) => Promise<void>;
 };

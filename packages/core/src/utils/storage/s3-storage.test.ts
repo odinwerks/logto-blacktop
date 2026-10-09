@@ -1,239 +1,237 @@
+import { Readable } from 'node:stream';
+
+import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3ServiceException,
+} from '@aws-sdk/client-s3';
 import { createMockUtils } from '@logto/shared/esm';
 
 const { jest } = import.meta;
-
-const mockS3Send = jest.fn();
-
 const { mockEsmWithActual } = createMockUtils(jest);
 
-const {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-  HeadObjectCommand,
-  ListObjectsV2Command,
-  GetObjectCommand,
-  CopyObjectCommand,
-} = await mockEsmWithActual('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn().mockImplementation(() => ({
-    send: mockS3Send,
-  })),
-  PutObjectCommand: jest.fn(),
-  DeleteObjectCommand: jest.fn(),
-  HeadObjectCommand: jest.fn(),
-  ListObjectsV2Command: jest.fn(),
-  GetObjectCommand: jest.fn(),
-  CopyObjectCommand: jest.fn(),
+const send = jest.fn();
+
+await mockEsmWithActual('@aws-sdk/client-s3', () => ({
+  S3Client: jest.fn(() => ({ send })),
 }));
 
 const { buildS3Storage } = await import('./s3-storage.js');
 
-describe('buildS3Storage', () => {
-  const bucket = 'test-bucket';
-  const region = 'us-east-1';
-  const accessKeyId = 'test-access-key';
-  const secretAccessKey = 'test-secret-key';
+const storage = buildS3Storage({
+  bucket: 'bucket',
+  accessKeyId: 'accessKeyId',
+  secretAccessKey: 'secretAccessKey',
+  endpoint: 'http://localhost:9000',
+  forcePathStyle: true,
+});
 
-  const storage = buildS3Storage({
-    bucket,
-    region,
-    accessKeyId,
-    secretAccessKey,
-    endpoint: 'https://s3.us-east-1.amazonaws.com',
+const buildServiceException = (httpStatusCode: number) =>
+  new S3ServiceException({
+    name: httpStatusCode === 404 ? 'NotFound' : 'Forbidden',
+    $fault: 'client',
+    $metadata: { httpStatusCode },
   });
 
-  beforeEach(() => {
-    mockS3Send.mockReset();
+describe('buildS3Storage()', () => {
+  afterEach(() => {
+    send.mockReset();
   });
 
-  describe('deleteFile', () => {
-    it('deletes a file successfully', async () => {
-      mockS3Send.mockResolvedValue({});
+  describe('uploadFile()', () => {
+    it('should upload a publicly readable object by default', async () => {
+      await expect(
+        storage.uploadFile(Buffer.from('foo'), 'foo.txt', { contentType: 'text/plain' })
+      ).resolves.toEqual({ url: 'http://localhost:9000/bucket/foo.txt' });
 
-      await storage.deleteFile('my-file.txt');
-
-      expect(mockS3Send).toHaveBeenCalledTimes(1);
-      const command = mockS3Send.mock.calls[0][0];
-      expect(command).toBeInstanceOf(DeleteObjectCommand);
-      expect(command.input.Bucket).toBe(bucket);
-      expect(command.input.Key).toBe('my-file.txt');
+      const [command] = send.mock.calls[0] as [PutObjectCommand];
+      expect(command).toBeInstanceOf(PutObjectCommand);
+      expect(command.input).toMatchObject({
+        Bucket: 'bucket',
+        Key: 'foo.txt',
+        ContentType: 'text/plain',
+        ACL: 'public-read',
+      });
     });
 
-    it('swallows NotFound errors', async () => {
-      const notFoundError = new Error('Not Found');
-      notFoundError.name = 'NotFound';
-      mockS3Send.mockRejectedValue(notFoundError);
+    it('should not send an ACL for a private object', async () => {
+      await storage.uploadFile(Buffer.from('foo'), 'foo.txt', { isPublic: false });
 
-      await expect(storage.deleteFile('nonexistent.txt')).resolves.toBeUndefined();
+      const [command] = send.mock.calls[0] as [PutObjectCommand];
+      expect(command.input.ACL).toBeUndefined();
     });
 
-    it('re-throws other errors', async () => {
-      const accessDeniedError = new Error('Access Denied');
-      mockS3Send.mockRejectedValue(accessDeniedError);
+    it('should overwrite the same key on a re-upload', async () => {
+      await storage.uploadFile(Buffer.from('one'), 'admin/user-assets/foo/you.png');
+      await storage.uploadFile(Buffer.from('two'), 'admin/user-assets/foo/you.png');
 
-      await expect(storage.deleteFile('protected.txt')).rejects.toThrow('Access Denied');
-    });
-  });
-
-  describe('isFileExisted', () => {
-    it('returns true when file exists', async () => {
-      mockS3Send.mockResolvedValue({ ContentType: 'text/plain' });
-
-      const result = await storage.isFileExisted('my-file.txt');
-
-      expect(result).toBe(true);
-      const command = mockS3Send.mock.calls[0][0];
-      expect(command).toBeInstanceOf(HeadObjectCommand);
-      expect(command.input.Bucket).toBe(bucket);
-      expect(command.input.Key).toBe('my-file.txt');
-    });
-
-    it('returns false when file is not found', async () => {
-      const notFoundError = new Error('Not Found');
-      notFoundError.name = 'NotFound';
-      mockS3Send.mockRejectedValue(notFoundError);
-
-      const result = await storage.isFileExisted('nonexistent.txt');
-
-      expect(result).toBe(false);
-    });
-
-    it('re-throws other errors', async () => {
-      const serverError = new Error('Internal Server Error');
-      mockS3Send.mockRejectedValue(serverError);
-
-      await expect(storage.isFileExisted('any-file.txt')).rejects.toThrow('Internal Server Error');
+      const keys = send.mock.calls.map(([command]) => (command as PutObjectCommand).input.Key);
+      expect(keys).toEqual(['admin/user-assets/foo/you.png', 'admin/user-assets/foo/you.png']);
     });
   });
 
-  describe('listFiles', () => {
-    it('returns array of keys when files exist', async () => {
-      mockS3Send.mockResolvedValue({
-        Contents: [{ Key: 'prefix/file1.txt' }, { Key: 'prefix/file2.txt' }],
+  describe('downloadFile()', () => {
+    it('should download the whole object as the SDK Node.js stream, with its validators', async () => {
+      const body = Readable.from('foo');
+      const lastModified = new Date('2026-01-01T00:00:00Z');
+      send.mockResolvedValueOnce({
+        Body: body,
+        ContentLength: 3,
+        ContentType: 'text/plain',
+        ETag: '"abc"',
+        LastModified: lastModified,
       });
 
-      const result = await storage.listFiles('prefix/');
-
-      expect(result).toEqual(['prefix/file1.txt', 'prefix/file2.txt']);
-      const command = mockS3Send.mock.calls[0][0];
-      expect(command).toBeInstanceOf(ListObjectsV2Command);
-      expect(command.input.Bucket).toBe(bucket);
-      expect(command.input.Prefix).toBe('prefix/');
-    });
-
-    it('returns empty array when no files found', async () => {
-      mockS3Send.mockResolvedValue({});
-
-      const result = await storage.listFiles('empty-prefix/');
-
-      expect(result).toEqual([]);
-    });
-
-    it('paginates when there are more results', async () => {
-      mockS3Send
-        .mockResolvedValueOnce({
-          Contents: [{ Key: 'prefix/file1.txt' }, { Key: 'prefix/file2.txt' }],
-          IsTruncated: true,
-          NextContinuationToken: 'token1',
-        })
-        .mockResolvedValueOnce({
-          Contents: [{ Key: 'prefix/file3.txt' }],
-          IsTruncated: false,
-        });
-
-      const result = await storage.listFiles('prefix/');
-
-      expect(result).toEqual(['prefix/file1.txt', 'prefix/file2.txt', 'prefix/file3.txt']);
-      expect(mockS3Send).toHaveBeenCalledTimes(2);
-
-      // First call: no ContinuationToken
-      const firstCommand = mockS3Send.mock.calls[0][0];
-      expect(firstCommand.input.ContinuationToken).toBeUndefined();
-
-      // Second call: should include ContinuationToken
-      const secondCommand = mockS3Send.mock.calls[1][0];
-      expect(secondCommand.input.ContinuationToken).toBe('token1');
-    });
-
-    it('handles empty Contents in paginated response', async () => {
-      mockS3Send
-        .mockResolvedValueOnce({
-          Contents: [{ Key: 'prefix/file1.txt' }],
-          IsTruncated: true,
-          NextContinuationToken: 'token1',
-        })
-        .mockResolvedValueOnce({
-          IsTruncated: false,
-        });
-
-      const result = await storage.listFiles('prefix/');
-
-      expect(result).toEqual(['prefix/file1.txt']);
-      expect(mockS3Send).toHaveBeenCalledTimes(2);
-    });
-
-    it('filters out items with undefined Key', async () => {
-      mockS3Send.mockResolvedValue({
-        Contents: [{ Key: 'prefix/file1.txt' }, { Key: undefined }, { Key: 'prefix/file2.txt' }],
+      await expect(storage.downloadFile('foo.txt')).resolves.toEqual({
+        contentLength: 3,
+        contentType: 'text/plain',
+        readableStreamBody: body,
+        etag: '"abc"',
+        lastModified,
       });
 
-      const result = await storage.listFiles('prefix/');
-
-      expect(result).toEqual(['prefix/file1.txt', 'prefix/file2.txt']);
-    });
-  });
-
-  describe('downloadFile', () => {
-    it('downloads a file and returns body with metadata', async () => {
-      const mockBody = {} as ReadableStream;
-      const mockTransformToWebStream = jest.fn().mockReturnValue(mockBody);
-
-      mockS3Send.mockResolvedValue({
-        Body: { transformToWebStream: mockTransformToWebStream },
-        ContentType: 'application/json',
-        ContentLength: 1234,
-      });
-
-      const result = await storage.downloadFile('my-file.json');
-
-      expect(result.readableStreamBody).toBe(mockBody);
-      expect(result.contentType).toBe('application/json');
-      expect(result.contentLength).toBe(1234);
-      const command = mockS3Send.mock.calls[0][0];
+      const [command] = send.mock.calls[0] as [GetObjectCommand];
       expect(command).toBeInstanceOf(GetObjectCommand);
-      expect(command.input.Bucket).toBe(bucket);
-      expect(command.input.Key).toBe('my-file.json');
+      expect(command.input).toEqual({ Bucket: 'bucket', Key: 'foo.txt', Range: undefined });
     });
 
-    it('returns undefined contentType and contentLength when not provided', async () => {
-      const mockBody = {} as ReadableStream;
-      const mockTransformToWebStream = jest.fn().mockReturnValue(mockBody);
+    it('should download `count` bytes from `offset`', async () => {
+      send.mockResolvedValueOnce({ Body: Readable.from('o'), ContentLength: 1 });
 
-      mockS3Send.mockResolvedValue({
-        Body: { transformToWebStream: mockTransformToWebStream },
-      });
+      await storage.downloadFile('foo.txt', 1, 1);
 
-      const result = await storage.downloadFile('binary-file.bin');
+      const [command] = send.mock.calls[0] as [GetObjectCommand];
+      expect(command.input.Range).toBe('bytes=1-1');
+    });
 
-      expect(result.readableStreamBody).toBe(mockBody);
-      expect(result.contentType).toBeUndefined();
-      expect(result.contentLength).toBeUndefined();
+    it('should download to the end of the object without `count`', async () => {
+      send.mockResolvedValueOnce({ Body: Readable.from('oo'), ContentLength: 2 });
+
+      await storage.downloadFile('foo.txt', 1);
+
+      const [command] = send.mock.calls[0] as [GetObjectCommand];
+      expect(command.input.Range).toBe('bytes=1-');
+    });
+
+    it('should reject with the SDK error for a missing object', async () => {
+      const error = buildServiceException(404);
+      send.mockRejectedValueOnce(error);
+
+      await expect(storage.downloadFile('missing.txt')).rejects.toBe(error);
     });
   });
 
-  describe('copyFile', () => {
-    it('copies a file from source to destination with public-read ACL', async () => {
-      mockS3Send.mockResolvedValue({});
+  describe('isFileExisted()', () => {
+    it('should return true when the object exists', async () => {
+      send.mockResolvedValueOnce({});
 
-      await storage.copyFile('source/file.txt', 'dest/file.txt');
+      await expect(storage.isFileExisted('foo.txt')).resolves.toBe(true);
 
-      expect(mockS3Send).toHaveBeenCalledTimes(1);
-      const command = mockS3Send.mock.calls[0][0];
+      const [command] = send.mock.calls[0] as [HeadObjectCommand];
+      expect(command).toBeInstanceOf(HeadObjectCommand);
+      expect(command.input).toEqual({ Bucket: 'bucket', Key: 'foo.txt' });
+    });
+
+    it('should return false when the object is missing', async () => {
+      send.mockRejectedValueOnce(buildServiceException(404));
+
+      await expect(storage.isFileExisted('foo.txt')).resolves.toBe(false);
+    });
+
+    it('should rethrow any other error', async () => {
+      const error = buildServiceException(403);
+      send.mockRejectedValueOnce(error);
+
+      await expect(storage.isFileExisted('foo.txt')).rejects.toBe(error);
+    });
+  });
+
+  describe('getFileProperties()', () => {
+    it('should return the object size', async () => {
+      send.mockResolvedValueOnce({ ContentLength: 42 });
+
+      await expect(storage.getFileProperties('foo.txt')).resolves.toEqual({ contentLength: 42 });
+    });
+  });
+
+  describe('deleteFile()', () => {
+    it('should delete the object', async () => {
+      send.mockResolvedValueOnce({});
+
+      await storage.deleteFile('foo.txt');
+
+      const [command] = send.mock.calls[0] as [DeleteObjectCommand];
+      expect(command).toBeInstanceOf(DeleteObjectCommand);
+      expect(command.input).toEqual({ Bucket: 'bucket', Key: 'foo.txt' });
+    });
+
+    it('should treat a missing object as deleted', async () => {
+      send.mockRejectedValueOnce(buildServiceException(404));
+
+      await expect(storage.deleteFile('foo.txt')).resolves.toBeUndefined();
+    });
+
+    it('should rethrow any other error', async () => {
+      const error = buildServiceException(403);
+      send.mockRejectedValueOnce(error);
+
+      await expect(storage.deleteFile('foo.txt')).rejects.toBe(error);
+    });
+  });
+
+  describe('listFiles()', () => {
+    it('should list every key under the prefix across pages', async () => {
+      send
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'prefix/1' }, { Key: undefined }, { Key: 'prefix/2' }],
+          IsTruncated: true,
+          NextContinuationToken: 'token',
+        })
+        .mockResolvedValueOnce({ IsTruncated: false });
+
+      await expect(storage.listFiles('prefix/')).resolves.toEqual(['prefix/1', 'prefix/2']);
+
+      const [first, second] = send.mock.calls.map(([command]) => command as ListObjectsV2Command);
+      expect(first).toBeInstanceOf(ListObjectsV2Command);
+      expect(first?.input).toEqual({ Bucket: 'bucket', Prefix: 'prefix/' });
+      expect(second?.input).toEqual({
+        Bucket: 'bucket',
+        Prefix: 'prefix/',
+        ContinuationToken: 'token',
+      });
+    });
+
+    it('should return an empty list for an empty prefix', async () => {
+      send.mockResolvedValueOnce({});
+
+      await expect(storage.listFiles('empty/')).resolves.toEqual([]);
+    });
+
+    it('should explain a RustFS/MinIO XML parsing error', async () => {
+      send.mockRejectedValueOnce(new Error('Invalid character in entity name'));
+
+      await expect(storage.listFiles('prefix/')).rejects.toThrow(/XML parsing error/);
+    });
+  });
+
+  describe('copyFile()', () => {
+    it('should copy within the bucket with a URL-encoded source key', async () => {
+      send.mockResolvedValueOnce({});
+
+      await storage.copyFile('dir/a file+1.png', 'dir/b.png', false);
+
+      const [command] = send.mock.calls[0] as [CopyObjectCommand];
       expect(command).toBeInstanceOf(CopyObjectCommand);
-      expect(command.input.Bucket).toBe(bucket);
-      expect(command.input.CopySource).toBe(`${bucket}/source/file.txt`);
-      expect(command.input.Key).toBe('dest/file.txt');
-      expect(command.input.ACL).toBe('public-read');
+      expect(command.input).toEqual({
+        Bucket: 'bucket',
+        CopySource: 'bucket/dir/a%20file%2B1.png',
+        Key: 'dir/b.png',
+        ACL: undefined,
+      });
     });
   });
 });

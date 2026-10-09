@@ -15,8 +15,12 @@ import type { UserRouter, RouterInitArgs } from '../types.js';
 import { accountApiPrefix } from './constants.js';
 
 export default function accountUserAssetsRoutes<T extends UserRouter>(
-  ...[router, { id: tenantId, queries }]: RouterInitArgs<T>
+  ...[router, { queries, envSet }]: RouterInitArgs<T>
 ) {
+  const {
+    users: { updateUserById },
+  } = queries;
+
   router.post(
     `${accountApiPrefix}/user-assets/avatar`,
     koaGuard({
@@ -46,14 +50,25 @@ export default function accountUserAssetsRoutes<T extends UserRouter>(
 
       const { storageProviderConfig } = SystemContext.shared;
 
-      ctx.body = await uploadAvatar({
+      const consoleLog = getConsoleLogFromContext(ctx);
+
+      // Blacktop: persist the URL of the object that was actually stored (magic bytes decide the
+      // `you.{ext}` key), so `users.avatar` can never point at a filename the bucket no longer
+      // holds. A failed upload throws before this line and leaves the previous row untouched.
+      const { url } = await uploadAvatar({
         file,
         storageProviderConfig,
-        objectKeyPrefix: `${tenantId}/${userId}`,
+        userId,
+        endpointOrigin: envSet.endpoint.origin,
         logError: (error) => {
-          getConsoleLogFromContext(ctx).error(error);
+          consoleLog.error(error);
         },
       });
+
+      const updatedUser = await updateUserById(userId, { avatar: url });
+      ctx.appendDataHookContext('User.Data.Updated', { user: updatedUser });
+
+      ctx.body = { url };
 
       return next();
     }

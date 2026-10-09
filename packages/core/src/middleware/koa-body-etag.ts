@@ -1,3 +1,5 @@
+import { Stream } from 'node:stream';
+
 import type { Nullable } from '@silverhand/essentials';
 import etag from 'etag';
 import type { Method } from 'got';
@@ -16,8 +18,14 @@ export default function koaBodyEtag<StateT, ContextT, ResponseBodyT>(
   return async (ctx, next) => {
     await next();
 
-    // eslint-disable-next-line no-restricted-syntax
-    if (methods.includes(ctx.method as Uppercase<Method>) && ctx.body) {
+    // Streamed bodies (e.g. the storage-proxied `/api/user-assets` and `/api/app-assets` files)
+    // can't be hashed this way: `JSON.stringify` throws on the S3 response's circular socket refs.
+    if (
+      // eslint-disable-next-line no-restricted-syntax
+      methods.includes(ctx.method as Uppercase<Method>) &&
+      ctx.body &&
+      !(ctx.body instanceof Stream)
+    ) {
       ctx.response.etag = etag(JSON.stringify(ctx.body));
 
       if (ctx.fresh) {

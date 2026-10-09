@@ -11,16 +11,25 @@ import {
   type StorageProviderData,
 } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
-import { format } from 'date-fns';
 import { type z } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import assertThat from '#src/utils/assert-that.js';
-import { buildUploadFile } from '#src/utils/storage/index.js';
+import { storeUserAvatar } from '#src/utils/storage/assets.js';
+import { buildStorage } from '#src/utils/storage/index.js';
 
 type UploadedFile = z.infer<typeof uploadFileGuard>;
 
 const maxSafeFilenameLength = 128;
+
+/** The extension of the fixed avatar key, matching the other avatar routes' `detectImageType`. */
+const avatarFileExtensions: Record<AvatarMimeType, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/bmp': 'bmp',
+};
 
 const startsWith = (buffer: Uint8Array, bytes: number[]) =>
   bytes.every((byte, index) => buffer[index] === byte);
@@ -105,15 +114,23 @@ export const sanitizeFilename = (filename: string, mimeType: AvatarMimeType) => 
   return safeFilename || fallbackFilename;
 };
 
+/**
+ * Blacktop: upstream's avatar upload with its validation, but stored at the user's fixed
+ * `you.{ext}` key with the other avatar objects cleaned up, instead of a new date-stamped random
+ * key per upload that is never deleted.
+ */
 export const uploadAvatar = async ({
   file,
   storageProviderConfig,
-  objectKeyPrefix,
+  userId,
+  endpointOrigin,
   logError,
 }: {
   file: UploadedFile;
   storageProviderConfig?: StorageProviderData;
-  objectKeyPrefix: string;
+  userId: string;
+  /** The origin of this Logto endpoint, which serves the `/api/user-assets` proxy route. */
+  endpointOrigin: string;
   logError: (error: unknown) => void;
 }): Promise<UserAssets> => {
   assertThat(file.size <= maxUploadFileSize, 'guard.file_size_exceeded');
@@ -126,16 +143,21 @@ export const uploadAvatar = async ({
   assertThat(hasValidAvatarEndMarker(fileContent, avatarMimeType), 'guard.mime_type_not_allowed');
   assertThat(storageProviderConfig, 'storage.not_configured');
 
-  const uploadFile = buildUploadFile(storageProviderConfig);
-  const objectKey = `${objectKeyPrefix}/${format(new Date(), 'yyyy/MM/dd')}/${generateStandardId(
-    8
-  )}-${sanitizeFilename(file.originalFilename, avatarMimeType)}`;
-
   try {
-    return await uploadFile(fileContent, objectKey, {
+    const url = await storeUserAvatar({
+      storage: buildStorage(storageProviderConfig),
+      storageProviderConfig,
+      userId,
+      data: fileContent,
       contentType: avatarMimeType,
-      publicUrl: storageProviderConfig.publicUrl,
+      extension: avatarFileExtensions[avatarMimeType],
+      endpointOrigin,
+      logError: (_message, error) => {
+        logError(error);
+      },
     });
+
+    return { url };
   } catch (error: unknown) {
     logError(error);
     throw new RequestError({

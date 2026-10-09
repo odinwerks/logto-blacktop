@@ -2,14 +2,27 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { maxUploadFileSize } from '@logto/schemas';
+import { maxUploadFileSize, StorageProvider } from '@logto/schemas';
+import { createMockUtils } from '@logto/shared/esm';
 
-import {
-  detectAvatarMimeType,
-  isAllowedAvatarMimeType,
-  sanitizeFilename,
-  uploadAvatar,
-} from './avatar-upload.js';
+const { jest } = import.meta;
+const { mockEsmWithActual } = createMockUtils(jest);
+
+const uploadFile = jest.fn(async (_data: Buffer, key: string) => ({ url: `http://s3/${key}` }));
+const listFiles = jest.fn(async (_prefix: string) => [
+  'admin/user-assets/foo/you.png',
+  'admin/user-assets/foo/you.jpg',
+]);
+const deleteFile = jest.fn(async (_key: string) => {
+  // Deleted
+});
+
+await mockEsmWithActual('#src/utils/storage/index.js', () => ({
+  buildStorage: jest.fn(() => ({ uploadFile, listFiles, deleteFile })),
+}));
+
+const { detectAvatarMimeType, isAllowedAvatarMimeType, sanitizeFilename, uploadAvatar } =
+  await import('./avatar-upload.js');
 
 const validPng = Buffer.from(
   '89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C4890000000D4944415478DA63FCFFFFFF1F00040501FE6F1B5F570000000049454E44AE426082',
@@ -69,7 +82,8 @@ describe('uploadAvatar', () => {
           size: 12,
         },
         storageProviderConfig: undefined,
-        objectKeyPrefix: 'tenant/user',
+        userId: 'foo',
+        endpointOrigin: 'https://auth.example.com',
         logError: noopLogError,
       })
     ).rejects.toMatchObject({
@@ -91,7 +105,8 @@ describe('uploadAvatar', () => {
           size: validPng.length + 5,
         },
         storageProviderConfig: undefined,
-        objectKeyPrefix: 'tenant/user',
+        userId: 'foo',
+        endpointOrigin: 'https://auth.example.com',
         logError: noopLogError,
       })
     ).rejects.toMatchObject({
@@ -113,11 +128,47 @@ describe('uploadAvatar', () => {
           size: maxUploadFileSize + 1,
         },
         storageProviderConfig: undefined,
-        objectKeyPrefix: 'tenant/user',
+        userId: 'foo',
+        endpointOrigin: 'https://auth.example.com',
         logError: noopLogError,
       })
     ).rejects.toMatchObject({
       code: 'guard.file_size_exceeded',
     });
+  });
+
+  it('stores the avatar at the fixed key and removes the previous one instead of adding a new object', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'avatar-upload-'));
+    const filepath = path.join(directory, 'holiday photo.png');
+    await writeFile(filepath, validPng);
+
+    const { url } = await uploadAvatar({
+      file: {
+        filepath,
+        mimetype: 'image/png',
+        originalFilename: 'holiday photo.png',
+        size: validPng.length,
+      },
+      storageProviderConfig: {
+        provider: StorageProvider.S3Storage,
+        bucket: 'logto',
+        endpoint: 'http://rustfs:9000',
+        accessKeyId: 'key',
+        accessSecretKey: 'secret',
+      },
+      userId: 'foo',
+      endpointOrigin: 'https://auth.example.com',
+      logError: noopLogError,
+    });
+
+    expect(url).toMatch(/^https:\/\/auth\.example\.com\/api\/user-assets\/foo\/you\.png\?v=\d+$/);
+    expect(uploadFile).toHaveBeenCalledWith(validPng, 'admin/user-assets/foo/you.png', {
+      contentType: 'image/png',
+      publicUrl: undefined,
+      isPublic: false,
+    });
+    expect(listFiles).toHaveBeenCalledWith('admin/user-assets/foo/');
+    expect(deleteFile).toHaveBeenCalledTimes(1);
+    expect(deleteFile).toHaveBeenCalledWith('admin/user-assets/foo/you.jpg');
   });
 });

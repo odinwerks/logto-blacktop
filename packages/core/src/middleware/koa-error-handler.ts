@@ -26,6 +26,14 @@ export default function koaErrorHandler<
     try {
       await next();
     } catch (error: unknown) {
+      // Caching headers set for the success response (e.g. the year-long `Cache-Control` of a
+      // proxied asset) must not stick to the error response, or a CDN caches the error.
+      if (ctx.response.get('Cache-Control')) {
+        ctx.response.set('Cache-Control', 'no-store');
+      }
+      ctx.response.remove('ETag');
+      ctx.response.remove('Last-Modified');
+
       if (!EnvSet.values.isUnitTest && !EnvSet.values.isProduction) {
         consoleLog.error(error);
       }

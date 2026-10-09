@@ -329,7 +329,45 @@ describe('POST /my-account/avatar', () => {
     expect(response.body).toEqual(profileResponse);
   });
 
-  it('should return 500 when S3 upload fails', async () => {
+  it('should keep the bucket private and point the avatar at the proxy route without a publicUrl', async () => {
+    const dateNow = jest.spyOn(Date, 'now').mockReturnValue(1_785_066_085_172);
+    mockDetectImageType.mockReturnValue({ mime: 'image/png', extension: 'png' });
+
+    SystemContext.shared.storageProviderConfig = {
+      provider: StorageProvider.S3Storage,
+      bucket: 'logto',
+      endpoint: 'http://rustfs:9000',
+      forcePathStyle: true,
+      accessKeyId: 'key',
+      accessSecretKey: 'secret',
+    };
+    mockGetAccountCenterFilteredProfile.mockReturnValue({});
+    mockUploadFileFunction.mockResolvedValue({ url: 'http://rustfs:9000/logto/whatever' });
+    mockListFilesFunction.mockResolvedValue([
+      'admin/user-assets/foo/you.png',
+      'admin/user-assets/foo/you.jpg',
+    ]);
+
+    const response = await avatarRequest
+      .post('/my-account/avatar')
+      .attach('file', jpegBuffer, 'holiday photo.png');
+
+    expect(response.status).toBe(200);
+    expect(mockUploadFileFunction).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      'admin/user-assets/foo/you.png',
+      { contentType: 'image/png', publicUrl: undefined, isPublic: false }
+    );
+    expect(mockListFilesFunction).toHaveBeenCalledWith('admin/user-assets/foo/');
+    expect(mockDeleteFileFunction).toHaveBeenCalledTimes(1);
+    expect(mockDeleteFileFunction).toHaveBeenCalledWith('admin/user-assets/foo/you.jpg');
+    expect(mockUpdateUserById).toHaveBeenCalledWith('foo', {
+      avatar: `${tenantContext.envSet.endpoint.origin}/api/user-assets/foo/you.png?v=1785066085172`,
+    });
+    dateNow.mockRestore();
+  });
+
+  it('should return 500 and leave the old avatar alone when S3 upload fails', async () => {
     mockDetectImageType.mockReturnValue({ mime: 'image/jpeg', extension: 'jpg' });
 
     SystemContext.shared.storageProviderConfig = {
@@ -349,6 +387,9 @@ describe('POST /my-account/avatar', () => {
 
     expect(response.status).toBe(500);
     expect(response.body.code).toBe('storage.upload_error');
+    expect(mockListFilesFunction).not.toHaveBeenCalled();
+    expect(mockDeleteFileFunction).not.toHaveBeenCalled();
+    expect(mockUpdateUserById).not.toHaveBeenCalled();
   });
 
   it('should still return 200 when cleanup fails (best-effort)', async () => {

@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 
 import {
   InteractionEvent,
-  adminTenantId,
   allowAvatarMimeTypes,
   maxUploadFileSize,
   MfaFactor,
@@ -26,6 +25,7 @@ import type TenantContext from '#src/tenants/TenantContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
 import { detectImageType } from '#src/utils/file.js';
+import { storeUserAvatar } from '#src/utils/storage/assets.js';
 import { buildStorage } from '#src/utils/storage/index.js';
 
 import { createNewMfaCodeVerificationRecord } from './classes/verifications/code-verification.js';
@@ -201,47 +201,26 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
         'storage.not_configured'
       );
 
-      const storage = buildStorage(storageProviderConfig);
+      const { identifiedUserId } = experienceInteraction;
+      assertThat(identifiedUserId, new RequestError({ code: 'session.not_found', status: 400 }));
 
-      assertThat(
-        experienceInteraction.identifiedUserId,
-        new RequestError({ code: 'session.not_found', status: 400 })
-      );
-
-      const { extension } = detected;
-      const objectKey = `${adminTenantId}/user-assets/${experienceInteraction.identifiedUserId}/you.${extension}`;
-
-      try {
-        await storage.uploadFile(fileContent, objectKey, {
-          contentType: avatarMimeType,
-          publicUrl: storageProviderConfig.publicUrl,
-          isPublic: true,
-        });
-      } catch (error: unknown) {
-        getConsoleLogFromContext(ctx).error(error);
+      // Overwrite `you.{ext}`, then drop the user's other avatar objects
+      const consoleLog = getConsoleLogFromContext(ctx);
+      const avatarUrl = await storeUserAvatar({
+        storage: buildStorage(storageProviderConfig),
+        storageProviderConfig,
+        userId: identifiedUserId,
+        data: fileContent,
+        contentType: avatarMimeType,
+        extension: detected.extension,
+        endpointOrigin: envSet.endpoint.origin,
+        logError: (message, error) => {
+          consoleLog.error(message, error);
+        },
+      }).catch((error: unknown) => {
+        consoleLog.error(error);
         throw new RequestError({ code: 'storage.upload_error', status: 500 });
-      }
-
-      // Upload succeeded — clean up old avatars with different extensions
-      try {
-        if (storage.listFiles && storage.deleteFile) {
-          const { deleteFile } = storage;
-          const prefix = `${adminTenantId}/user-assets/${experienceInteraction.identifiedUserId}/you.`;
-          const existingFiles = await storage.listFiles(prefix);
-          await Promise.all(
-            existingFiles.filter((key) => key !== objectKey).map(async (key) => deleteFile(key))
-          );
-        }
-      } catch (error: unknown) {
-        getConsoleLogFromContext(ctx).error('Avatar cleanup failed:', error);
-      }
-
-      // Build the final URL
-      const avatarUrl = `${
-        storageProviderConfig.publicUrl
-          ? `${storageProviderConfig.publicUrl}/${objectKey}`
-          : `${envSet.endpoint.origin}/api/user-assets/${experienceInteraction.identifiedUserId}/you.${extension}`
-      }?v=${Date.now()}`;
+      });
 
       ctx.body = { url: avatarUrl };
 

@@ -59,13 +59,19 @@ export const buildS3Storage = ({
     },
   });
 
-  const uploadFile: UploadFile = async (data, objectKey, { contentType, publicUrl, isPublic = true } = {}) => {
+  const uploadFile: UploadFile = async (
+    data,
+    objectKey,
+    { contentType, publicUrl, isPublic = true } = {}
+  ) => {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: objectKey,
       Body: data,
       ContentType: contentType,
-      ...(isPublic ? { ACL: 'public-read' } : {}),
+      // Buckets created with ACLs disabled (the AWS default) reject any ACL, so only send one when
+      // the object has to be publicly readable.
+      ACL: isPublic ? 'public-read' : undefined,
     });
 
     await client.send(command);
@@ -106,7 +112,8 @@ export const buildS3Storage = ({
     try {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }));
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'NotFound') {
+      // S3 answers a delete of a missing key with 204; some S3-compatible stores answer 404.
+      if (error instanceof S3ServiceException && error.$metadata.httpStatusCode === 404) {
         return;
       }
       throw error;
@@ -181,7 +188,7 @@ export const buildS3Storage = ({
   };
 
   const downloadFile: DownloadFile = async (objectKey, offset, count) => {
-    const { Body, ContentLength, ContentType } = await client.send(
+    const { Body, ContentLength, ContentType, ETag, LastModified } = await client.send(
       new GetObjectCommand({
         Bucket: bucket,
         Key: objectKey,
@@ -195,6 +202,8 @@ export const buildS3Storage = ({
       // The Node.js runtime of the SDK always answers with a Node.js readable stream.
       // eslint-disable-next-line no-restricted-syntax -- See above.
       readableStreamBody: Body as NodeJS.ReadableStream | undefined,
+      etag: ETag,
+      lastModified: LastModified,
     };
   };
 
@@ -203,9 +212,10 @@ export const buildS3Storage = ({
     await client.send(
       new CopyObjectCommand({
         Bucket: bucket,
-        CopySource: `${bucket}/${sourceKey}`,
+        // `CopySource` is sent as a header, so the key has to be URL-encoded (keeping the `/`s).
+        CopySource: `${bucket}/${sourceKey.split('/').map(encodeURIComponent).join('/')}`,
         Key: destKey,
-        ...(isPublic ? { ACL: 'public-read' } : {}),
+        ACL: isPublic ? 'public-read' : undefined,
       })
     );
   };

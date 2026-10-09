@@ -55,6 +55,21 @@ describe('koaErrorHandler middleware', () => {
     expect(ctx.body).toEqual(mockBody);
   });
 
+  it('expect the caching headers of the failed success response to be dropped', async () => {
+    const ctx = createContextWithRouteParameters();
+    next.mockImplementationOnce(async () => {
+      ctx.set('Cache-Control', 'public, max-age=31536000, immutable');
+      ctx.set('ETag', '"abc"');
+      ctx.set('Last-Modified', new Date(0).toUTCString());
+      throw new Error('err');
+    });
+    await koaErrorHandler()(ctx, next);
+    expect(ctx.status).toEqual(500);
+    expect(ctx.response.get('Cache-Control')).toEqual('no-store');
+    expect(ctx.response.get('ETag')).toBeFalsy();
+    expect(ctx.response.get('Last-Modified')).toBeFalsy();
+  });
+
   it('expect status 500 if error type is not RequestError', async () => {
     const ctx = createContextWithRouteParameters({
       customProperties: {
