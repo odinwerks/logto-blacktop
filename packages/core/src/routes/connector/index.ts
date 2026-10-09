@@ -152,8 +152,6 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
         validateConfig(config, connectorFactory.configGuard);
       }
 
-      const cleanedConfig = cleanDeep(config, { emptyObjects: false, emptyStrings: false });
-
       if (enableTokenStorage) {
         assertThat(
           EnvSet.values.secretVaultKek,
@@ -188,9 +186,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
           {
             id: insertConnectorId,
             connectorId,
-            ...cleanDeep({ syncProfile, metadata, enableTokenStorage }),
-            // eslint-disable-next-line no-restricted-syntax
-            ...conditional(config !== undefined && { config: cleanedConfig as JsonObject }),
+            ...cleanDeep({ syncProfile, config, metadata, enableTokenStorage }),
           },
           connectorIdsOfSameType
         );
@@ -204,9 +200,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
         await insertConnector({
           id: insertConnectorId,
           connectorId,
-          ...cleanDeep({ syncProfile, metadata, enableTokenStorage }),
-          // eslint-disable-next-line no-restricted-syntax
-          ...conditional(config !== undefined && { config: cleanedConfig as JsonObject }),
+          ...cleanDeep({ syncProfile, config, metadata, enableTokenStorage }),
         });
 
         captureEvent(
@@ -346,8 +340,6 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
         validateConfig(config);
       }
 
-      const cleanedConfig = cleanDeep(config, { emptyObjects: false, emptyStrings: false });
-
       if (
         type === ConnectorType.Social &&
         originalMetadata.isTokenStorageSupported &&
@@ -365,7 +357,7 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
            * The type inference failed to infer this, manually assign type `JsonObject`.
            */
           // eslint-disable-next-line no-restricted-syntax
-          config: conditional(config && (cleanedConfig as JsonObject)),
+          config: conditional(config && (cleanDeep(config) as JsonObject)),
           metadata: conditional(metadata && cleanDeep(metadata)),
           syncProfile,
           enableTokenStorage,
@@ -378,7 +370,6 @@ export default function connectorRoutes<T extends ManagementApiRouter>(
       ctx.body = await transpileLogtoConnector(connector, buildExtraInfo(connector.metadata));
 
       return next();
-      // eslint-disable-next-line max-lines -- refactor later
     }
   );
 

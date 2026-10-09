@@ -150,7 +150,7 @@ describe('connector data route', () => {
       expect(response).toHaveProperty('statusCode', 500);
     });
 
-    it('should preserve empty translation objects in connector config', async () => {
+    it('should strip empty translation objects from connector config', async () => {
       loadConnectorFactories.mockResolvedValueOnce([
         {
           ...mockConnectorFactory,
@@ -173,11 +173,10 @@ describe('connector data route', () => {
         config: { translations: { en: {} } },
       });
       expect(insertConnector).toHaveBeenCalledWith(
-        expect.objectContaining({
-          connectorId: 'connectorId',
-          config: { translations: { en: {} } },
-        })
+        expect.objectContaining({ connectorId: 'connectorId' })
       );
+      // `cleanDeep` removes the now-empty `translations` subtree, leaving no `config` field.
+      expect(insertConnector.mock.calls[0]?.[0]).not.toHaveProperty('config');
     });
 
     it('throws when connector factory not found', async () => {
