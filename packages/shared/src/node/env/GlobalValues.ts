@@ -64,18 +64,18 @@ export const parseNonNegativeIntegerEnv = (value?: string, fallback = 0): number
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
-const addSsrfAllowedAddress = (list: BlockList, entry: string) => {
+const addToAddressBlockList = (list: BlockList, entry: string, envName: string) => {
   const segments = entry.split('/');
 
   if (segments.length !== 1 && segments.length !== 2) {
-    throw new Error(`Invalid address in \`SSRF_ALLOWED_ADDRESSES\`: ${entry}`);
+    throw new Error(`Invalid address in \`${envName}\`: ${entry}`);
   }
 
   const [address, prefix] = segments;
   const ipVersion = address && isIP(address);
 
   if (!address || !ipVersion) {
-    throw new Error(`Invalid address in \`SSRF_ALLOWED_ADDRESSES\`: ${entry}`);
+    throw new Error(`Invalid address in \`${envName}\`: ${entry}`);
   }
 
   const family = ipVersion === 6 ? 'ipv6' : 'ipv4';
@@ -89,13 +89,13 @@ const addSsrfAllowedAddress = (list: BlockList, entry: string) => {
   const parsedPrefix = Number(prefix);
 
   if (!/^\d+$/.test(prefix) || parsedPrefix > maxPrefix) {
-    throw new Error(`Invalid CIDR prefix in \`SSRF_ALLOWED_ADDRESSES\`: ${entry}`);
+    throw new Error(`Invalid CIDR prefix in \`${envName}\`: ${entry}`);
   }
 
   list.addSubnet(address, parsedPrefix, family);
 };
 
-const parseSsrfAllowedAddresses = (entries: string[]): Optional<BlockList> => {
+const parseAddressBlockList = (entries: string[], envName: string): Optional<BlockList> => {
   if (entries.length === 0) {
     return undefined;
   }
@@ -103,7 +103,7 @@ const parseSsrfAllowedAddresses = (entries: string[]): Optional<BlockList> => {
   const list = new BlockList();
 
   for (const entry of entries) {
-    addSsrfAllowedAddress(list, entry);
+    addToAddressBlockList(list, entry, envName);
   }
 
   return list;
@@ -237,8 +237,9 @@ export default class GlobalValues {
     : getEnvAsStringArray('SSRF_ALLOWED_ADDRESSES');
 
   /** Parsed at startup so malformed entries cannot throw from a socket event listener. */
-  public readonly ssrfAllowedAddressBlockList = parseSsrfAllowedAddresses(
-    this.ssrfAllowedAddresses
+  public readonly ssrfAllowedAddressBlockList = parseAddressBlockList(
+    this.ssrfAllowedAddresses,
+    'SSRF_ALLOWED_ADDRESSES'
   );
 
   /** Enables protected app local development without Cloud-only behavior. */
@@ -281,6 +282,40 @@ export default class GlobalValues {
   public readonly ignoreConnectorVersionCheck = yes(getEnv('IGNORE_CONNECTOR_VERSION_CHECK'));
   public readonly injectedHeaderMappingJson = getEnv('INJECTED_HEADER_MAPPING_JSON');
   public readonly debugInjectedHeadersJson = getEnv('DEBUG_INJECTED_HEADERS_JSON');
+
+  /**
+   * Shared secret that authenticates a trusted edge in front of Logto, sent as the
+   * `x-logto-injected-token` request header.
+   *
+   * The injected-header mapping above (`x-logto-cf-*` by default) only holds when a trusted
+   * edge — e.g. the Cloudflare layer on Logto Cloud — overwrites those headers on every
+   * request. On deployments without such an edge, any client can send the headers itself and
+   * defeat adaptive-MFA geo-velocity / bot-signal checks, so they are consumed only when a
+   * trust signal is configured and matches. Set this to a strong random value and configure
+   * the edge to send it on every request; alternatively, see `INJECTED_HEADERS_TRUSTED_CIDRS`.
+   * Both may be set; either match marks the request trusted.
+   */
+  public readonly injectedHeadersTrustedToken = getEnv('INJECTED_HEADERS_TRUSTED_TOKEN');
+
+  /**
+   * Comma-separated IP addresses or CIDR ranges (`10.0.0.1,10.0.0.0/8,fd00::/8`) whose direct
+   * TCP peer is trusted to have overwritten the injected headers. Use this when the edge in
+   * front of Logto cannot set `x-logto-injected-token`.
+   *
+   * Only the direct socket peer is compared — never `Forwarded` / `X-Forwarded-For`, which
+   * clients can spoof — so list the addresses of the proxies that sit in front of Logto, not
+   * the end users'. Ignored when empty; see `INJECTED_HEADERS_TRUSTED_TOKEN` for the
+   * alternative.
+   */
+  public readonly injectedHeadersTrustedCidrs = getEnvAsStringArray(
+    'INJECTED_HEADERS_TRUSTED_CIDRS'
+  );
+
+  /** Parsed at startup so malformed entries cannot throw from a request handler. */
+  public readonly injectedHeadersTrustedCidrBlockList = parseAddressBlockList(
+    this.injectedHeadersTrustedCidrs,
+    'INJECTED_HEADERS_TRUSTED_CIDRS'
+  );
 
   /** Maximum number of tenants to keep in the tenant pool. */
   public readonly tenantPoolSize = Number(getEnv('TENANT_POOL_SIZE', '100'));
