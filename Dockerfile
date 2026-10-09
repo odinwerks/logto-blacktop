@@ -20,12 +20,18 @@ COPY . .
 # directories empty. Ensure the ubill connector submodule is present before dependency
 # installation. No-op when the build context already populated it (e.g. via
 # `git clone --recurse-submodules` or `git submodule update --init` before `docker build`).
+# Pinned to the submodule gitlink commit — keep in sync with
+# `git ls-tree HEAD packages/connectors/connector-ubill-sms`. A mutable branch ref would
+# make the build non-reproducible and let remote changes ship unreviewed.
+ARG ubill_connector_sha=d897a31519cd15257d6f0678a56f33dc5488345b
 RUN if [ ! -f packages/connectors/connector-ubill-sms/package.json ]; then \
-      echo "Submodule 'packages/connectors/connector-ubill-sms' not in build context; cloning from remote"; \
-      rm -rf packages/connectors/connector-ubill-sms; \
-      git clone --depth 1 --branch ubill-blacktop-extended \
-        https://github.com/odinwerks/connector-ubill-sms.git \
-        packages/connectors/connector-ubill-sms; \
+      echo "Submodule 'packages/connectors/connector-ubill-sms' not in build context; fetching pinned revision"; \
+      mkdir -p packages/connectors/connector-ubill-sms; \
+      git -C packages/connectors/connector-ubill-sms init -q; \
+      git -C packages/connectors/connector-ubill-sms remote add origin \
+        https://github.com/odinwerks/connector-ubill-sms.git; \
+      git -C packages/connectors/connector-ubill-sms fetch -q --depth 1 origin "$ubill_connector_sha"; \
+      git -C packages/connectors/connector-ubill-sms checkout -q --detach FETCH_HEAD; \
     fi
 
 ### Install dependencies and build ###
@@ -36,6 +42,10 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store pnpm i
 ARG dev_features_enabled
 ENV DEV_FEATURES_ENABLED=${dev_features_enabled}
 
+# Build-time only: the value may be inlined into built assets by `pnpm -r build` and is
+# visible in `docker history` for the builder stage. It is NOT carried into the final
+# image's environment (the `app` stage below does not set it). Treat it as public
+# configuration, not a secret.
 ARG applicationinsights_connection_string
 ENV APPLICATIONINSIGHTS_CONNECTION_STRING=${applicationinsights_connection_string}
 
