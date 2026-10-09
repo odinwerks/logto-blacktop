@@ -17,6 +17,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        # Populate git submodules (connector-ubill-sms); `pnpm i` runs devPreinstall which
+        # needs the submodule files present.
+        with:
+          submodules: true
 
       - name: Setup Node and pnpm
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
@@ -39,6 +43,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        # Populate git submodules (connector-ubill-sms); `pnpm i` runs devPreinstall which
+        # needs the submodule files present.
+        with:
+          submodules: true
 
       - name: Setup Node and pnpm
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
@@ -54,6 +62,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        # Populate git submodules (connector-ubill-sms); `pnpm i` runs devPreinstall which
+        # needs the submodule files present.
+        with:
+          submodules: true
 
       - name: Setup Node and pnpm
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
@@ -72,6 +84,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        # Populate git submodules (connector-ubill-sms); `pnpm i` runs devPreinstall which
+        # needs the submodule files present.
+        with:
+          submodules: true
 
       - name: Setup Node and pnpm
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
@@ -93,6 +109,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        # Populate git submodules (connector-ubill-sms); `pnpm i` runs devPreinstall which
+        # needs the submodule files present.
+        with:
+          submodules: true
 
       - name: Setup Node and pnpm
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
@@ -130,7 +150,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Populate git submodules so the ubill connector is in the Docker build context.
           fetch-depth: 0
+          submodules: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -151,6 +173,8 @@ jobs:
         with:
           fetch-depth: 0
           path: ./fresh
+          # Populate git submodules; `pnpm i` runs devPreinstall which needs them present.
+          submodules: true
 
       # Fetch the current version by finding the latest tag starts with "v", e.g. "v1.0.0-beta.19"
       - id: version

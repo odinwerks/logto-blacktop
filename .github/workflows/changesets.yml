@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.BOT_PAT }}
+          # Populate git submodules; `pnpm i` runs devPreinstall which needs them present.
+          submodules: true
 
       - name: Setup Node and pnpm
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
