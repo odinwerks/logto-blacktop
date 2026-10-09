@@ -12,6 +12,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        # Populate git submodules; `pnpm i` runs devPreinstall which needs them present.
+        with:
+          submodules: true
 
       - name: Setup Node and pnpm
         uses: silverhand-io/actions-node-pnpm-run-steps@v5

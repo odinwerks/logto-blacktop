@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import { type IncomingHttpHeaders } from 'node:http';
+import { BlockList } from 'node:net';
 
 import { InteractionEvent, type User } from '@logto/schemas';
 
@@ -18,6 +19,17 @@ const originalIsDevFeaturesEnabled = EnvSet.values.isDevFeaturesEnabled;
 const setDevFeaturesEnabled = (value: boolean) => {
   // eslint-disable-next-line @silverhand/fp/no-mutation
   (EnvSet.values as { isDevFeaturesEnabled: boolean }).isDevFeaturesEnabled = value;
+};
+
+const originalTrustedCidrBlockList = EnvSet.values.injectedHeadersTrustedCidrBlockList;
+// Mark the mock context's direct peer `10.0.0.1` as a trusted edge so injected headers flow.
+const trustedPeerBlockList = new BlockList();
+trustedPeerBlockList.addSubnet('10.0.0.0', 8, 'ipv4');
+const setInjectedHeadersTrustedCidrBlockList = (value?: BlockList) => {
+  // eslint-disable-next-line @silverhand/fp/no-mutation
+  (
+    EnvSet.values as { injectedHeadersTrustedCidrBlockList?: BlockList }
+  ).injectedHeadersTrustedCidrBlockList = value;
 };
 
 const createQueries = (overrides?: {
@@ -94,16 +106,21 @@ const buildMockContext = (context: AdaptiveMfaContext) =>
   ({
     request: {
       headers: buildInjectedHeadersFromAdaptiveMfaContext(context),
+      socket: {
+        remoteAddress: '10.0.0.1',
+      },
     },
   }) as WithLogContext;
 
 describe('AdaptiveMfaValidator', () => {
   beforeEach(() => {
     setDevFeaturesEnabled(true);
+    setInjectedHeadersTrustedCidrBlockList(trustedPeerBlockList);
   });
 
   afterAll(() => {
     setDevFeaturesEnabled(originalIsDevFeaturesEnabled);
+    setInjectedHeadersTrustedCidrBlockList(originalTrustedCidrBlockList);
   });
 
   it('triggers new country rule when current country is not in recent list', async () => {
@@ -344,6 +361,9 @@ describe('AdaptiveMfaValidator', () => {
         request: {
           headers: {
             'x-logto-cf-bot-verified': botVerifiedHeader,
+          },
+          socket: {
+            remoteAddress: '10.0.0.1',
           },
         },
       };

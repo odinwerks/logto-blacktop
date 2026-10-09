@@ -18,6 +18,7 @@ import { accountApiPrefix } from './account/constants.js';
 import accountRoutes from './account/index.js';
 import accountCentersRoutes from './account-center/index.js';
 import adminUserRoutes from './admin-user/index.js';
+import appAssetsServeRoutes from './app-assets-serve.js';
 import applicationRoutes from './applications/application.js';
 import authnRoutes from './authn.js';
 import captchaProviderRoutes from './captcha-provider/index.js';

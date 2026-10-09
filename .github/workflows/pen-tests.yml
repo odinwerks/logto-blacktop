@@ -24,8 +24,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Docker Compose up
+        # Pinned to the upstream merge-base commit instead of `HEAD` so the scanned
+        # configuration is reproducible and cannot be swapped by upstream changes.
         run: |
-          curl -fsSL https://raw.githubusercontent.com/logto-io/logto/HEAD/docker-compose.yml |\
+          curl -fsSL https://raw.githubusercontent.com/logto-io/logto/c814034401b0e13a6f461e0b0835ad3bbb84c9c2/docker-compose.yml |\
           TAG=edge docker compose -p logto -f - up -d
 
       - name: Sleep for 30 seconds

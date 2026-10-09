@@ -207,7 +207,7 @@ describe('connector data routes', () => {
       );
     });
 
-    it('successfully preserves empty translation objects in connector config', async () => {
+    it('strips empty translation objects from connector config', async () => {
       getLogtoConnectors.mockResolvedValue([
         {
           dbEntry: mockConnector,
@@ -218,7 +218,7 @@ describe('connector data routes', () => {
       ]);
       updateConnector.mockResolvedValueOnce({
         ...mockConnector,
-        config: { translations: { en: {} } },
+        config: {},
       });
       const response = await connectorRequest.patch('/connectors/id').send({
         config: { translations: { en: {} } },
@@ -228,7 +228,7 @@ describe('connector data routes', () => {
         expect.objectContaining({
           where: { id: 'id' },
           set: {
-            config: { translations: { en: {} } },
+            config: {},
           },
           jsonbMode: 'replace',
         })

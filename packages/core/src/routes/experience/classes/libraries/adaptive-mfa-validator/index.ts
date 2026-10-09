@@ -112,14 +112,13 @@ export class AdaptiveMfaValidator {
     return {
       ip,
       ...conditional(userAgent && { userAgent }),
-      ...getInjectedHeaderValues(headers),
+      ...getInjectedHeaderValues(headers, this.ctx.request.socket.remoteAddress),
       ...conditional(
         userAgent && {
           device: trySafe(() => {
-            const userAgentValue =
-              typeof userAgent === 'string' ? userAgent : userAgent?.[0];
+            const userAgentValue = typeof userAgent === 'string' ? userAgent : userAgent[0];
             if (!userAgentValue) {
-              return undefined;
+              return;
             }
 
             const {
@@ -127,35 +126,25 @@ export class AdaptiveMfaValidator {
               'sec-ch-ua-platform-version': chUaPlatformVersion,
             } = headers;
 
-            const chHeaders = {
-              'sec-ch-ua-model': typeof chUaModel === 'string' ? chUaModel : undefined,
-              'sec-ch-ua-platform-version': typeof chUaPlatformVersion === 'string' ? chUaPlatformVersion : undefined,
-            } satisfies Record<string, string | undefined>;
-            const hasCh = Object.values(chHeaders).some(Boolean);
+            const chHeaders: Record<string, string> = {
+              ...conditional(typeof chUaModel === 'string' && { 'sec-ch-ua-model': chUaModel }),
+              ...conditional(
+                typeof chUaPlatformVersion === 'string' && {
+                  'sec-ch-ua-platform-version': chUaPlatformVersion,
+                }
+              ),
+            };
+            const hasCh = Object.keys(chHeaders).length > 0;
 
-            const parser = new UAParser(
-              userAgentValue,
-              undefined,
-              hasCh ? chHeaders as Record<string, string> : undefined
-            );
+            const parser = new UAParser(userAgentValue, undefined, hasCh ? chHeaders : undefined);
             const parsed = parser.getResult();
-            let result: UAParser.IResult;
-            if (hasCh) {
-              const withHints = parsed.withClientHints();
-              // withClientHints() may return a PromiseLike; fall back to sync result
-              result =
-                typeof (withHints as Partial<PromiseLike<UAParser.IResult>>).then === 'function'
-                  ? parsed
-                  : (withHints as UAParser.IResult);
-            } else {
-              result = parsed;
-            }
+            // WithClientHints() may return a PromiseLike; fall back to sync result
+            const withHints = hasCh ? parsed.withClientHints() : parsed;
+            const result = 'then' in withHints ? parsed : withHints;
 
             const modelParts = [result.device.vendor, result.device.model].filter(Boolean);
             const model = modelParts.length > 0 ? modelParts.join(' ') : undefined;
-            return [result.browser.name, model ?? result.os.name]
-              .filter(Boolean)
-              .join(' on ');
+            return [result.browser.name, model ?? result.os.name].filter(Boolean).join(' on ');
           }),
         }
       ),

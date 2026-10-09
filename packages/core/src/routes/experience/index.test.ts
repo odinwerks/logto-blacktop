@@ -1,4 +1,6 @@
 /* eslint-disable max-lines */
+import { BlockList } from 'node:net';
+
 import { appInsights } from '@logto/app-insights/node';
 import { TemplateType } from '@logto/connector-kit';
 import {
@@ -608,8 +610,25 @@ describe('POST /experience/submit', () => {
     (EnvSet.values as { isDevFeaturesEnabled: boolean }).isDevFeaturesEnabled = enabled;
   };
 
+  const originalTrustedCidrBlockList = EnvSet.values.injectedHeadersTrustedCidrBlockList;
+  // The test server binds to the loopback interface; trust it so injected headers flow.
+  const loopbackBlockList = new BlockList();
+  loopbackBlockList.addSubnet('127.0.0.0', 8, 'ipv4');
+  loopbackBlockList.addAddress('::1', 'ipv6');
+  const setInjectedHeadersTrustedCidrBlockList = (value?: BlockList) => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    (
+      EnvSet.values as { injectedHeadersTrustedCidrBlockList?: BlockList }
+    ).injectedHeadersTrustedCidrBlockList = value;
+  };
+
+  beforeEach(() => {
+    setInjectedHeadersTrustedCidrBlockList(loopbackBlockList);
+  });
+
   afterEach(() => {
     setDevFeaturesEnabled(originalIsDevFeaturesEnabled);
+    setInjectedHeadersTrustedCidrBlockList(originalTrustedCidrBlockList);
     jest.useRealTimers();
     jest.restoreAllMocks();
   });

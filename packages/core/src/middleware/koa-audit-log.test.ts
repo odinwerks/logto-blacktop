@@ -6,6 +6,7 @@ import type { Context } from 'koa';
 import Router, { type IRouterParamContext } from 'koa-router';
 import { UAParser } from 'ua-parser-js';
 
+import { EnvSet } from '#src/env-set/index.js';
 import type Queries from '#src/tenants/Queries.js';
 import createMockContext from '#src/test-utils/jest-koa-mocks/create-mock-context.js';
 import { mockId, mockIdGenerators } from '#src/test-utils/nanoid.js';
@@ -48,6 +49,24 @@ describe('koaAuditLog middleware', () => {
     userId: 'foo',
     username: 'Bar',
   };
+
+  // The mock ctx has no socket peer; authenticate it as a trusted edge via the
+  // shared-secret header instead so injected headers flow in the signInContext tests.
+  const trustedToken = 'edge-secret';
+  const originalTrustedToken = EnvSet.values.injectedHeadersTrustedToken;
+  const trustedEdgeHeaders = { 'x-logto-injected-token': trustedToken };
+  const setInjectedHeadersTrustedToken = (value?: string) => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    (EnvSet.values as { injectedHeadersTrustedToken?: string }).injectedHeadersTrustedToken = value;
+  };
+
+  beforeEach(() => {
+    setInjectedHeadersTrustedToken(trustedToken);
+  });
+
+  afterEach(() => {
+    setInjectedHeadersTrustedToken(originalTrustedToken);
+  });
 
   const ip = '192.168.0.1';
   const userAgent =
@@ -144,6 +163,7 @@ describe('koaAuditLog middleware', () => {
   it('should include sign-in context when mapped headers are present', async () => {
     const ctx: TestContext = createTestContext({
       'user-agent': userAgent,
+      ...trustedEdgeHeaders,
       'x-logto-cf-country': 'US',
       'x-logto-cf-city': 'New York',
     });
@@ -176,6 +196,7 @@ describe('koaAuditLog middleware', () => {
   it('should include sign-in context and parsed user agent with partial sign-in context headers', async () => {
     const ctx: TestContext = createTestContext({
       'user-agent': userAgent,
+      ...trustedEdgeHeaders,
       'x-logto-cf-country': 'US',
     });
     ctx.request.ip = ip;

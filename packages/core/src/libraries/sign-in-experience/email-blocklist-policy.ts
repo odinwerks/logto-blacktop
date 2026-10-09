@@ -44,6 +44,17 @@ export const parseEmailBlocklistPolicy = (
 ): EmailBlocklistPolicy => {
   const { customAllowlist, customBlocklist, ...rest } = emailBlocklistPolicy;
 
+  // BlockDisposableAddresses is not supported for OSS.
+  if (rest.blockDisposableAddresses) {
+    assertThat(
+      EnvSet.values.isCloud,
+      new RequestError({
+        code: 'request.invalid_input',
+        details: 'Disposable email domain validation is not supported in this environment',
+      })
+    );
+  }
+
   return {
     ...rest,
     ...conditional(customAllowlist && { customAllowlist: parseCustomEmailList(customAllowlist) }),
@@ -61,12 +72,12 @@ const validateDisposableEmailDomain = async (email: string) => {
     return;
   }
 
-  // Skip validation if Azure Function endpoint is not configured (OSS)
-  if (!EnvSet.values.azureFunctionAppEndpoint) {
-    return;
-  }
-
   try {
+    assertThat(
+      EnvSet.values.azureFunctionAppEndpoint,
+      new Error('Environment variable AZURE_FUNCTION_APP_ENDPOINT is not set')
+    );
+
     const result = await got
       .post(
         new URL('/api/disposable-email-domain-validation', EnvSet.values.azureFunctionAppEndpoint),
