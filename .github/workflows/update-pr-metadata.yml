@@ -12,6 +12,10 @@ concurrency:
 jobs:
   update-metadata:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Add labels
@@ -31,6 +35,10 @@ jobs:
 
   pr-size-diff:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
