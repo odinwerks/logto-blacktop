@@ -62,6 +62,13 @@ const sync = async () => {
         const packageDirectory = path.join(packagesDirectory, packageName);
         const packageJsonPath = path.join(packageDirectory, 'package.json');
 
+        // Skip directories that do not contain a package (e.g. an uninitialized git submodule)
+        try {
+          await fs.access(packageJsonPath);
+        } catch {
+          return;
+        }
+
         // Sync package.json
         const current = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'));
 
