@@ -1,11 +1,13 @@
 import { GoogleConnector } from '@logto/connector-kit';
 import type { ExperienceSocialConnector } from '@logto/schemas';
-import { ConnectorPlatform } from '@logto/schemas';
+import { ConnectorPlatform, experienceSocialStatePrefix } from '@logto/schemas';
+import { trySafe } from '@silverhand/essentials';
 import { getCookie } from 'tiny-cookie';
 
 import { SearchParameters } from '@/types';
 import { generateRandomString } from '@/utils';
 import { getLogtoNativeSdk, isNativeWebview } from '@/utils/native-sdk';
+import { isValidWebRedirectUri } from '@/utils/url-scheme';
 
 /**
  * Social Connector State Utility Methods
@@ -13,11 +15,14 @@ import { getLogtoNativeSdk, isNativeWebview } from '@/utils/native-sdk';
 
 const storageStateKeyPrefix = 'social_auth_state';
 
-export const generateState = () => {
-  const uuid = generateRandomString();
-
-  return uuid;
-};
+/**
+ * Generate a random OAuth `state` for social and SSO sign-in.
+ *
+ * The random part is base64url-encoded, whose alphabet overlaps with the Account Center state
+ * prefix. The Experience prefix keeps the two namespaces disjoint so that Logto Core can route
+ * the shared `/callback/:connectorId` URI by the `state` prefix without ambiguity.
+ */
+export const generateState = () => `${experienceSocialStatePrefix}${generateRandomString()}`;
 
 export const storeState = (state: string, connectorId: string) => {
   sessionStorage.setItem(`${storageStateKeyPrefix}:${connectorId}`, state);
@@ -114,6 +119,36 @@ export const getCallbackLinkFromStorage = (connectorId: string) => {
 
 export const removeCallbackLinkFromStorage = (connectorId: string) => {
   sessionStorage.removeItem(`${storageCallbackLinkKeyPrefix}:${connectorId}`);
+};
+
+/**
+ * Whether the value is the admin Console "link social account" web callback,
+ * `<console origin>/handle-social`.
+ *
+ * `/springboard` plants this link so that the social callback can relay the OAuth response to
+ * Console. Only `http(s)` URLs on the Console origin are trusted: the same origin as this app
+ * for OSS deployments, or the `cloud.*` counterpart of the `auth.*` endpoint on Logto Cloud
+ * (mirroring `adminTenantEndpoint`'s `cloud.` -> `auth.` mapping in Console), plus any loopback
+ * port for local development where Console (Vite) and Experience are served separately. An
+ * arbitrary attacker-supplied URL is rejected, so the relay cannot leak `code` + `state`.
+ */
+export const isValidConsoleCallbackLink = (link: string): boolean => {
+  const url = trySafe(() => new URL(link));
+
+  if (!url || url.pathname !== '/handle-social' || !isValidWebRedirectUri(link)) {
+    return false;
+  }
+
+  const { origin, hostname } = window.location;
+
+  if (url.origin === origin || url.origin === origin.replace('://auth.', '://cloud.')) {
+    return true;
+  }
+
+  return (
+    url.hostname === hostname &&
+    (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]')
+  );
 };
 
 /**

@@ -21,6 +21,9 @@ import { __Internal__ImportError } from './internal';
 
 const Welcome = safeLazy(async () => import('@/pages/Welcome'));
 const Profile = safeLazy(async () => import('@/pages/Profile'));
+const HandleSocialCallback = safeLazy(
+  async () => import('@/pages/Profile/containers/HandleSocialCallback')
+);
 const OssOnboarding = safeLazy(async () => import('@/pages/OssOnboarding'));
 
 function Layout() {
@@ -45,6 +48,16 @@ export function ConsoleRoutes() {
          * console path to trigger the console routes.
          */}
         {!isCloud && <Route path="/" element={<Navigate to={ossConsolePath} />} />}
+        {/**
+         * The Console "link social account" popup lands here with the OAuth response;
+         * it is a root-level reserved route, not nested inside a tenant context.
+         */}
+        <Route element={<ProtectedRoutes />}>
+          <Route
+            path={dropLeadingSlash(GlobalRoute.HandleSocial)}
+            element={<HandleSocialCallback />}
+          />
+        </Route>
         <Route path="/:tenantId" element={<Layout />}>
           <Route path="callback" element={<Callback />} />
           <Route path="welcome" element={<Welcome />} />

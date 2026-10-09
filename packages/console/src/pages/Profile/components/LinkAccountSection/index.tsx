@@ -49,6 +49,7 @@ function LinkAccountSection({ user, connectors, onUpdate }: Props) {
         .json<{ redirectTo: string }>();
 
       sessionStorage.setItem(storageKeys.linkingSocialConnector, connectorId);
+      sessionStorage.setItem(storageKeys.linkingSocialState, state);
 
       return redirectTo;
     },

@@ -8,3 +8,4 @@ export * from './experience.js';
 export * from './sentinel.js';
 export * from './product-event.js';
 export * from './application.js';
+export * from './social-state.js';
