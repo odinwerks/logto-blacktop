@@ -48,9 +48,18 @@ const identifierPayloadVerification = await pickDefault(
 
 const verifyUserPassword = jest.fn();
 const logContext = createMockLogContext();
-const tenant = new MockTenant(undefined, {}, undefined, {
-  users: { verifyUserPassword },
-});
+const tenant = new MockTenant(
+  undefined,
+  {
+    signInExperiences: {
+      findDefaultSignInExperience: jest.fn(async () => mockSignInExperience),
+    },
+  },
+  undefined,
+  {
+    users: { verifyUserPassword },
+  }
+);
 
 describe('identifier verification', () => {
   const baseCtx = {
