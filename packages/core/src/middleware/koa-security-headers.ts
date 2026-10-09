@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { type IncomingMessage, type ServerResponse } from 'node:http';
 import { promisify } from 'node:util';
 
@@ -40,7 +41,7 @@ const getOssServerOrigins = (): string[] => {
 type SecurityHeaderSettings = {
   readonly basicSecurityHeaderSettings: HelmetOptions;
   readonly consoleSecurityHeaderSettings: HelmetOptions;
-  readonly accountCenterSecurityHeaderSettings: HelmetOptions;
+  readonly getAccountCenterSecurityHeaderSettings: (nonce: string) => HelmetOptions;
   readonly defaultExperienceSecurityHeaderSettings: HelmetOptions;
   readonly getExperienceSecurityHeaderSettings: (
     customUiCsp?: CustomUiCsp,
@@ -215,8 +216,14 @@ const createSecurityHeaderSettings = (tenantId: string): SecurityHeaderSettings 
   };
   const defaultExperienceSecurityHeaderSettings = getExperienceSecurityHeaderSettings();
 
+  /**
+   * The account center serves inline scripts (SSR bootstrap, blocking theme script), which
+   * `'unsafe-inline'` would allow unconditionally. Instead each response carries a random
+   * `'nonce-'` source and `koaAccountCenterSsr` stamps the nonce on the script tags, keeping
+   * injected inline scripts blocked. `script-src-attr` falls back to helmet's `'none'`.
+   */
   // @ts-expect-error: helmet typings has lots of {A?: T, B?: never} | {A?: never, B?: T} options definitions. Optional settings type can not inferred correctly.
-  const accountCenterSecurityHeaderSettings: HelmetOptions = {
+  const getAccountCenterSecurityHeaderSettings = (nonce: string): HelmetOptions => ({
     ...basicSecurityHeaderSettings,
     // Guarded by CSP header below
     frameguard: false,
@@ -227,18 +234,16 @@ const createSecurityHeaderSettings = (tenantId: string): SecurityHeaderSettings 
         imgSrc: avatarCropImageSources,
         scriptSrc: [
           "'self'",
-          "'unsafe-inline'",
-          "'unsafe-hashes'",
+          `'nonce-${nonce}'`,
           // Some of our users may use the Cloudflare Web Analytics service. We need to allow it to load its scripts.
           'https://static.cloudflareinsights.com/',
           ...conditionalArray(!isProduction && "'unsafe-eval'"),
         ],
-        scriptSrcAttr: ["'unsafe-inline'"],
         connectSrc: ["'self'", tenantEndpointOrigin, ...developmentOrigins],
         frameSrc: ["'self'"],
       },
     },
-  };
+  });
 
   // @ts-expect-error: helmet typings has lots of {A?: T, B?: never} | {A?: never, B?: T} options definitions. Optional settings type can not inferred correctly.
   const consoleSecurityHeaderSettings: HelmetOptions = {
@@ -272,7 +277,7 @@ const createSecurityHeaderSettings = (tenantId: string): SecurityHeaderSettings 
   return {
     basicSecurityHeaderSettings,
     consoleSecurityHeaderSettings,
-    accountCenterSecurityHeaderSettings,
+    getAccountCenterSecurityHeaderSettings,
     defaultExperienceSecurityHeaderSettings,
     getExperienceSecurityHeaderSettings,
   };
@@ -322,7 +327,7 @@ export default function koaSecurityHeaders<StateT, ContextT, ResponseBodyT>(
   const {
     basicSecurityHeaderSettings,
     consoleSecurityHeaderSettings,
-    accountCenterSecurityHeaderSettings,
+    getAccountCenterSecurityHeaderSettings,
     defaultExperienceSecurityHeaderSettings,
   } = createSecurityHeaderSettings(tenantId);
 
@@ -341,7 +346,8 @@ export default function koaSecurityHeaders<StateT, ContextT, ResponseBodyT>(
     }
 
     if (requestPath.startsWith(`/${UserApps.AccountCenter}`)) {
-      await helmetPromise(accountCenterSecurityHeaderSettings, req, res);
+      const cspNonce = randomBytes(16).toString('base64');
+      await helmetPromise(getAccountCenterSecurityHeaderSettings(cspNonce), req, res);
 
       return next();
     }

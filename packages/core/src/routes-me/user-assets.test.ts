@@ -122,7 +122,34 @@ describe('me user-assets routes', () => {
     expect(response.body.code).toBe('storage.not_configured');
   });
 
-  it('POST /user-assets with non-image should use the branding path (publicUrl)', async () => {
+  it.each([
+    ['zip', 'logo.zip', 'application/zip'],
+    ['svg', 'my logo.svg', 'image/svg+xml'],
+    ['ico', 'favicon.ico', 'image/x-icon'],
+  ])(
+    'POST /user-assets should reject non-avatar upload %s even when the declared type is allowed',
+    async (_name, filename, contentType) => {
+      // eslint-disable-next-line @silverhand/fp/no-mutation
+      SystemContext.shared.storageProviderConfig = {
+        provider: StorageProvider.S3Storage,
+        bucket: 'test-bucket',
+        region: 'us-east-1',
+        accessKeyId: 'key',
+        accessSecretKey: 'secret',
+        publicUrl: 'https://cdn.example.com',
+      };
+
+      const response = await meRequest
+        .post('/user-assets')
+        .attach('file', Buffer.from('content'), { filename, contentType });
+
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe('guard.mime_type_not_allowed');
+      expect(mockUploadFileFunction).not.toHaveBeenCalled();
+    }
+  );
+
+  it('POST /user-assets should reject an image whose magic bytes are not avatar types', async () => {
     // eslint-disable-next-line @silverhand/fp/no-mutation
     SystemContext.shared.storageProviderConfig = {
       provider: StorageProvider.S3Storage,
@@ -130,53 +157,19 @@ describe('me user-assets routes', () => {
       region: 'us-east-1',
       accessKeyId: 'key',
       accessSecretKey: 'secret',
-      publicUrl: 'https://cdn.example.com',
     };
 
-    mockUploadFileFunction.mockResolvedValue({
-      url: 'https://cdn.example.com/admin/app-assets/branding/logo.zip',
-    });
-
+    // SVG payload declared (and accepted) as image/svg+xml is not an avatar type by content
     const response = await meRequest
       .post('/user-assets')
-      .attach('file', Buffer.from('zip'), { filename: 'logo.zip', contentType: 'application/zip' });
+      .attach('file', Buffer.from('<svg><script>alert(1)</script></svg>'), {
+        filename: 'avatar.png',
+        contentType: 'image/png',
+      });
 
-    expect(response.status).toBe(200);
-    expect(response.body.url).toMatch(
-      /^https:\/\/cdn\.example\.com\/admin\/app-assets\/branding\/logo\.zip\?v=\d+$/
-    );
-    expect(mockUploadFileFunction).toHaveBeenCalledTimes(1);
-    expect(mockUploadFileFunction.mock.calls[0]?.[1]).toBe('admin/app-assets/branding/logo.zip');
-    expect(mockListFilesFunction).not.toHaveBeenCalled();
-    expect(mockDeleteFileFunction).not.toHaveBeenCalled();
-  });
-
-  it('POST /user-assets with a non-avatar image should use the branding path (no publicUrl)', async () => {
-    // eslint-disable-next-line @silverhand/fp/no-mutation
-    SystemContext.shared.storageProviderConfig = {
-      provider: StorageProvider.S3Storage,
-      bucket: 'test-bucket',
-      region: 'us-east-1',
-      accessKeyId: 'key',
-      accessSecretKey: 'secret',
-    };
-
-    mockUploadFileFunction.mockResolvedValue(null);
-
-    const response = await meRequest
-      .post('/user-assets')
-      .attach('file', Buffer.from('<svg/>'), { filename: 'my logo.svg', contentType: 'image/svg+xml' });
-
-    expect(response.status).toBe(200);
-    // Served by `/api/app-assets/:filename`, which reads `{tenantId}/app-assets/branding/`
-    expect(response.body.url).toMatch(
-      new RegExp(`^${tenantContext.envSet.endpoint.origin}/api/app-assets/my-logo\\.svg\\?v=\\d+$`)
-    );
-    expect(mockUploadFileFunction).toHaveBeenCalledTimes(1);
-    expect(mockUploadFileFunction.mock.calls[0]?.[1]).toBe('admin/app-assets/branding/my-logo.svg');
-    expect(mockUploadFileFunction.mock.calls[0]?.[2]).toMatchObject({ isPublic: false });
-    expect(mockListFilesFunction).not.toHaveBeenCalled();
-    expect(mockDeleteFileFunction).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('guard.mime_type_not_allowed');
+    expect(mockUploadFileFunction).not.toHaveBeenCalled();
   });
 
   it('POST /user-assets with image should use user-assets path, cleanup old files, and add cache-busting (publicUrl)', async () => {
@@ -221,7 +214,6 @@ describe('me user-assets routes', () => {
     expect(mockDeleteFileFunction).toHaveBeenCalledWith('admin/user-assets/foo/you.jpg');
     expect(mockDeleteFileFunction).toHaveBeenCalledWith('admin/user-assets/foo/you.webp');
     expect(mockDeleteFileFunction).not.toHaveBeenCalledWith('admin/user-assets/foo/you.png');
-
   });
 
   it('POST /user-assets with image should use user-assets path, cleanup, and add cache-busting (no publicUrl)', async () => {
@@ -256,7 +248,6 @@ describe('me user-assets routes', () => {
     expect(mockListFilesFunction).toHaveBeenCalledWith('admin/user-assets/foo/');
 
     expect(mockDeleteFileFunction).not.toHaveBeenCalled();
-
   });
 
   it('POST /user-assets with image should still return 200 when cleanup fails (best-effort)', async () => {
@@ -286,7 +277,6 @@ describe('me user-assets routes', () => {
     expect(response.body.url).toBe(
       `https://cdn.example.com/admin/user-assets/foo/you.jpg?v=${now}`
     );
-
   });
 
   it('POST /user-assets should return 500 when upload fails', async () => {

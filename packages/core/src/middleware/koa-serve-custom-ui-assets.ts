@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { isFileAssetPath, parseRange } from '@logto/core-kit';
 import { tryThat } from '@silverhand/essentials';
 import type { MiddlewareType } from 'koa';
@@ -38,7 +40,11 @@ export default function koaServeCustomUiAssets(customUiAssetId: string) {
     const { downloadFile, isFileExisted, getFileProperties } = buildStorage(storageProviderConfig);
 
     const contextPath = `${tenantId}/${customUiAssetId}`;
-    const requestPath = ctx.request.path;
+    /**
+     * Normalize separators and resolve `..` before it reaches the key: `/../x` resolves to `/x`
+     * inside the prefix rather than escaping it on backends that treat keys as paths.
+     */
+    const requestPath = path.posix.normalize(ctx.request.path.replaceAll('\\', '/'));
     const isFileAssetRequest = isFileAssetPath(requestPath);
 
     const fileObjectKey = `${contextPath}${isFileAssetRequest ? requestPath : '/index.html'}`;

@@ -1,4 +1,4 @@
-import { type SsrData, logtoCookieKey, logtoUiCookieGuard, ssrPlaceholder } from '@logto/schemas';
+import { logtoCookieKey, logtoUiCookieGuard, ssrPlaceholder } from '@logto/schemas';
 import { pick, trySafe } from '@silverhand/essentials';
 import type { MiddlewareType } from 'koa';
 
@@ -16,7 +16,7 @@ import { isIndexPath } from './koa-serve-static.js';
  * script element early and enable injection. Escaping the HTML-significant characters keeps the values
  * identical once parsed by JS, while preventing the HTML parser from recognizing any tag delimiters.
  */
-const serializeSsrData = (data: SsrData): string =>
+export const serializeSsrData = (data: unknown): string =>
   JSON.stringify(data)
     .replaceAll('<', '\\u003c')
     .replaceAll('>', '\\u003e')
