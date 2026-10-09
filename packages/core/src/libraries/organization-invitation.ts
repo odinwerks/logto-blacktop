@@ -2,6 +2,7 @@ import { appInsights } from '@logto/app-insights/node';
 import { ConnectorType, type SendMessagePayload, TemplateType } from '@logto/connector-kit';
 import {
   OrganizationInvitationStatus,
+  SentinelActivityAction,
   type CreateOrganizationInvitation,
   type OrganizationInvitationEntity,
 } from '@logto/schemas';
@@ -11,6 +12,7 @@ import { conditional, type Nullable, removeUndefinedKeys } from '@silverhand/ess
 import RequestError from '#src/errors/RequestError/index.js';
 import OrganizationQueries from '#src/queries/organization/index.js';
 import { createUserQueries } from '#src/queries/user.js';
+import { buildMessageRateGuard, withMessageRateGuard } from '#src/sentinel/message-rate-guard.js';
 import type Queries from '#src/tenants/Queries.js';
 import {
   buildOrganizationContextInfo,
@@ -255,15 +257,22 @@ export class OrganizationInvitationLibrary {
     ip?: string
   ) {
     const emailConnector = await this.connector.getMessageConnector(ConnectorType.Email);
-    return emailConnector.sendMessage({
-      to,
-      type: TemplateType.OrganizationInvitation,
-      payload: {
-        email: to,
+    const send = async () =>
+      emailConnector.sendMessage({
+        to,
+        type: TemplateType.OrganizationInvitation,
+        payload: {
+          email: to,
+          ...(ip && { ip }),
+          ...payload,
+        },
         ...(ip && { ip }),
-        ...payload,
-      },
-      ...(ip && { ip }),
-    });
+      });
+
+    return withMessageRateGuard(
+      await buildMessageRateGuard(this.queries),
+      { action: SentinelActivityAction.MessageSend, recipient: to },
+      send
+    );
   }
 }

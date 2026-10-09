@@ -12,6 +12,7 @@ import { type Context } from 'koa';
 import { type IRouterParamContext } from 'koa-router';
 import ky, { type KyResponse } from 'ky';
 
+import { ssrfProtectedFetch } from '#src/utils/outbound-request.js';
 import { sign } from '#src/utils/sign.js';
 
 export const parseResponse = async (response: KyResponse) => {
@@ -43,6 +44,8 @@ export const sendWebhookRequest = async ({
       ...conditional(signingKey && { 'logto-signature-sha-256': sign(signingKey, payload) }),
     },
     json: payload,
+    // The hook URL is tenant-supplied; keep delivery off the deployment's private network.
+    fetch: ssrfProtectedFetch,
     retry: { limit: retries ?? 3 },
     timeout: 10_000,
   });

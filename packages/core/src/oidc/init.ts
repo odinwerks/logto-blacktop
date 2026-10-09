@@ -52,6 +52,7 @@ import {
   getExtraTokenClaimsForOrganizationApiResource,
   getExtraTokenClaimsForTokenExchange,
 } from './extra-token-claims.js';
+import { getProviderFetchConfig } from './fetch.js';
 import { registerGrants } from './grants/index.js';
 import {
   findResource,
@@ -163,6 +164,7 @@ export default function initOidc(
       introspectionSigningAlgValues: [...supportedSigningAlgs],
     },
     conformIdTokenClaims: false,
+    ...getProviderFetchConfig(),
     allowWildcardRedirectUris: true,
     features: {
       userinfo: { enabled: true },

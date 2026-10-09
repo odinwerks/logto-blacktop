@@ -11,6 +11,7 @@ import { Action } from '@logto/schemas/lib/types/log/interaction.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { type PasscodeLibrary } from '#src/libraries/passcode.js';
 import { type LogContext } from '#src/middleware/koa-audit-log.js';
+import { buildMessageRateGuard, withMessageRateGuard } from '#src/sentinel/message-rate-guard.js';
 import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 import { getLogtoCookie } from '#src/utils/cookie.js';
@@ -158,8 +159,28 @@ export const sendCode = async ({
         ...(ctx.request.ip && { ip: ctx.request.ip }),
       };
 
-  // Send verification code
-  await codeVerification.sendVerificationCode(payload, { skipDelivery });
+  // Send verification code. When delivery is skipped (see `shouldSkipDelivery`) the passcode record is
+  // still created but nothing is sent.
+  const send = async () => codeVerification.sendVerificationCode(payload, { skipDelivery });
+
+  const messageRateLimit = {
+    action: SentinelActivityAction.VerificationCodeSend,
+    recipient: identifier.value,
+  };
+
+  // The rate guard runs even for suppressed sends: a suppressed send must still count toward the
+  // per-recipient cap, otherwise an unknown recipient never hits 429 while a registered one does —
+  // leaking registration status (account enumeration) and defeating the point of suppression.
+  await withMessageRateGuard(
+    await buildMessageRateGuard(queries),
+    {
+      ...messageRateLimit,
+      onRateLimited: () => {
+        ctx.appendExceptionHookContext('Message.RateLimited', messageRateLimit);
+      },
+    },
+    send
+  );
 
   // Save state
   experienceInteraction.setVerificationRecord(codeVerification);

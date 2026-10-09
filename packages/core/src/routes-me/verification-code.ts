@@ -1,9 +1,11 @@
 import { TemplateType } from '@logto/connector-kit';
 import { emailRegEx } from '@logto/core-kit';
+import { SentinelActivityAction } from '@logto/schemas';
 import { object, string } from 'zod';
 
 import koaGuard from '#src/middleware/koa-guard.js';
 import type { RouterInitArgs } from '#src/routes/types.js';
+import { buildMessageRateGuard, withMessageRateGuard } from '#src/sentinel/message-rate-guard.js';
 
 import RequestError from '../errors/RequestError/index.js';
 import assertThat from '../utils/assert-that.js';
@@ -37,13 +39,26 @@ export default function verificationCodeRoutes<T extends AuthedMeRouter>(
       // to region tags (ka ↛ ka-GE). Stripping the region would cause English
       // fallback when translations are stored under region-specific keys.
       const overrideLocale = bodyLocale?.trim();
-      const code = await createPasscode(undefined, codeType, payload);
       const { uiLocales } = getLogtoCookie(ctx);
-      await sendPasscode(code, {
-        locale: overrideLocale ?? ctx.locale,
-        ...(uiLocales && { uiLocales }),
-        ip: ctx.request.ip,
-      });
+      // Create the passcode inside `send` so a rate-limited request neither creates a passcode nor
+      // deletes the recipient's existing unconsumed one (createPasscode replaces prior codes).
+      const send = async () => {
+        const code = await createPasscode(undefined, codeType, payload);
+        return sendPasscode(code, {
+          locale: overrideLocale ?? ctx.locale,
+          ...(uiLocales && { uiLocales }),
+          ip: ctx.request.ip,
+        });
+      };
+
+      await withMessageRateGuard(
+        await buildMessageRateGuard(tenant.queries),
+        {
+          action: SentinelActivityAction.VerificationCodeSend,
+          recipient: ctx.guard.body.email,
+        },
+        send
+      );
 
       ctx.status = 204;
 

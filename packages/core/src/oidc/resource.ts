@@ -1,9 +1,10 @@
 import { ReservedResource } from '@logto/core-kit';
-import { type Resource } from '@logto/schemas';
+import { isBuiltInApplicationId, isCimdClientId, type Resource } from '@logto/schemas';
 import { trySafe, type Nullable } from '@silverhand/essentials';
 import { type ResourceServer } from 'oidc-provider';
 
 import { type EnvSet } from '#src/env-set/index.js';
+import RequestError from '#src/errors/RequestError/index.js';
 import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 
@@ -121,11 +122,49 @@ export const findResource = async (
   return queries.resources.findResourceByIndicator(indicator);
 };
 
-export const isThirdPartyApplication = async ({ applications }: Queries, applicationId: string) => {
-  // Demo-app not exist in the database
-  const application = await trySafe(async () => applications.findApplicationById(applicationId));
+/**
+ * Resolve whether the given client is third-party, or `undefined` when no application matches the
+ * identifier.
+ *
+ * @remarks
+ * Unlike {@link isThirdPartyApplication}, a failed lookup (a database outage, say) is rethrown
+ * rather than folded into "third-party", so callers can tell "this client does not exist" from "we
+ * could not find out". Use this when the answer drives a hard reject and a transient failure must
+ * not masquerade as a client error.
+ */
+const resolveIsThirdPartyApplication = async (
+  { applications }: Queries,
+  applicationId: string
+): Promise<boolean | undefined> => {
+  // Built-in clients have no applications row and are always first-party.
+  if (isBuiltInApplicationId(applicationId)) {
+    return false;
+  }
 
-  return application?.isThirdParty ?? false;
+  // A CIMD client identifier is a URL and never names a registered application.
+  if (isCimdClientId(applicationId)) {
+    return true;
+  }
+
+  try {
+    const application = await applications.findApplicationById(applicationId);
+    return application.isThirdParty;
+  } catch (error: unknown) {
+    if (error instanceof RequestError && error.code === 'entity.not_exists_with_id') {
+      return undefined;
+    }
+
+    throw error;
+  }
+};
+
+export const isThirdPartyApplication = async (queries: Queries, applicationId: string) => {
+  const isThirdParty = await trySafe(async () =>
+    resolveIsThirdPartyApplication(queries, applicationId)
+  );
+
+  // Fail closed: an unresolvable client is never first-party.
+  return isThirdParty ?? true;
 };
 
 /**
