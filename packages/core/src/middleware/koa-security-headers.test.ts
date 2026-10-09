@@ -222,7 +222,7 @@ describe('koaSecurityHeaders() middleware — experience CSP', () => {
     expect(mountedAppCspHeaders).toEqual(['', '', '']);
   });
 
-  it('allows inline scripts in account center for SSR bootstrap', async () => {
+  it('uses a per-request script nonce instead of unsafe-inline in account center', async () => {
     const run = koaSecurityHeaders(['api', 'oidc', '.well-known', 'demo-app'], 'default');
     const ctx = createMockContext({ method: 'GET', url: '/account' });
 
@@ -232,9 +232,23 @@ describe('koaSecurityHeaders() middleware — experience CSP', () => {
     const scriptSourceAttribute = getCspDirective(ctx, 'script-src-attr');
 
     expect(scriptSource).toContain("'self'");
-    expect(scriptSource).toContain("'unsafe-inline'");
-    expect(scriptSource).toContain("'unsafe-hashes'");
-    expect(scriptSourceAttribute).toBe("script-src-attr 'unsafe-inline'");
+    expect(scriptSource).toMatch(/'nonce-[\d+/=A-Za-z]+'/);
+    expect(scriptSource).not.toContain("'unsafe-inline'");
+    expect(scriptSource).not.toContain("'unsafe-hashes'");
+    expect(scriptSourceAttribute).toBe("script-src-attr 'none'");
+  });
+
+  it('issues a fresh nonce per account center request', async () => {
+    const run = koaSecurityHeaders([], 'default');
+    const firstCtx = createMockContext({ method: 'GET', url: '/account' });
+    const secondCtx = createMockContext({ method: 'GET', url: '/account' });
+
+    await run(firstCtx, koaNoop);
+    await run(secondCtx, koaNoop);
+
+    expect(getCspDirective(firstCtx, 'script-src')).not.toBe(
+      getCspDirective(secondCtx, 'script-src')
+    );
   });
 
   it('does not override mounted app CSP when the experience middleware is reached later', async () => {

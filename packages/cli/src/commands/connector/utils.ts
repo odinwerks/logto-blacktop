@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -20,7 +20,7 @@ import {
   oraPromise,
 } from '../../utils.js';
 
-const execPromise = promisify(exec);
+const execFilePromise = promisify(execFile);
 export const npmPackResultGuard = z
   .object({
     name: z.string(),
@@ -86,7 +86,7 @@ export const addConnectorsToPath = async (cwd: string, packageNames: string[]) =
       .map((name) => normalizePackageName(name))
       .map(async (packageName) => {
         const run = async () => {
-          const { stdout } = await execPromise(`npm pack ${packageName} --json`, { cwd });
+          const { stdout } = await execFilePromise('npm', ['pack', packageName, '--json'], { cwd });
           const result = npmPackResultGuard.parse(JSON.parse(stdout));
 
           if (!result[0]) {

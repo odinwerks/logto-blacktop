@@ -4,6 +4,7 @@ import type { MiddlewareType } from 'koa';
 
 import type Libraries from '#src/tenants/Libraries.js';
 
+import { serializeSsrData } from './koa-experience-ssr.js';
 import { type WithI18nContext } from './koa-i18next.js';
 
 /**
@@ -26,7 +27,24 @@ export default function koaAccountCenterSsr<StateT, ContextT extends WithI18nCon
   return async (ctx, next) => {
     await next();
 
-    if (typeof ctx.body !== 'string' || !ctx.body.includes(accountCenterSsrPlaceholder)) {
+    if (typeof ctx.body !== 'string') {
+      return;
+    }
+
+    /**
+     * The account center CSP (`koa-security-headers.ts`) drops `'unsafe-inline'` in favor of a
+     * per-request nonce. Read the nonce back out of the emitted `Content-Security-Policy`
+     * header and stamp it on every script tag so the SSR bootstrap and theme scripts still run.
+     */
+    const cspNonce = /'nonce-([A-Za-z0-9+/=]+)'/u.exec(
+      ctx.response.get('content-security-policy')
+    )?.[1];
+    const htmlWithNonce = cspNonce
+      ? ctx.body.replaceAll('<script', `<script nonce="${cspNonce}"`)
+      : ctx.body;
+
+    if (!htmlWithNonce.includes(accountCenterSsrPlaceholder)) {
+      ctx.body = htmlWithNonce;
       return;
     }
 
@@ -35,14 +53,19 @@ export default function koaAccountCenterSsr<StateT, ContextT extends WithI18nCon
     );
 
     if (!signInExperience) {
+      ctx.body = htmlWithNonce;
       return;
     }
 
-    ctx.body = ctx.body.replace(
+    // Use a replacement *function* so `$`-sequences in the serialized data stay literal, and
+    // `serializeSsrData` so a `</script>` in the data cannot close the element early. Mirrors
+    // `koa-experience-ssr.ts`.
+    ctx.body = htmlWithNonce.replace(
       accountCenterSsrPlaceholder,
-      `Object.freeze(${JSON.stringify({
-        signInExperience: { data: signInExperience },
-      } satisfies AccountCenterSsrData)})`
+      () =>
+        `Object.freeze(${serializeSsrData({
+          signInExperience: { data: signInExperience },
+        } satisfies AccountCenterSsrData)})`
     );
   };
 }

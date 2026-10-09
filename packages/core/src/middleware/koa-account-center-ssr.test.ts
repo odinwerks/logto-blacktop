@@ -3,6 +3,7 @@ import { MockTenant } from '#src/test-utils/tenant.js';
 import { createContextWithRouteParameters } from '#src/utils/test-utils.js';
 
 import koaAccountCenterSsr from './koa-account-center-ssr.js';
+import { serializeSsrData } from './koa-experience-ssr.js';
 
 const { jest } = import.meta;
 
@@ -64,6 +65,61 @@ describe('koaAccountCenterSsr()', () => {
         signInExperience: { data: mockAccountCenterSsrSignInExperience },
       })});`
     );
+  });
+
+  it('should escape HTML-significant characters in the injected SSR data', async () => {
+    const data = {
+      color: {
+        ...mockSignInExperience.color,
+        primaryColor: 'x</script><script>alert(1)</script>&<',
+      },
+    };
+    jest
+      .mocked(tenant.libraries.signInExperiences.getAccountCenterSsrSignInExperience)
+      .mockResolvedValueOnce(data);
+
+    const ctx = {
+      ...baseCtx,
+      path: '/',
+      body: `<script>
+        const logtoSsr=${accountCenterSsrPlaceholder};
+      </script>`,
+    };
+    await koaAccountCenterSsr(tenant.libraries)(ctx, next);
+    expect(next).toHaveBeenCalledTimes(1);
+    // The only `</script>` left is the HTML's own closing tag; injected data is \uXXXX-escaped
+    expect(ctx.body).toBe(`<script>
+        const logtoSsr=Object.freeze(${serializeSsrData({ signInExperience: { data } })});
+      </script>`);
+  });
+
+  it('should stamp the CSP nonce on script tags when the response carries one', async () => {
+    const ctx = {
+      ...baseCtx,
+      path: '/',
+      body: `<script>
+        const logtoSsr=${accountCenterSsrPlaceholder};
+      </script>
+      <script type="module">main()</script>`,
+    };
+    ctx.set('Content-Security-Policy', "script-src 'self' 'nonce-aGVsbG8='");
+    await koaAccountCenterSsr(tenant.libraries)(ctx, next);
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(ctx.body).toContain('<script nonce="aGVsbG8=">');
+    expect(ctx.body).toContain('<script nonce="aGVsbG8=" type="module">');
+    expect(ctx.body).not.toContain('<script>');
+  });
+
+  it('should leave the body untouched when the placeholder is absent but stamp nonces', async () => {
+    const ctx = {
+      ...baseCtx,
+      path: '/',
+      body: '<script>no placeholder</script>',
+    };
+    ctx.set('Content-Security-Policy', "script-src 'self' 'nonce-aGVsbG8='");
+    await koaAccountCenterSsr(tenant.libraries)(ctx, next);
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(ctx.body).toBe('<script nonce="aGVsbG8=">no placeholder</script>');
   });
 
   it('should inject SSR data for Account Center deep links', async () => {

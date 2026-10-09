@@ -2,11 +2,9 @@ import { readFile } from 'node:fs/promises';
 
 import {
   userAssetsServiceStatusGuard,
-  allowUploadMimeTypes,
   maxUploadFileSize,
   type UserAssets,
   userAssetsGuard,
-  adminTenantId,
   uploadFileGuard,
   allowAvatarMimeTypes,
 } from '@logto/schemas';
@@ -19,12 +17,7 @@ import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
 import { detectImageType } from '#src/utils/file.js';
-import {
-  getBrandingAssetKey,
-  isPublicAsset,
-  sanitizeAssetFilename,
-  storeUserAvatar,
-} from '#src/utils/storage/assets.js';
+import { storeUserAvatar } from '#src/utils/storage/assets.js';
 import { buildStorage } from '#src/utils/storage/index.js';
 
 import type { AuthedMeRouter } from './types.js';
@@ -51,7 +44,7 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
       const status = storageProviderConfig
         ? {
             status: 'ready',
-            allowUploadMimeTypes,
+            allowUploadMimeTypes: allowAvatarMimeTypes,
             maxUploadFileSize,
             isExperienceAvatarUploadEnabled,
           }
@@ -80,57 +73,37 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
       const file = bodyFiles[0];
       assertThat(file, 'guard.invalid_input');
       assertThat(file.size <= maxUploadFileSize, 'guard.file_size_exceeded');
-      assertThat(
-        allowUploadMimeTypes.map(String).includes(file.mimetype),
-        'guard.mime_type_not_allowed'
-      );
+      assertThat(avatarMimeTypes.includes(file.mimetype), 'guard.mime_type_not_allowed');
 
       const { storageProviderConfig } = SystemContext.shared;
       assertThat(storageProviderConfig, 'storage.not_configured');
 
-      // Blacktop: deterministic keys. An avatar image (by its magic bytes, not the claimed type)
-      // replaces the user's `user-assets/{userId}/you.{ext}`; anything else (zip, svg, ico, ...) is
-      // stored like a branding asset, which `/api/app-assets/:filename` proxies.
+      // Blacktop: this route only accepts avatar images. The magic bytes, not the claimed MIME
+      // type, decide the `user-assets/{userId}/you.{ext}` key it replaces; anything else
+      // (zip, svg, ico, spoofed types) is rejected instead of hosted.
       const data = await readFile(file.filepath);
       const detected = detectImageType(data);
-      const storage = buildStorage(storageProviderConfig);
-      const { publicUrl } = storageProviderConfig;
+      assertThat(
+        detected && avatarMimeTypes.includes(detected.mime),
+        'guard.mime_type_not_allowed'
+      );
+
       const consoleLog = getConsoleLogFromContext(ctx);
 
       try {
-        if (detected && avatarMimeTypes.includes(detected.mime)) {
-          const url = await storeUserAvatar({
-            storage,
-            storageProviderConfig,
-            userId: ctx.auth.id,
-            data,
-            contentType: detected.mime,
-            extension: detected.extension,
-            endpointOrigin: tenant.envSet.endpoint.origin,
-            logError: (message, error) => {
-              consoleLog.error(message, error);
-            },
-          });
-          ctx.body = { url } satisfies UserAssets;
-        } else {
-          const filename = sanitizeAssetFilename(file.originalFilename);
-          const uploaded = await storage.uploadFile(
-            data,
-            getBrandingAssetKey(adminTenantId, filename),
-            {
-              contentType: file.mimetype,
-              publicUrl,
-              isPublic: isPublicAsset(storageProviderConfig),
-            }
-          );
-          ctx.body = {
-            url: `${
-              publicUrl
-                ? uploaded.url
-                : `${tenant.envSet.endpoint.origin}/api/app-assets/${filename}`
-            }?v=${Date.now()}`,
-          } satisfies UserAssets;
-        }
+        const url = await storeUserAvatar({
+          storage: buildStorage(storageProviderConfig),
+          storageProviderConfig,
+          userId: ctx.auth.id,
+          data,
+          contentType: detected.mime,
+          extension: detected.extension,
+          endpointOrigin: tenant.envSet.endpoint.origin,
+          logError: (message, error) => {
+            consoleLog.error(message, error);
+          },
+        });
+        ctx.body = { url } satisfies UserAssets;
       } catch (error: unknown) {
         consoleLog.error(error);
         throw new RequestError({
