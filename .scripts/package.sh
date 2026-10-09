@@ -48,5 +48,4 @@ if [[ "${SKIP_TAR:-}" == @(1|true|y|yes|yep|yeah) ]]; then
 fi
 
 echo Tar the package
-cd ..
-tar -czf /tmp/logto.tar.gz logto
+tar -czf /tmp/logto.tar.gz -C .. --transform "s|^$(basename "$PWD")|logto|" "$(basename "$PWD")"
