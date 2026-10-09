@@ -8,7 +8,6 @@ import {
   type JwtCustomizerUserContext,
   type JwtCustomizerApplicationContext,
   type LogtoJwtTokenKey,
-  type CustomJwtApiContext,
   type CustomJwtScriptPayload,
   jsonObjectGuard,
   isBuiltInApplicationId,
@@ -26,7 +25,7 @@ import {
 import deepmerge from 'deepmerge';
 import { got, HTTPError } from 'got';
 import { type UnknownObject } from 'oidc-provider';
-import { ZodError, z } from 'zod';
+import { z } from 'zod';
 
 import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
@@ -35,68 +34,84 @@ import { type ScopeLibrary } from '#src/libraries/scope.js';
 import { type UserLibrary } from '#src/libraries/user.js';
 import type Queries from '#src/tenants/Queries.js';
 import {
-  LocalVmError,
   getJwtCustomizerScripts,
-  runScriptFunctionInLocalVm,
-  buildLocalVmErrorBody,
   type CustomJwtDeployRequestBody,
   parseAzureFunctionsResponseError,
 } from '#src/utils/custom-jwt/index.js';
 
 import { type CloudConnectionLibrary } from './cloud-connection.js';
+import {
+  buildScriptFailureError,
+  runScriptOnWorkerPool,
+  ScriptExecutionError,
+  scriptFailureStatusCodes,
+} from './script-runner/index.js';
 
-const apiContext: CustomJwtApiContext = Object.freeze({
-  denyAccess: (message = 'Access denied') => {
-    const error: CustomJwtErrorBody = {
-      code: CustomJwtErrorCode.AccessDenied,
-      message,
-    };
+/**
+ * The error a denial (`api.denyAccess()`) leaves the library as, on every runtime.
+ *
+ * The `CustomJwtErrorBody` under `error` is what makes the denial recognizable downstream
+ * (`isAccessDeniedError`), which is why a `denied` failure never goes through the generic
+ * failure-to-error mapping.
+ */
+const buildAccessDeniedError = (message: string) => {
+  const error: CustomJwtErrorBody = {
+    code: CustomJwtErrorCode.AccessDenied,
+    message,
+  };
 
-    throw new LocalVmError(
-      {
-        message,
-        error,
-      },
-      403
-    );
-  },
-});
+  return new ScriptExecutionError({ message, error }, scriptFailureStatusCodes.denied);
+};
 
 export class JwtCustomizerLibrary {
-  // Convert errors to WithTyped client response error to share the error handling logic.
-  static async runScriptInLocalVm(data: CustomJwtFetcher) {
-    try {
-      const payload: CustomJwtScriptPayload = {
-        ...pick(data, 'token', 'context', 'environmentVariables'),
-        api: apiContext,
-      };
+  // Convert failures to WithTyped client response errors to share the error handling logic.
+  static async runScriptLocally(data: CustomJwtFetcher, tenantId: string) {
+    /**
+     * `api` is not part of the payload: functions cannot cross the structured-clone boundary, so
+     * the worker constructs `denyAccess` itself and reports a denial as a `denied` failure.
+     */
+    const payload: Omit<CustomJwtScriptPayload, 'api'> = pick(
+      data,
+      'token',
+      'context',
+      'environmentVariables'
+    );
 
-      const result = await runScriptFunctionInLocalVm(data.script, 'getCustomJwtClaims', payload);
+    const result = await runScriptOnWorkerPool({
+      script: data.script,
+      entry: 'getCustomJwtClaims',
+      payload,
+      tenantId,
+    });
 
-      // If the `result` is not a record, we cannot merge it to the existing token payload.
-      return z.record(z.unknown()).parse(result);
-    } catch (error: unknown) {
-      if (error instanceof LocalVmError) {
-        throw error;
+    if (!result.ok) {
+      if (result.kind === 'denied') {
+        throw buildAccessDeniedError(result.message);
       }
 
-      // Assuming we only use zod for request body validation
-      if (error instanceof ZodError) {
-        const { errors } = error;
-        throw new LocalVmError(
-          {
-            message: 'Invalid input',
-            errors,
-          },
-          400
-        );
-      }
+      throw buildScriptFailureError(result);
+    }
 
-      throw new LocalVmError(
-        buildLocalVmErrorBody(error),
-        error instanceof SyntaxError || error instanceof TypeError ? 422 : 500
+    return JwtCustomizerLibrary.parseScriptResultValue(result.value);
+  }
+
+  /**
+   * Validate the value a successful run returned.
+   *
+   * If it is not a record, we cannot merge it to the existing token payload. This is call-site
+   * validation of a successful run, not a runner failure — it keeps the 400.
+   */
+  private static parseScriptResultValue(value: unknown) {
+    const parsed = z.record(z.unknown()).safeParse(value);
+
+    if (!parsed.success) {
+      throw new ScriptExecutionError(
+        { message: 'Invalid input', errors: parsed.error.errors },
+        400
       );
     }
+
+    return parsed.data;
   }
 
   constructor(
@@ -286,7 +301,7 @@ export class JwtCustomizerLibrary {
   /**
    * @remarks
    * For Logto cloud use only. Run the custom JWT claims script remotely in an isolated environment.
-   * For OSS version, use @see JwtCustomizerLibrary.runScriptInLocalVm instead.
+   * For OSS version, use @see JwtCustomizerLibrary.runScriptLocally instead.
    *
    * @param payload - The custom JWT fetcher payload.
    * @param isTest - Whether to run the script in test mode.

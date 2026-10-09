@@ -8,7 +8,7 @@ import { MockTenant } from '#src/test-utils/tenant.js';
 
 const { jest } = import.meta;
 
-const runScriptInLocalVm = jest.fn().mockResolvedValue({});
+const runScriptLocally = jest.fn().mockResolvedValue({});
 const accountId = 'user-1';
 const sessionUid = 'session-1';
 
@@ -20,7 +20,7 @@ jest.unstable_mockModule('@logto/app-insights/node', () => ({
 
 jest.unstable_mockModule('#src/libraries/jwt-customizer.js', () => ({
   JwtCustomizerLibrary: {
-    runScriptInLocalVm,
+    runScriptLocally,
   },
 }));
 
@@ -125,7 +125,7 @@ describe('getExtraTokenClaimsForJwtCustomization', () => {
   const originalIsDevFeaturesEnabled = EnvSet.values.isDevFeaturesEnabled;
 
   beforeEach(() => {
-    runScriptInLocalVm.mockReset().mockResolvedValue({});
+    runScriptLocally.mockReset().mockResolvedValue({});
     Reflect.set(EnvSet.values, 'isDevFeaturesEnabled', true);
   });
 
@@ -136,7 +136,7 @@ describe('getExtraTokenClaimsForJwtCustomization', () => {
   it('includes sign-in context in interaction context when lastSubmission has it', async () => {
     await callGetExtraTokenClaimsForJwtCustomization({});
 
-    expect(runScriptInLocalVm.mock.calls[0]?.[0]).toMatchObject({
+    expect(runScriptLocally.mock.calls[0]?.[0]).toMatchObject({
       context: {
         interaction: {
           signInContext: { country: 'US' },
@@ -151,7 +151,7 @@ describe('getExtraTokenClaimsForJwtCustomization', () => {
 
     await callGetExtraTokenClaimsForJwtCustomization({ signInContext });
 
-    expect(runScriptInLocalVm.mock.calls[0]?.[0]).toMatchObject({
+    expect(runScriptLocally.mock.calls[0]?.[0]).toMatchObject({
       context: {
         interaction: {
           signInContext,
@@ -161,7 +161,7 @@ describe('getExtraTokenClaimsForJwtCustomization', () => {
   });
 
   it('throws invalid request with original error message on script failure when blocking is enabled', async () => {
-    runScriptInLocalVm.mockRejectedValue(new Error('boom'));
+    runScriptLocally.mockRejectedValue(new Error('boom'));
 
     await expect(
       callGetExtraTokenClaimsForJwtCustomization({ blockIssuanceOnError: true })
@@ -173,7 +173,7 @@ describe('getExtraTokenClaimsForJwtCustomization', () => {
   });
 
   it('throws invalid request with parsed response error message when blocking is enabled', async () => {
-    runScriptInLocalVm.mockRejectedValue(
+    runScriptLocally.mockRejectedValue(
       createResponseError(422, {
         message: "'abc' not exists in 'context'.",
       })
@@ -189,7 +189,7 @@ describe('getExtraTokenClaimsForJwtCustomization', () => {
   });
 
   it('throws access denied when denyAccess is called in custom script', async () => {
-    runScriptInLocalVm.mockRejectedValue(
+    runScriptLocally.mockRejectedValue(
       createResponseError(403, {
         message: 'blocked',
         error: {
@@ -208,7 +208,7 @@ describe('getExtraTokenClaimsForJwtCustomization', () => {
   });
 
   it('throws oidc invalid request error type for block-on-error failures', async () => {
-    runScriptInLocalVm.mockRejectedValue(new Error('boom'));
+    runScriptLocally.mockRejectedValue(new Error('boom'));
 
     await expect(
       callGetExtraTokenClaimsForJwtCustomization({ blockIssuanceOnError: true })
