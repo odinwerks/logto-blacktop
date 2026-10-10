@@ -4,6 +4,13 @@ packages:
   - packages/connectors/*
   - "!packages/connectors/templates"
 
+# The connector-ubill-sms importer breaks `pnpm i` in any checkout that skips git
+# submodules (e.g. actions-run-logto-integration-tests' internal `tests/` checkout).
+# pnpm 12 only honors this setting from pnpm-workspace.yaml, so it is set repo-wide;
+# `main-generated-files` still catches a stale lockfile because a non-frozen install
+# rewrites it and the subsequent `git diff` then fails.
+frozenLockfile: false
+
 publicHoistPattern:
   - "*eslint*"
 

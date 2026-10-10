@@ -81,15 +81,9 @@ jobs:
       SELF_HOSTED_LICENSE_PUBLIC_KEY: '{"crv":"Ed25519","x":"kW7_S4kvfOBm8dRpABVDK3TU7AReEPzqb4s3FDRBWzg","kty":"OKP"}'
 
     steps:
-      # The action's internal `tests/` checkout does not populate git submodules, so its
-      # `pnpm i` hits ERR_PNPM_OUTDATED_LOCKFILE on the ubill-sms importer. Relax frozen-lockfile
-      # in pnpm's own global config (pnpm 12 no longer reads .npmrc/npm_config_* for it); the
-      # global setting also covers the nested db-alteration composite's checkouts.
-      - name: Relax frozen-lockfile for the composite's inner installs
-        run: |
-          npm i -g --no-fund pnpm@12.10.1
-          pnpm config set --location global frozen-lockfile false
-
+      # The action's internal `tests/` checkout does not populate git submodules, so its inner
+      # `pnpm i` drops the ubill-sms importer via frozenLockfile=false in pnpm-workspace.yaml
+      # (the only location pnpm 12 honors for it).
       - uses: logto-io/actions-run-logto-integration-tests@v4.0.1
         with:
           logto-artifact: integration-test-${{ github.sha }}-dev-features-${{ env.DEV_FEATURES_ENABLED }}
