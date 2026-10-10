@@ -103,6 +103,9 @@ jobs:
       DB_URL: postgres://postgres:postgres@localhost:5432/postgres
       # Mock key for authorized status API access during integration tests
       STATUS_API_KEY: test-status-api-key
+      # The action's internal `tests/` checkout does not populate git submodules; relax
+      # frozen-lockfile so its `pnpm i` drops the ubill-sms importer instead of failing.
+      npm_config_frozen_lockfile: 'false'
 
     steps:
       - uses: logto-io/actions-run-logto-integration-tests@v4.1.0

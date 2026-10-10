@@ -79,6 +79,9 @@ jobs:
       # `packages/integration-tests/src/helpers/license.ts`; honored outside production and during
       # integration tests.
       SELF_HOSTED_LICENSE_PUBLIC_KEY: '{"crv":"Ed25519","x":"kW7_S4kvfOBm8dRpABVDK3TU7AReEPzqb4s3FDRBWzg","kty":"OKP"}'
+      # The action's internal `tests/` checkout does not populate git submodules; relax
+      # frozen-lockfile so its `pnpm i` drops the ubill-sms importer instead of failing.
+      npm_config_frozen_lockfile: 'false'
 
     steps:
       - uses: logto-io/actions-run-logto-integration-tests@v4.0.1
