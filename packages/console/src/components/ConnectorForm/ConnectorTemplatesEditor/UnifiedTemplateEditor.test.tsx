@@ -39,6 +39,17 @@ jest.mock('@/hooks/use-api', () => {
   });
 });
 
+// `use-cloud-api` pulls in the ESM-only `@logto/react`/`@logto/client` SDK stack that jest cannot
+// resolve (reached via `utils/subscription` ← `FeatureTag` ← `CardTitle` ← `ModalLayout`). The
+// components under test never call cloud APIs, so stub the module boundary.
+jest.mock('@/cloud/hooks/use-cloud-api', () => ({
+  tryReadResponseErrorBody: jest.fn(),
+  toastResponseError: jest.fn(),
+  useCloudApi: jest.fn(),
+  createTenantApi: jest.fn(),
+  useAuthedCloudApi: jest.fn(),
+}));
+
 jest.mock('@/ds-components/CodeEditor', () => ({
   __esModule: true,
   default: ({ value, onChange }: { value?: string; onChange?: (value: string) => void }) => (
@@ -242,7 +253,7 @@ describe('<UnifiedTemplateEditor />', () => {
     jest.useRealTimers();
   });
 
-  it('writes an empty Generic row when the unified content is cleared after editing', async () => {
+  it('writes no deliveries rows when the unified content is cleared after editing', async () => {
     jest.useFakeTimers();
 
     const { getTabByText, getDeliveries, container } = renderEditor();
@@ -272,11 +283,10 @@ describe('<UnifiedTemplateEditor />', () => {
       jest.advanceTimersByTime(300);
     });
 
-    // Auto-seeding preserves the classic subject in `unifiedSubjects`, so clearing the content
-    // leaves an empty `html` while the seeded subject remains.
-    expect(JSON.parse(getDeliveries())).toEqual({
-      Generic: { html: '', subject: 'Logto generic template {{code}}' },
-    });
+    // Clearing the content compiles to no deliveries rows at all: an empty-html Generic row would
+    // become a blank email through Mailgun's `deliveries[Generic]` fallback, so the compiler skips
+    // it. The auto-seeded subject lives in `unifiedSubjects`, not in `deliveries`.
+    expect(JSON.parse(getDeliveries())).toEqual({});
 
     jest.useRealTimers();
   });

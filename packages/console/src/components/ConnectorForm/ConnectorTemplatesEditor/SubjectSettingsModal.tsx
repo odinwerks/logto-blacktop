@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import ReactModal from 'react-modal';
 
 import Button from '@/ds-components/Button';
-import DangerousRaw from '@/ds-components/DangerousRaw';
 import ModalLayout from '@/ds-components/ModalLayout';
 import TextInput from '@/ds-components/TextInput';
 import modalStyles from '@/scss/modal.module.scss';
@@ -45,11 +44,11 @@ export default function SubjectSettingsModal({ isOpen, subjects, onApply, onRequ
       onRequestClose={onRequestClose}
     >
       <ModalLayout
-        title={<DangerousRaw>{t('connector_details.unified_editor.subject_settings')}</DangerousRaw>}
+        title="connector_details.unified_editor.subject_settings"
         footer={
           <>
-            <Button type="default" title={<DangerousRaw>Cancel</DangerousRaw>} onClick={onRequestClose} />
-            <Button type="primary" title={<DangerousRaw>Apply</DangerousRaw>} onClick={handleApply} />
+            <Button type="default" title="general.cancel" onClick={onRequestClose} />
+            <Button type="primary" title="connector_details.template_editor.apply" onClick={handleApply} />
           </>
         }
       >
@@ -67,9 +66,9 @@ export default function SubjectSettingsModal({ isOpen, subjects, onApply, onRequ
                   className={classNames(styles.row, isGeneric && styles.genericRow)}
                 >
                   <label className={styles.subjectLabel}>
-                    <DangerousRaw>
-                      {isGeneric ? 'Generic fallback subject' : `${col} subject`}
-                    </DangerousRaw>
+                    {isGeneric
+                      ? t('connector_details.unified_editor.subject_label_generic')
+                      : t('connector_details.unified_editor.subject_label_type', { type: col })}
                   </label>
                   <TextInput
                     value={val}

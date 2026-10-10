@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/no-abusive-eslint-disable */
 /* eslint-disable */
-import { TemplateType } from '@logto/connector-kit';
+import { TemplateType, sendMessagePayloadGuard } from '@logto/connector-kit';
 
 import { resolveIfBlocks } from './if-parser';
 import type {
@@ -26,10 +26,25 @@ const allTemplateTypes: readonly TemplateType[] = Object.values(TemplateType);
 /**
  * Matches double-curly variables like `{{varName}}` or `{{variableName}}`.
  * Under v4, there is no `var.` prefix in templates.
- * We must check if `varName in variables` inside the replacing function
- * so we only inline keys that are defined in variables.
+ * The replacing function only inlines keys that are own properties of `variables` and are not
+ * reserved runtime payload keys (see {@link reservedRuntimePayloadKeys}).
  */
 const variablePattern = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/gu;
+
+/**
+ * Runtime payload keys (`{{code}}`, `{{link}}`, `{{email}}`, `{{phone}}`, …) are resolved at send
+ * time by `replaceSendMessageHandlebars` from the connector's {@link SendMessagePayload} — they
+ * must never be inlined from the authored variables table (a variable named `code` would bake a
+ * literal into the compiled row and shadow the per-message verification code). `t` is reserved
+ * the same way: it is injected by `getLocalizedPayload` to resolve `{{t.key}}` placeholders. The
+ * set is derived from the `sendMessagePayloadGuard` contract so it tracks the connector-kit
+ * payload schema. Checked against the root segment of a placeholder, so `{{t.key}}` and
+ * `{{code.xyz}}` are covered too.
+ */
+const reservedRuntimePayloadKeys: ReadonlySet<string> = new Set([
+  ...Object.keys(sendMessagePayloadGuard.shape),
+  't',
+]);
 
 /**
  * Resolves a per-type value for `targetType` from a {@link PerTypeString}, falling back to the
@@ -61,7 +76,13 @@ export const inlineVariables = (
   }
 
   return body.replaceAll(variablePattern, (fullMatch, key: string) => {
-    if (key in variables) {
+    const rootKey = key.split('.')[0] ?? key;
+    if (reservedRuntimePayloadKeys.has(rootKey)) {
+      return fullMatch;
+    }
+    // Own-property check: `key in variables` would also match inherited `Object.prototype`
+    // members (`{{constructor}}`, `{{toString}}`, …) and strip them to empty strings.
+    if (Object.hasOwn(variables, key)) {
       return resolvePerTypeValue(variables[key], targetType);
     }
     return fullMatch;
@@ -107,8 +128,10 @@ export const compileUnified = (input: CompileInput): CompileOutput => {
     const subject = compileField(rawSubject, variables, targetType);
     const html = compiledFields.html ?? '';
 
-    // Skip empty non-Generic rows
-    if (html.length === 0 && targetType !== TemplateType.Generic) {
+    // Skip rows with an empty body — including `Generic`. An empty `Generic` row is still picked
+    // up by the send-time fallback (`deliveries[type] ?? deliveries[Generic]`) and would submit a
+    // blank message instead of surfacing `TemplateNotFound`.
+    if (html.length === 0) {
       continue;
     }
 

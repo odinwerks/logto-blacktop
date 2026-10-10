@@ -109,11 +109,12 @@ describe('compileUnified — Mailgun', () => {
     expect(signIn?.subject).toBeUndefined();
   });
 
-  it('always emits a Generic deliveries row even when html is empty', () => {
+  it('skips a Generic deliveries row when html is empty', () => {
     const output = compileUnified(mailgunInput({ template: { content: '' } }));
 
-    expect(output.rows.deliveries[TemplateType.Generic]).toEqual({ html: '' });
-    // Non-Generic empty types are skipped.
+    // Mailgun falls back to `deliveries[Generic]`; an empty-html Generic row would send a blank
+    // email instead of failing with TemplateNotFound, so it must not be emitted.
+    expect(output.rows.deliveries[TemplateType.Generic]).toBeUndefined();
     expect(output.rows.deliveries[TemplateType.SignIn]).toBeUndefined();
   });
 
@@ -213,10 +214,10 @@ describe('compileUnified — Mailgun', () => {
 });
 
 describe('compileUnified — empty template', () => {
-  it('emits a single empty Generic row for an empty Mailgun template', () => {
+  it('emits no deliveries rows for an empty Mailgun template', () => {
     const output = compileUnified(mailgunInput({ template: {} }));
 
-    expect(output.rows.deliveries).toEqual({ [TemplateType.Generic]: { html: '' } });
+    expect(output.rows.deliveries).toEqual({});
   });
 });
 /* eslint-enable */

@@ -156,12 +156,13 @@ function UnifiedTemplateEditor({ connectorType, connectorFactoryId, formItems }:
     }
 
     // When the user has cleared the unified source, explicitly mirror an empty deliveries record
-    // so stale compiled rows do not survive the save. Skip this on the initial toggle into unified
-    // mode (Start Fresh) so classic rows are not clobbered before the user authors anything.
+    // ({} — NOT a `Generic` row with empty html, which the send-time `deliveries[Generic]` fallback
+    // would pick up and submit as a blank message) so stale compiled rows do not survive the save.
+    // Skip this on the initial toggle into unified mode (Start Fresh) so classic rows are not
+    // clobbered before the user authors anything.
     if (!hasUnifiedContent) {
       if (hasEverEditedUnified) {
-        const emptyRows = { Generic: { html: '' } };
-        const emptyRowsJson = safeJsonStringify(emptyRows);
+        const emptyRowsJson = safeJsonStringify({});
         const currentRows = getValues(rowsField);
 
         // `shouldDirty: false` — the mirror is derived; the form's dirty state is already driven by

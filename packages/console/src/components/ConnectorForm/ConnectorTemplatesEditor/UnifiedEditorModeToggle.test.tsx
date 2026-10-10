@@ -41,6 +41,17 @@ jest.mock('@/hooks/use-api', () => {
   });
 });
 
+// `use-cloud-api` pulls in the ESM-only `@logto/react`/`@logto/client` SDK stack that jest cannot
+// resolve (reached via `utils/subscription` ← `FeatureTag` ← `CardTitle` ← `ModalLayout`). The
+// components under test never call cloud APIs, so stub the module boundary.
+jest.mock('@/cloud/hooks/use-cloud-api', () => ({
+  tryReadResponseErrorBody: jest.fn(),
+  toastResponseError: jest.fn(),
+  useCloudApi: jest.fn(),
+  createTenantApi: jest.fn(),
+  useAuthedCloudApi: jest.fn(),
+}));
+
 // `CodeEditor` pulls in `react-syntax-highlighter` (ESM) that Jest cannot transform by default.
 // Stub it as a `<textarea>` so JSON-mode (and the unified Template tab) stays drivable.
 jest.mock('@/ds-components/CodeEditor', () => ({

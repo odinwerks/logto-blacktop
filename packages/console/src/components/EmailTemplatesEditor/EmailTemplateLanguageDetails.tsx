@@ -32,6 +32,8 @@ type Props = {
   readonly initialTemplates: Partial<Record<TemplateType, EmailTemplateDetails>>;
   /** Language universe the host renders, used to pick a survivor after a language delete. */
   readonly allLanguages: LanguageTag[];
+  /** Called after this language was deleted so the host can drop its nav entry. */
+  readonly onDeleted: (languageTag: LanguageTag) => void;
 };
 
 const seedDraft = (
@@ -63,7 +65,12 @@ const seedDraft = (
  * language switches / close with its unsaved-changes confirmation (mirrors the Sign-in Experience
  * `LanguageDetails`).
  */
-function EmailTemplateLanguageDetails({ languageTag, initialTemplates, allLanguages }: Props) {
+function EmailTemplateLanguageDetails({
+  languageTag,
+  initialTemplates,
+  allLanguages,
+  onDeleted,
+}: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const api = useApi();
   const { setIsDirty, setSelectedLanguage } = useContext(LocalizationEditorContext);
@@ -151,6 +158,7 @@ function EmailTemplateLanguageDetails({ languageTag, initialTemplates, allLangua
       await mutateEmailTemplates();
       toast.success(t('general.deleted'));
       setIsDirty(false);
+      onDeleted(languageTag);
       setSelectedLanguage(allLanguages.find((tag) => tag !== languageTag) ?? 'en');
     } catch (error: unknown) {
       if (error instanceof HTTPError || error instanceof TimeoutError) {

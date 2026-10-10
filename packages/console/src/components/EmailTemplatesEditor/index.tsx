@@ -51,6 +51,12 @@ function EmailTemplatesEditor({ isOpen, onClose }: Props) {
     setAddedLanguages((previous) => deduplicate([...previous, languageTag]));
   }, []);
 
+  // A deleted language is removed from the fetched templates by the SWR revalidation, but a tag
+  // that was also added locally would linger in `addedLanguages` and keep its nav pill alive.
+  const onLanguageDeleted = useCallback((languageTag: LanguageTag) => {
+    setAddedLanguages((previous) => previous.filter((tag) => tag !== languageTag));
+  }, []);
+
   const renderDetails = useCallback(
     (languageTag: LanguageTag) => {
       if (isLoading) {
@@ -69,10 +75,11 @@ function EmailTemplatesEditor({ isOpen, onClose }: Props) {
           languageTag={languageTag}
           initialTemplates={grouped[languageTag] ?? {}}
           allLanguages={languages}
+          onDeleted={onLanguageDeleted}
         />
       );
     },
-    [isLoading, grouped, languages, t]
+    [isLoading, grouped, languages, onLanguageDeleted, t]
   );
 
   return (

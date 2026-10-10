@@ -109,7 +109,7 @@ const getAddKeyInput = () => document.querySelector<HTMLInputElement>('[placehol
 
 const getAddKeyButton = () =>
   Array.from(document.querySelectorAll('button')).find(
-    (button) => button.textContent?.trim() === '+'
+    (button) => button.textContent?.trim() === 'Add key'
   );
 
 const getTabByText = (text: string) =>

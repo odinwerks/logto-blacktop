@@ -50,6 +50,7 @@ i18next.addResourceBundle('en', 'translation', {
       template_editor: {
         form_mode: 'Form',
         json_mode: 'JSON',
+        add_key: 'Add key',
       },
       unified_editor: {
         invalid_json_format: 'The JSON is not valid.',
@@ -152,7 +153,7 @@ describe('<PerTypeTableEditor />', () => {
     expect(input).not.toBeNull();
 
     fireEvent.change(input, { target: { value: 'farewell' } });
-    fireEvent.click(getByText('+'));
+    fireEvent.click(getByText('Add key'));
 
     expect(mockOnChange).toHaveBeenCalledWith({
       greeting: { Generic: 'Hello' },
