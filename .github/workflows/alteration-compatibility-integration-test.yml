@@ -103,11 +103,16 @@ jobs:
       DB_URL: postgres://postgres:postgres@localhost:5432/postgres
       # Mock key for authorized status API access during integration tests
       STATUS_API_KEY: test-status-api-key
-      # The action's internal `tests/` checkout does not populate git submodules; relax
-      # frozen-lockfile so its `pnpm i` drops the ubill-sms importer instead of failing.
-      npm_config_frozen_lockfile: 'false'
 
     steps:
+      # The action's internal `tests/` checkout does not populate git submodules, so its
+      # `pnpm i` hits ERR_PNPM_OUTDATED_LOCKFILE on the ubill-sms importer. Relax frozen-lockfile
+      # via npmrc: NPM_CONFIG_USERCONFIG points at $RUNNER_TEMP/.npmrc once setup-node runs.
+      - name: Relax frozen-lockfile for the composite's inner install
+        run: |
+          echo 'frozen-lockfile=false' >> "$RUNNER_TEMP/.npmrc"
+          echo 'frozen-lockfile=false' >> ~/.npmrc
+
       - uses: logto-io/actions-run-logto-integration-tests@v4.1.0
         with:
           branch: ${{ github.base_ref }}
