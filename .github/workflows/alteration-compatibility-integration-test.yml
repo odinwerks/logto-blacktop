@@ -69,6 +69,9 @@ jobs:
 
       - name: Build and package
         run: |
+          # package.sh's `pnpm cli connector link` trips pnpm 12's verify-deps-before-run on the
+          # production-pruned workspace (reinstall can't resolve @logto/cli@workspace:^).
+          pnpm config set verify-deps-before-run false
           pnpm -r build
           ./.scripts/package.sh
 

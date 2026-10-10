@@ -231,9 +231,11 @@ jobs:
 
       - name: Setup alteration database
         working-directory: ./alteration
+        # Same pnpm 12 verify-deps-before-run trap as Prepack alteration: scripts must run
+        # under pnpm 10 here too.
         run: |
           cd packages/cli
-          pnpm start db seed --test
+          npx -y pnpm@10.18.2 start db seed --test
         env:
           DB_URL: postgres://postgres:postgres@localhost:5432/alteration
 
@@ -254,7 +256,7 @@ jobs:
         working-directory: ./alteration
         run: |
           cd packages/cli
-          pnpm start db seed --test
+          npx -y pnpm@10.18.2 start db seed --test
         env:
           DB_URL: postgres://postgres:postgres@localhost:5432/old
 
