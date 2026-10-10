@@ -9,6 +9,10 @@ on:
 jobs:
   rerun:
     runs-on: ubuntu-latest
+    # `gh run rerun` needs Actions write; without this the job's GITHUB_TOKEN falls back to the
+    # repo's read-only default and fails with "Resource not accessible by integration".
+    permissions:
+      actions: write
     steps:
       - name: rerun ${{ inputs.run_id }}
         env:
