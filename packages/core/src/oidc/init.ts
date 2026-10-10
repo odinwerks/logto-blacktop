@@ -662,7 +662,11 @@ export default function initOidc(
   oidc.use(koaAppSecretTranspilation(queries));
   oidc.use(koaJwksCacheControl());
 
-  oidc.use(koaTokenUsageGuard(subscription));
+  // Cloud billing enforcement: outside Cloud there is no subscription to read, and every token
+  // request would otherwise call the Cloud API.
+  if (EnvSet.values.isCloud) {
+    oidc.use(koaTokenUsageGuard(subscription));
+  }
 
   // Register last so it splices directly around the provider's internal router
   oidc.use(koaOidcUnrecognizedRoute());
