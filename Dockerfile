@@ -75,8 +75,13 @@ ARG private_key_rotation_grace_period=0
 # Default to empty so external survey relaying stays opt-in for controlled builds/environments.
 ENV LOGTO_OSS_SURVEY_ENDPOINT=${logto_oss_survey_endpoint}
 ENV PRIVATE_KEY_ROTATION_GRACE_PERIOD=${private_key_rotation_grace_period}
-COPY --from=builder /etc/logto .
+# Own the app tree by the bundled `node` user while keeping group 0, so
+# platforms that override the UID but keep GID 0 (e.g. OpenShift arbitrary
+# UIDs) get the same read access — and the same group-writable
+# alteration-scripts dir — as before.
+COPY --from=builder --chown=node:0 /etc/logto .
 RUN mkdir -p /etc/logto/packages/cli/alteration-scripts && chmod g+w /etc/logto/packages/cli/alteration-scripts
+USER node
 EXPOSE 3001
 ENTRYPOINT ["npm", "run"]
 CMD ["start"]
