@@ -83,11 +83,12 @@ jobs:
     steps:
       # The action's internal `tests/` checkout does not populate git submodules, so its
       # `pnpm i` hits ERR_PNPM_OUTDATED_LOCKFILE on the ubill-sms importer. Relax frozen-lockfile
-      # via npmrc: NPM_CONFIG_USERCONFIG points at $RUNNER_TEMP/.npmrc once setup-node runs.
-      - name: Relax frozen-lockfile for the composite's inner install
+      # in pnpm's own global config (pnpm 12 no longer reads .npmrc/npm_config_* for it); the
+      # global setting also covers the nested db-alteration composite's checkouts.
+      - name: Relax frozen-lockfile for the composite's inner installs
         run: |
-          echo 'frozen-lockfile=false' >> "$RUNNER_TEMP/.npmrc"
-          echo 'frozen-lockfile=false' >> ~/.npmrc
+          npm i -g --no-fund pnpm@12.10.1
+          pnpm config set --location global frozen-lockfile false
 
       - uses: logto-io/actions-run-logto-integration-tests@v4.0.1
         with:
