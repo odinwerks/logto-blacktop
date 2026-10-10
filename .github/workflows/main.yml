@@ -11,6 +11,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  # Console's Vite build exceeds Node's default heap ceiling on hosted runners
+  # (fails ~1.7 GB with "JavaScript heap out of memory"); raise the ceiling for
+  # every Node process in all jobs.
+  NODE_OPTIONS: --max-old-space-size=4096
+
 jobs:
   main-generated-files:
     runs-on: ubuntu-latest
@@ -33,7 +39,10 @@ jobs:
 
       - name: Check connector generated files
         run: |
-          if ! git diff --exit-code -- packages/connectors; then
+          # The ubill-sms submodule's preset-synced files live in its own repo; sync-preset
+          # rewrites them on every install, so its gitlink always shows dirty. Scope the
+          # check to tracked connector sources.
+          if ! git diff --exit-code -- packages/connectors ':(exclude)packages/connectors/connector-ubill-sms'; then
             echo "Connector package presets are out of sync. Run 'pnpm run pnpm:devPreinstall' and commit the changes."
             exit 1
           fi
@@ -204,7 +213,10 @@ jobs:
 
       - name: Prepack alteration
         working-directory: ./alteration
-        run: pnpm i && pnpm prepack
+        # The pinned release tag predates the pnpm 12 migration (`engines.pnpm` is ^9||^10 and
+        # its overrides live in package.json's `pnpm` field, which pnpm 12 ignores) — install
+        # and build it under pnpm 10 instead of the workspace's pnpm 12.
+        run: npx -y pnpm@10.18.2 i && npx -y pnpm@10.18.2 prepack
       # ** End **
 
       - name: Setup Postgres

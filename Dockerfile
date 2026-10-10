@@ -5,6 +5,11 @@ FROM node:22-alpine AS builder
 WORKDIR /etc/logto
 ENV CI=true
 
+# Console's Vite build exceeds Node's default heap ceiling on hosted runners
+# (fails ~1.7 GB with "JavaScript heap out of memory"); raise the ceiling for
+# every Node process in the build stage.
+ENV NODE_OPTIONS=--max-old-space-size=4096
+
 # No need for Docker build
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
