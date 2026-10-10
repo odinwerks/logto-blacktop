@@ -152,6 +152,22 @@ describe('koaSecurityHeaders() middleware — experience CSP', () => {
     expect(getCspDirective(ctx, 'worker-src')).toBeUndefined();
   });
 
+  it('skips the Cap CSP relaxation when the stored Cap endpoint is malformed', async () => {
+    const run = koaExperienceSecurityHeaders(
+      'default',
+      createQueries({ capEndpoint: 'not a url' })
+    );
+    const ctx = createMockContext({ method: 'GET', url: '/sign-in' });
+
+    // A malformed stored endpoint must not throw (500) — the Cap directives are simply skipped.
+    await run(ctx, koaNoop);
+
+    expect(getCsp(ctx)).toContain('default-src');
+    expect(getCspDirective(ctx, 'connect-src')).not.toContain('not a url');
+    expect(getCspDirective(ctx, 'script-src')).not.toContain("'wasm-unsafe-eval'");
+    expect(getCspDirective(ctx, 'worker-src')).toBeUndefined();
+  });
+
   it('does not allow Cap sources when CAPTCHA is disabled', async () => {
     const run = koaExperienceSecurityHeaders(
       'default',

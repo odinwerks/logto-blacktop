@@ -12,9 +12,9 @@ import { createRequester } from '#src/utils/test-utils.js';
 
 const { jest } = import.meta;
 
-// Georgian (`ka`) is not a built-in Logto language and is not configured as a custom language.
-// The route should still honor the body `locale` and let the connector handle its own fallback.
-const findAllCustomLanguageTags = jest.fn(async () => []);
+// Georgian (`ka`) is not a built-in Logto language and is not configured as a custom language
+// in these tests, so an unsupported body `locale` falls back to the request-context locale.
+const findAllCustomLanguageTags = jest.fn(async (): Promise<string[]> => []);
 const findDefaultSignInExperience = jest.fn(async () => ({
   languageInfo: { autoDetect: false, fallbackLanguage: 'en' },
 }));
@@ -70,20 +70,37 @@ afterEach(() => {
 });
 
 describe('POST /verifications/verification-code locale handling', () => {
-  it('passes the body `locale` through to the connector payload even when it is not a configured language', async () => {
+  it('passes a supported body `locale` through to the connector payload', async () => {
     const response = await verificationRequest
       .post('/verifications/verification-code')
-      .send({ identifier: phoneIdentifier(), locale: 'ka' });
+      .send({ identifier: phoneIdentifier(), locale: 'fr' });
 
     expect(response.status).toEqual(201);
     expect(sendPasscode).toHaveBeenCalledTimes(1);
     expect(sendPasscode).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ locale: 'ka' })
+      expect.objectContaining({ locale: 'fr' })
     );
   });
 
-  it('passes a region body `locale` through verbatim (ka-GE stays ka-GE) and bypasses the configured-language filter', async () => {
+  it('normalizes a region body `locale` to its supported base tag (fr-CA -> fr)', async () => {
+    const response = await verificationRequest
+      .post('/verifications/verification-code')
+      .send({ identifier: phoneIdentifier(), locale: 'fr-CA' });
+
+    expect(response.status).toEqual(201);
+    expect(sendPasscode).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ locale: 'fr' })
+    );
+  });
+
+  it('keeps an exact custom-language tag (ka-GE stays ka-GE when configured)', async () => {
+    // `ka-GE` is not a built-in language, but the tenant configured it as a custom language,
+    // so it resolves exactly instead of falling back to the request-context locale. The
+    // middleware and the route each call the query once, so queue the value twice.
+    findAllCustomLanguageTags.mockResolvedValueOnce(['ka-GE']).mockResolvedValueOnce(['ka-GE']);
+
     const response = await verificationRequest
       .post('/verifications/verification-code')
       .send({ identifier: phoneIdentifier(), locale: 'ka-GE' });
@@ -108,15 +125,20 @@ describe('POST /verifications/verification-code locale handling', () => {
     );
   });
 
-  it('normalizes an unsupported body `locale` to its base tag and lets the connector handle fallback', async () => {
-    const response = await verificationRequest
-      .post('/verifications/verification-code')
-      .send({ identifier: phoneIdentifier(), locale: 'xyz' });
+  it('falls back to the request-context locale when the body `locale` is unsupported', async () => {
+    // `ka` and `xyz` are neither built-in nor configured custom languages, so the request-context
+    // locale (resolved to `en` here) is kept instead of passing the tag through verbatim.
+    for (const locale of ['ka', 'xyz']) {
+      // eslint-disable-next-line no-await-in-loop
+      const response = await verificationRequest
+        .post('/verifications/verification-code')
+        .send({ identifier: phoneIdentifier(), locale });
 
-    expect(response.status).toEqual(201);
-    expect(sendPasscode).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({ locale: 'xyz' })
-    );
+      expect(response.status).toEqual(201);
+      expect(sendPasscode).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ locale: 'en' })
+      );
+    }
   });
 });

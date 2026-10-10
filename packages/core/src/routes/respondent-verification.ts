@@ -13,7 +13,7 @@ import assertThat from '#src/utils/assert-that.js';
 
 import type { ManagementApiRouter, RouterInitArgs } from './types.js';
 
-const userIdParametersGuard = object({ userId: string().min(1).max(12) });
+const userIdParametersGuard = object({ userId: string().min(1) });
 
 const toIsoString = (timestamp: number) => new Date(timestamp).toISOString();
 

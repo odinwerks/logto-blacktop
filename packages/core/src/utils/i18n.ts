@@ -12,6 +12,7 @@ import { type ParameterizedContext } from 'koa';
 import { type IRouterParamContext } from 'koa-router';
 
 import detectLanguage from '#src/i18n/detect-language.js';
+import type Queries from '#src/tenants/Queries.js';
 
 /**
  * The global scoped i18next instance.
@@ -79,4 +80,38 @@ export const getExperienceLanguage = ({
   }
 
   return findSupportedLanguageTag([], builtInLanguages);
+};
+
+type ResolveMessageLocaleArgs = {
+  queries: Queries;
+  locale: string;
+};
+
+/**
+ * Resolve an explicit message `locale` (e.g. a request body field) against the tenant's
+ * supported languages, so an arbitrary string can never reach a connector payload verbatim:
+ * an exact custom or built-in tag wins, a region tag normalizes to its supported base tag,
+ * and an unrecognized tag resolves to `undefined` so callers keep the default locale.
+ */
+export const resolveMessageLocale = async ({
+  queries: { customPhrases },
+  locale,
+}: ResolveMessageLocaleArgs) => {
+  const customLanguages = await customPhrases.findAllCustomLanguageTags();
+  const tags = [locale];
+  const { match: builtInMatch, matchType: builtInMatchType } = matchSupportedLanguageTag(
+    tags,
+    builtInLanguages
+  );
+  const { match: customMatch, matchType: customMatchType } = matchSupportedLanguageTag(
+    tags,
+    customLanguages
+  );
+
+  return (
+    matchExactLanguageTag(tags, customLanguages) ??
+    matchExactLanguageTag(tags, builtInLanguages) ??
+    (builtInMatchType === 'base' ? builtInMatch : undefined) ??
+    (customMatchType === 'base' ? customMatch : undefined)
+  );
 };

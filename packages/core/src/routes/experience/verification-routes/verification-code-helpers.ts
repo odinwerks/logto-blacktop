@@ -16,6 +16,8 @@ import { buildMessageRateGuard, withMessageRateGuard } from '#src/sentinel/messa
 import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
 import { getLogtoCookie } from '#src/utils/cookie.js';
+import { resolveMessageLocale } from '#src/utils/i18n.js';
+import { sensitiveDataMask } from '#src/utils/sensitive-data.js';
 
 import type ExperienceInteraction from '../classes/experience-interaction.js';
 import { withSentinel } from '../classes/libraries/sentinel-guard.js';
@@ -162,18 +164,17 @@ export const sendCode = async ({
   );
 
   // Resolve the locale for the verification-code message.
-  // Precedence: explicit `locale` in the request body (passed verbatim, e.g. `ka-GE` stays
-  // as `ka-GE`) > `ctx.emailI18n.locale` (resolved by the `koa-email-i18n` middleware from
-  // `?lang=`, the `ui_locales` cookie, and the `Accept-Language` header) > the configured
-  // fallback language. The locale is passed straight to the connector so the connector can
-  // apply its own template fallback chain; it is no longer gated by the sign-in-experience
-  // language list.
-  // When no body `locale` is provided, `ctx.emailI18n` is spread unchanged (backward compatible).
-  // Pass locale verbatim. The connector handles its own fallback chain
-  // (ka-GE → ka → en → first-available), but cannot expand base tags back
-  // to region tags (ka ↛ ka-GE). Stripping the region would cause English
-  // fallback when translations are stored under region-specific keys.
-  const overrideLocale = locale?.trim();
+  // Precedence: explicit `locale` in the request body > `ctx.emailI18n.locale` (resolved by the
+  // `koa-email-i18n` middleware from `?lang=`, the `ui_locales` cookie, and the
+  // `Accept-Language` header) > the configured fallback language.
+  // The body `locale` is resolved against the tenant's supported languages before it reaches a
+  // connector: a region tag normalizes to its supported base tag and an unrecognized tag keeps
+  // the request-context locale, so no arbitrary string is passed through verbatim. When no body
+  // `locale` is provided, `ctx.emailI18n` is spread unchanged.
+  const requestedLocale = locale?.trim();
+  const overrideLocale = requestedLocale
+    ? await resolveMessageLocale({ queries, locale: requestedLocale })
+    : undefined;
 
   const payload = skipDelivery
     ? undefined
@@ -253,7 +254,8 @@ export const verifyCode = async ({
     payload: {
       identifier,
       verificationId,
-      code,
+      // Keep the field for the audit shape but never persist the submitted code.
+      code: sensitiveDataMask,
     },
   });
 
