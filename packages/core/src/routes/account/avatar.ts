@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 import { UserScope } from '@logto/core-kit';
 import {
   AccountCenterControlValue,
-  allowAvatarMimeTypes,
   maxUploadFileSize,
   StorageProvider,
   uploadFileGuard,
@@ -17,10 +16,10 @@ import SystemContext from '#src/tenants/SystemContext.js';
 import { assertFirstPartyClient } from '#src/utils/assert-first-party-client.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
-import { detectImageType } from '#src/utils/file.js';
 import { storeUserAvatar } from '#src/utils/storage/assets.js';
 import { buildStorage } from '#src/utils/storage/index.js';
 
+import { detectAvatarImage } from '../avatar-upload.js';
 import { type RouterInitArgs, type UserRouter } from '../types.js';
 
 import { accountApiPrefix } from './constants.js';
@@ -67,11 +66,10 @@ export default function avatarRoutes<T extends UserRouter>(
       // Read file into buffer
       const fileBuffer = await readFile(file.filepath);
 
-      // Detect image type via magic bytes
-      const detected = detectImageType(fileBuffer);
+      // Detect the real image type via the shared avatar sniff: magic bytes pick the type and
+      // the end marker proves the payload is really that image (spoofs/truncations rejected).
+      const detected = detectAvatarImage(fileBuffer);
       assertThat(detected, 'guard.mime_type_not_allowed');
-      const allowedMimeTypes: readonly string[] = allowAvatarMimeTypes;
-      assertThat(allowedMimeTypes.includes(detected.mime), 'guard.mime_type_not_allowed');
 
       // Get storage provider
       const { storageProviderConfig } = SystemContext.shared;
@@ -88,7 +86,7 @@ export default function avatarRoutes<T extends UserRouter>(
         storageProviderConfig,
         userId,
         data: fileBuffer,
-        contentType: detected.mime,
+        contentType: detected.mimeType,
         extension: detected.extension,
         endpointOrigin: envSet.endpoint.origin,
         logError: (message, error) => {

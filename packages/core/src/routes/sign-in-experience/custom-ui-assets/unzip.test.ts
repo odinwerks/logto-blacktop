@@ -63,7 +63,11 @@ describe('unzipCustomUiAssets()', () => {
         'dist/index.html': '',
         'dist/assets/index.js': '',
         'dist/.DS_Store': '',
+        // A Finder zip also carries the `__MACOSX/` directory entry and resource forks under
+        // it; neither may break the single-root-folder check.
+        '__MACOSX/': '',
         '__MACOSX/._index.html': '',
+        '__MACOSX/dist/._index.html': '',
       }),
       'tenant/asset',
       uploadFile

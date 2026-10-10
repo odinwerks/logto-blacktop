@@ -105,6 +105,23 @@ export const isAllowedAvatarMimeType = (
   mimeType: AvatarMimeType | 'image/svg+xml' | undefined
 ): mimeType is AvatarMimeType => mimeType !== undefined && isAvatarMimeType(mimeType);
 
+/**
+ * The shared avatar-image check every upload surface runs: magic bytes decide the type (SVG
+ * stays rejected), then the end marker proves the payload is really that image. Returns the
+ * detected avatar MIME type and its file extension, or `undefined` when invalid.
+ */
+export const detectAvatarImage = (
+  buffer: Uint8Array
+): { mimeType: AvatarMimeType; extension: string } | undefined => {
+  const mimeType = detectAvatarMimeType(buffer);
+
+  if (!isAllowedAvatarMimeType(mimeType) || !hasValidAvatarEndMarker(buffer, mimeType)) {
+    return undefined;
+  }
+
+  return { mimeType, extension: avatarFileExtensions[mimeType] };
+};
+
 export const sanitizeFilename = (filename: string, mimeType: AvatarMimeType) => {
   const [extension] = mimeTypeToFileExtensionMappings[mimeType];
   const fallbackFilename = `${generateStandardId(8)}.${extension}`;
@@ -136,12 +153,12 @@ export const uploadAvatar = async ({
   assertThat(file.size <= maxUploadFileSize, 'guard.file_size_exceeded');
 
   const fileContent = await readFile(file.filepath);
-  const contentType = detectAvatarMimeType(fileContent);
-  const avatarMimeType = isAllowedAvatarMimeType(contentType) ? contentType : undefined;
+  const detected = detectAvatarImage(fileContent);
 
-  assertThat(avatarMimeType, 'guard.mime_type_not_allowed');
-  assertThat(hasValidAvatarEndMarker(fileContent, avatarMimeType), 'guard.mime_type_not_allowed');
+  assertThat(detected, 'guard.mime_type_not_allowed');
   assertThat(storageProviderConfig, 'storage.not_configured');
+
+  const { mimeType: avatarMimeType, extension } = detected;
 
   try {
     const url = await storeUserAvatar({
@@ -150,7 +167,7 @@ export const uploadAvatar = async ({
       userId,
       data: fileContent,
       contentType: avatarMimeType,
-      extension: avatarFileExtensions[avatarMimeType],
+      extension,
       endpointOrigin,
       logError: (_message, error) => {
         logError(error);

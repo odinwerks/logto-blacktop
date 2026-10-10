@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 
 import {
   InteractionEvent,
-  allowAvatarMimeTypes,
   maxUploadFileSize,
   MfaFactor,
   SignInIdentifier,
@@ -24,9 +23,10 @@ import SystemContext from '#src/tenants/SystemContext.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
-import { detectImageType } from '#src/utils/file.js';
 import { storeUserAvatar } from '#src/utils/storage/assets.js';
 import { buildStorage } from '#src/utils/storage/index.js';
+
+import { detectAvatarImage } from '../avatar-upload.js';
 
 import { createNewMfaCodeVerificationRecord } from './classes/verifications/code-verification.js';
 import { experienceRoutes } from './const.js';
@@ -180,19 +180,11 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
       assertThat(file.size <= maxUploadFileSize, 'guard.file_size_exceeded');
 
       const fileContent = await readFile(file.filepath);
-      const detected = detectImageType(fileContent);
+      // Shared avatar sniff: magic bytes pick the type, the end marker proves the payload.
+      const detected = detectAvatarImage(fileContent);
       assertThat(detected, 'guard.mime_type_not_allowed');
 
-      function assertIsAvatarMimeType(
-        mime: string
-      ): asserts mime is (typeof allowAvatarMimeTypes)[number] {
-        const list: readonly string[] = allowAvatarMimeTypes;
-        assertThat(list.includes(mime), 'guard.mime_type_not_allowed');
-      }
-
-      assertIsAvatarMimeType(detected.mime);
-
-      const avatarMimeType = detected.mime;
+      const avatarMimeType = detected.mimeType;
 
       const { storageProviderConfig } = SystemContext.shared;
       assertThat(storageProviderConfig, 'storage.not_configured');
