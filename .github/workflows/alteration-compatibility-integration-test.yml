@@ -51,12 +51,33 @@ jobs:
     env:
       INTEGRATION_TEST: true
       DEV_FEATURES_ENABLED: false
+      # Console's Vite build exceeds Node's default heap ceiling on hosted runners.
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: logto-io/actions-package-logto-artifact@v3
+      # Inlined from logto-io/actions-package-logto-artifact: the action's own checkout does not
+      # populate git submodules, so `pnpm i` fails on the ubill-sms lockfile importer.
+      - uses: actions/checkout@v4
         with:
-          artifact-name: alteration-integration-test-${{ github.sha }}
-          branch: ${{ github.base_ref }}
+          ref: ${{ github.base_ref }}
+          submodules: true
+
+      - name: Setup Node and pnpm
+        uses: silverhand-io/actions-node-pnpm-run-steps@v5
+        with:
           pnpm-version: 12.10.1
+          node-version: ^22.14.0
+
+      - name: Build and package
+        run: |
+          pnpm -r build
+          ./.scripts/package.sh
+
+      - name: Upload Logto artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alteration-integration-test-${{ github.sha }}
+          path: /tmp/logto.tar.gz
+          retention-days: 3
 
   run-logto:
     strategy:
