@@ -283,12 +283,25 @@ describe('getExtraTokenClaimsForJwtCustomization', () => {
     });
   });
 
-  it('keeps fail-open on script failure when dev features are disabled', async () => {
+  it('still blocks issuance on script failure when dev features are disabled', async () => {
     runScriptLocally.mockRejectedValue(new Error('boom'));
     Reflect.set(EnvSet.values, 'isDevFeaturesEnabled', false);
 
     await expect(
       callGetExtraTokenClaimsForJwtCustomization({ blockIssuanceOnError: true })
+    ).rejects.toMatchObject({
+      error: 'invalid_request',
+      error_description: 'Custom claims script error: boom',
+      statusCode: 400,
+    });
+  });
+
+  it('keeps fail-open on script failure when blocking is not enabled', async () => {
+    runScriptLocally.mockRejectedValue(new Error('boom'));
+    Reflect.set(EnvSet.values, 'isDevFeaturesEnabled', false);
+
+    await expect(
+      callGetExtraTokenClaimsForJwtCustomization({ blockIssuanceOnError: false })
     ).resolves.toBeUndefined();
   });
 

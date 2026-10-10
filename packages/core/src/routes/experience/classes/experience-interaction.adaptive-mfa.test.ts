@@ -13,6 +13,7 @@ import { type Optional } from '@silverhand/essentials';
 
 import { mockSignInExperience } from '#src/__mocks__/sign-in-experience.js';
 import { mockUserWithMfaVerifications } from '#src/__mocks__/user.js';
+import { EnvSet as ActualEnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { createMockLogContext } from '#src/test-utils/koa-audit-log.js';
 import { createMockProvider } from '#src/test-utils/oidc-provider.js';
@@ -26,6 +27,19 @@ import { MfaValidator } from './libraries/mfa-validator.js';
 
 const { jest } = import.meta;
 const { mockEsmWithActual } = createMockUtils(jest);
+
+// The mock context has no TCP peer address, so mark requests as coming from a trusted edge via
+// the shared-secret header; otherwise the injected `x-logto-cf-*` headers are ignored. The token is
+// set on the actual `EnvSet`: `injected-header-mapping` is loaded by the static imports above,
+// before the `EnvSet` mock is registered, so it reads the real values.
+const trustedEdgeToken = 'trusted-edge-token';
+const trustedEdgeHeaders = { 'x-logto-injected-token': trustedEdgeToken };
+const originalInjectedHeadersTrustedToken = ActualEnvSet.values.injectedHeadersTrustedToken;
+const setInjectedHeadersTrustedToken = (value?: string) => {
+  // eslint-disable-next-line @silverhand/fp/no-mutation
+  (ActualEnvSet.values as { injectedHeadersTrustedToken?: string }).injectedHeadersTrustedToken =
+    value;
+};
 
 const mockEnvSetValues = {
   isDevFeaturesEnabled: true,
@@ -69,6 +83,14 @@ const mockInteractionDetails = {
 const ExperienceInteraction = await pickDefault(import('./experience-interaction.js'));
 
 describe('ExperienceInteraction adaptive MFA', () => {
+  beforeAll(() => {
+    setInjectedHeadersTrustedToken(trustedEdgeToken);
+  });
+
+  afterAll(() => {
+    setInjectedHeadersTrustedToken(originalInjectedHeadersTrustedToken);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     signInExperiences.findDefaultSignInExperience.mockReset().mockResolvedValue({
@@ -182,6 +204,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -238,6 +261,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -278,6 +302,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -330,6 +355,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '99',
         },
       }),
@@ -367,6 +393,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -412,6 +439,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -456,6 +484,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       interactionDetails: mockInteractionDetails,
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -510,6 +539,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '99',
         },
       }),
@@ -550,6 +580,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -588,6 +619,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -636,6 +668,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -678,6 +711,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       interactionDetails: mockInteractionDetails,
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -753,6 +787,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
         interactionDetails: mockInteractionDetails,
         ...createContextWithRouteParameters({
           headers: {
+            ...trustedEdgeHeaders,
             'x-logto-cf-bot-score': '10',
           },
         }),
@@ -805,6 +840,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       interactionDetails: mockInteractionDetails,
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -857,6 +893,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       interactionDetails: mockInteractionDetails,
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -902,6 +939,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -943,6 +981,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '99',
         },
       }),
@@ -994,6 +1033,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),
@@ -1067,6 +1107,7 @@ describe('ExperienceInteraction adaptive MFA', () => {
       appendDataHookContext: jest.fn(),
       ...createContextWithRouteParameters({
         headers: {
+          ...trustedEdgeHeaders,
           'x-logto-cf-bot-score': '10',
         },
       }),

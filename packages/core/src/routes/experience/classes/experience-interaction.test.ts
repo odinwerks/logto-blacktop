@@ -58,6 +58,12 @@ mockEsm('#src/utils/tenant.js', () => ({
 }));
 
 const mockEmail = 'foo@bar.com';
+
+// The mock context has no TCP peer address, so mark requests as coming from a trusted edge via
+// the shared-secret header; otherwise the injected `x-logto-cf-*` headers are ignored.
+const trustedEdgeToken = 'trusted-edge-token';
+const trustedEdgeHeaders = { 'x-logto-injected-token': trustedEdgeToken };
+
 /** The proof a password records in the given role. */
 const passwordProof = (role: AuthenticationProofRole): AuthenticationProof => ({
   id: 'password',
@@ -218,17 +224,16 @@ const createSignInInteraction = ({
     }
   );
   const logContext = createMockLogContext();
-  const baseContext = createContextWithRouteParameters(
-    headers
-      ? { headers }
-      : {
-          headers: {
-            'x-logto-cf-country': 'US',
-            'x-logto-cf-latitude': '37.7749',
-            'x-logto-cf-longitude': '-122.4194',
-          },
-        }
-  );
+  const baseContext = createContextWithRouteParameters({
+    headers: {
+      ...trustedEdgeHeaders,
+      ...(headers ?? {
+        'x-logto-cf-country': 'US',
+        'x-logto-cf-latitude': '37.7749',
+        'x-logto-cf-longitude': '-122.4194',
+      }),
+    },
+  });
   const interactionDetails = {
     jti: 'session-id',
     params: {
@@ -276,6 +281,11 @@ describe('ExperienceInteraction class', () => {
     // eslint-disable-next-line @silverhand/fp/no-mutation
     (EnvSet.values as { isDevFeaturesEnabled: boolean }).isDevFeaturesEnabled = enabled;
   };
+  const originalInjectedHeadersTrustedToken = EnvSet.values.injectedHeadersTrustedToken;
+  const setInjectedHeadersTrustedToken = (value?: string) => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    (EnvSet.values as { injectedHeadersTrustedToken?: string }).injectedHeadersTrustedToken = value;
+  };
 
   const tenant = new MockTenant(
     createMockProvider(mockProviderInteractionDetails),
@@ -310,6 +320,11 @@ describe('ExperienceInteraction class', () => {
 
   beforeAll(() => {
     jest.clearAllMocks();
+    setInjectedHeadersTrustedToken(trustedEdgeToken);
+  });
+
+  afterAll(() => {
+    setInjectedHeadersTrustedToken(originalInjectedHeadersTrustedToken);
   });
 
   afterEach(() => {

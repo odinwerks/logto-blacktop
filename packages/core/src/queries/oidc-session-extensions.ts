@@ -140,6 +140,7 @@ export class OidcSessionExtensionsQueries {
         and ${modelInstanceFields.expiresAt} > ${convertToTimestamp()}
     `);
   }
+
   /**
    * Verifies tab-liveness for a (account, client) binding.
    *

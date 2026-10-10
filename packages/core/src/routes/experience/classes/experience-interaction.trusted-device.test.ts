@@ -12,6 +12,7 @@ import { createMockUtils, pickDefault } from '@logto/shared/esm';
 import { mockSignInExperience } from '#src/__mocks__/sign-in-experience.js';
 import { createMockTrustedDevice } from '#src/__mocks__/trusted-device.js';
 import { mockUser, mockUserWithMfaVerifications } from '#src/__mocks__/user.js';
+import { EnvSet as ActualEnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { createMockLogContext } from '#src/test-utils/koa-audit-log.js';
 import { createMockProvider } from '#src/test-utils/oidc-provider.js';
@@ -22,6 +23,19 @@ import { type Interaction, type WithHooksAndLogsContext } from '../types.js';
 
 const { jest } = import.meta;
 const { mockEsmWithActual } = createMockUtils(jest);
+
+// The mock context has no TCP peer address, so mark requests as coming from a trusted edge via
+// the shared-secret header; otherwise the injected `x-logto-cf-*` headers are ignored. The token is
+// set on the actual `EnvSet`: `injected-header-mapping` is loaded by the static imports above,
+// before the `EnvSet` mock is registered, so it reads the real values.
+const trustedEdgeToken = 'trusted-edge-token';
+const trustedEdgeHeaders = { 'x-logto-injected-token': trustedEdgeToken };
+const originalInjectedHeadersTrustedToken = ActualEnvSet.values.injectedHeadersTrustedToken;
+const setInjectedHeadersTrustedToken = (value?: string) => {
+  // eslint-disable-next-line @silverhand/fp/no-mutation
+  (ActualEnvSet.values as { injectedHeadersTrustedToken?: string }).injectedHeadersTrustedToken =
+    value;
+};
 
 await mockEsmWithActual('#src/env-set/index.js', () => ({
   EnvSet: {
@@ -92,7 +106,9 @@ const createInteraction = (
     assignReleaseAnywayInteractionHookResult: jest.fn(),
     appendDataHookContext: jest.fn(),
     appendExceptionHookContext: jest.fn(),
-    ...createContextWithRouteParameters({ headers }),
+    ...createContextWithRouteParameters({
+      headers: headers && { ...trustedEdgeHeaders, ...headers },
+    }),
     ...createMockLogContext(),
     interactionDetails,
   } as unknown as WithHooksAndLogsContext;
@@ -118,6 +134,14 @@ const expectConventionalMfaRequired = async (
 };
 
 describe('ExperienceInteraction trusted-device MFA verification', () => {
+  beforeAll(() => {
+    setInjectedHeadersTrustedToken(trustedEdgeToken);
+  });
+
+  afterAll(() => {
+    setInjectedHeadersTrustedToken(originalInjectedHeadersTrustedToken);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     findDefaultSignInExperience.mockResolvedValue(requiredMfaSignInExperience);

@@ -59,16 +59,18 @@ describe('passwordExpirationPolicyGuard', () => {
     });
   });
 
-  it('strips unknown keys from legacy rows (e.g. the removed reminderPeriodDays)', () => {
+  it('keeps reminderPeriodDays and strips unknown keys', () => {
     expect(
       passwordExpirationPolicyGuard.parse({
         enabled: true,
         validPeriodDays: 30,
         reminderPeriodDays: 5,
+        unknownKey: 'value',
       })
     ).toEqual({
       enabled: true,
       validPeriodDays: 30,
+      reminderPeriodDays: 5,
     });
   });
 
