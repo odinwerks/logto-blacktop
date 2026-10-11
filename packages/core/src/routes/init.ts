@@ -129,7 +129,11 @@ const createRouters = (tenant: TenantContext) => {
   statusRoutes(anonymousRouter, tenant);
   authnRoutes(anonymousRouter, tenant);
   samlApplicationAnonymousRoutes(anonymousRouter, tenant);
-  appAssetsServeRoutes(anonymousRouter, tenant);
+
+  // File-serving proxies are mounted publicly but excluded from the swagger document: they
+  // stream stored objects rather than JSON management APIs (see interactionRouter exclusion).
+  const servingRouter: AnonymousRouter = new Router();
+  appAssetsServeRoutes(servingRouter, tenant);
 
   wellKnownOpenApiRoutes(anonymousRouter, {
     experienceRouters: [experienceRouter],
@@ -152,6 +156,7 @@ const createRouters = (tenant: TenantContext) => {
     respondentVerificationRouter,
     managementRouter,
     anonymousRouter,
+    servingRouter,
     userRouter,
   ];
 };

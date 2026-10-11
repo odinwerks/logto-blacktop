@@ -74,6 +74,10 @@ const zodStringCheckToSwaggerFormat = (zodStringCheck: ZodStringCheck) => {
       return kind;
     }
 
+    case 'datetime': {
+      return 'date-time';
+    }
+
     case 'min':
     case 'max': {
       // Do nothing here

@@ -45,7 +45,7 @@ function CreateOrganizationModal({ isOpen, onClose }: Props) {
   const isOrganizationsDisabled =
     // Check if the organizations feature is disabled except for paid tenants.
     // Paid tenants can create organizations with organization feature add-on applied to their subscription.
-    !isFeatureEnabled(currentSubscriptionQuota.organizationsLimit) && !isPaidTenant;
+    isCloud && !isFeatureEnabled(currentSubscriptionQuota.organizationsLimit) && !isPaidTenant;
 
   const {
     reset,
