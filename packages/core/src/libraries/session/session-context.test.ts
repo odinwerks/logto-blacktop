@@ -1,4 +1,4 @@
-import { type User } from '@logto/schemas';
+import { InteractionEvent, type User } from '@logto/schemas';
 import { generateStandardId } from '@logto/shared';
 import type { Provider } from 'oidc-provider';
 import Sinon from 'sinon';
@@ -38,12 +38,18 @@ const context = createContextWithRouteParameters();
 
 type Interaction = Awaited<ReturnType<Provider['interactionDetails']>>;
 
+const interactionLastSubmission = {
+  interactionEvent: InteractionEvent.SignIn,
+  userId: mockUser.id,
+  verificationRecords: [],
+};
+
 const buildInteractionDetails = (clientId: string) =>
   ({
     session: { accountId: mockUser.id, uid: 'sessionUid' },
     params: { client_id: clientId },
     prompt: { details: {} },
-    lastSubmission: { foo: 'bar' },
+    lastSubmission: interactionLastSubmission,
   }) as unknown as Interaction;
 
 describe('saveInteractionLastSubmissionToSession', () => {
@@ -57,7 +63,7 @@ describe('saveInteractionLastSubmissionToSession', () => {
       session: { accountId: mockUser.id, uid: 'sessionUid' },
       params: { client_id: 'clientId' },
       prompt: { details: {} },
-      lastSubmission: { foo: 'bar' },
+      lastSubmission: interactionLastSubmission,
       result: { signInContext },
     } as unknown as Interaction;
 
@@ -74,10 +80,55 @@ describe('saveInteractionLastSubmissionToSession', () => {
     expect(oidcSessionExtensionsInsert).toHaveBeenCalledWith({
       sessionUid: 'sessionUid',
       accountId: mockUser.id,
-      lastSubmission: { foo: 'bar' },
+      lastSubmission: interactionLastSubmission,
       clientId: 'clientId',
       cimdClientId: null,
     });
+  });
+
+  it('should not overwrite the stored session context with a marker-only lastSubmission', async () => {
+    const interactionDetails = {
+      session: { accountId: mockUser.id, uid: 'sessionUid' },
+      params: { client_id: 'clientId' },
+      prompt: { details: {} },
+      lastSubmission: {
+        appLevelAccessControl: { checked: true, applicationId: 'clientId', userId: mockUser.id },
+      },
+    } as unknown as Interaction;
+
+    const provider = createMockProvider(jest.fn().mockResolvedValue(interactionDetails), Grant);
+
+    await consent({
+      ctx: context,
+      provider,
+      envSet: mockEnvSet,
+      queries,
+      interactionDetails,
+      markAppLevelAccessControlChecked: true,
+    });
+
+    expect(oidcSessionExtensionsInsert).not.toHaveBeenCalled();
+  });
+
+  it('should not persist a lastSubmission missing verificationRecords', async () => {
+    const interactionDetails = {
+      session: { accountId: mockUser.id, uid: 'sessionUid' },
+      params: { client_id: 'clientId' },
+      prompt: { details: {} },
+      lastSubmission: { interactionEvent: InteractionEvent.SignIn, userId: mockUser.id },
+    } as unknown as Interaction;
+
+    const provider = createMockProvider(jest.fn().mockResolvedValue(interactionDetails), Grant);
+
+    await consent({
+      ctx: context,
+      provider,
+      envSet: mockEnvSet,
+      queries,
+      interactionDetails,
+    });
+
+    expect(oidcSessionExtensionsInsert).not.toHaveBeenCalled();
   });
 });
 
@@ -130,7 +181,7 @@ describe('saveInteractionLastSubmissionToSession while CIMD is effectively enabl
     expect(oidcSessionExtensionsInsert).toHaveBeenCalledWith({
       sessionUid: 'sessionUid',
       accountId: mockUser.id,
-      lastSubmission: { foo: 'bar' },
+      lastSubmission: interactionLastSubmission,
       clientId: null,
       cimdClientId,
     });
@@ -226,7 +277,7 @@ describe('saveInteractionLastSubmissionToSession while CIMD is effectively enabl
     expect(oidcSessionExtensionsInsert).toHaveBeenCalledWith({
       sessionUid: 'sessionUid',
       accountId: mockUser.id,
-      lastSubmission: { foo: 'bar' },
+      lastSubmission: interactionLastSubmission,
       clientId: 'registeredClientId',
       cimdClientId: null,
     });

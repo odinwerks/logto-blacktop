@@ -1,4 +1,4 @@
-import { jsonObjectGuard } from '@logto/schemas';
+import { jsonObjectGuard, jwtCustomizerUserInteractionContextGuard } from '@logto/schemas';
 import { conditional } from '@silverhand/essentials';
 import type { Context } from 'koa';
 import type { PromptDetail, Provider } from 'oidc-provider';
@@ -105,7 +105,7 @@ const saveInteractionLastSubmissionToSession = async (
   const { oidcSessionExtensions } = queries;
   const result = jsonObjectGuard.safeParse(lastSubmission);
 
-  if (result.success) {
+  if (result.success && jwtCustomizerUserInteractionContextGuard.safeParse(result.data).success) {
     /**
      * The explicit `null` on the unused identifier column makes the upsert overwrite a stale
      * value left by a previous submission of the other client type.
