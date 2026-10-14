@@ -1,6 +1,6 @@
 import { isArray, isRecord } from '#src/utils/type.js';
 
-const sensitiveDataMask = '******';
+export const sensitiveDataMask = '******';
 
 const nullCharacter = String.fromCodePoint(0);
 const safeSensitiveDataKeys = new Set(['passwordverified', 'haspassword']);

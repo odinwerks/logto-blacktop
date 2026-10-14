@@ -28,6 +28,14 @@ describe('requireManagementScopes', () => {
     jest.clearAllMocks();
   });
 
+  it('throws at route registration when called with no scopes', () => {
+    // `[].every(...)` is vacuously true, so a zero-argument call would authorize any token.
+    // The middleware factory must fail loudly instead of creating an authorization gap.
+    expect(() => requireManagementScopes()).toThrow(
+      'requireManagementScopes requires at least one scope.'
+    );
+  });
+
   it.each([
     [[PredefinedScope.UsersReadStatus], [PredefinedScope.UsersReadStatus]],
     [

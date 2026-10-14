@@ -67,6 +67,18 @@ describe('respondent verification routes', () => {
     });
   });
 
+  it('accepts a standard 21-character user ID', async () => {
+    // Logto user IDs are 21-char alphanumeric (`generateStandardId`); the params guard must not
+    // reject them.
+    const userId = 'abcdefghijklmnopqrstu';
+    findUserStatusById.mockResolvedValueOnce({ id: userId, isSuspended: false });
+
+    const response = await requester.get(`/users/${userId}/status`);
+
+    expect(response.status).toBe(200);
+    expect(findUserStatusById).toHaveBeenCalledWith(userId);
+  });
+
   it('enforces the route-specific user status scope', async () => {
     getScopes.mockReturnValue(new Set([PredefinedScope.SessionsRead]));
 

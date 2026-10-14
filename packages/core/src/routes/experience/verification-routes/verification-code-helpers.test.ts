@@ -1,14 +1,19 @@
+/* eslint-disable max-lines -- sendCode locale/rate-guard and verifyCode audit scenarios share extensive mocks. */
 import {
   defaultMessageRateLimitPolicy,
   InteractionEvent,
   MfaFactor,
+  type Sentinel,
   SentinelActivityAction,
+  SentinelDecision,
   SignInIdentifier,
+  VerificationType,
 } from '@logto/schemas';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import type Libraries from '#src/tenants/Libraries.js';
 import type Queries from '#src/tenants/Queries.js';
+import { sensitiveDataMask } from '#src/utils/sensitive-data.js';
 
 import type { EmailCodeVerification } from '../classes/verifications/code-verification.js';
 import type { ExperienceInteractionRouterContext } from '../types.js';
@@ -30,7 +35,7 @@ async function resolveVoid(): Promise<void> {
   await Promise.resolve();
 }
 
-const { sendCode, getMfaIdentifier } = await import('./verification-code-helpers.js');
+const { sendCode, verifyCode, getMfaIdentifier } = await import('./verification-code-helpers.js');
 
 // Provide a permissive activity store so the message rate guard allows sends by default.
 const mockSentinelActivities = {
@@ -42,6 +47,9 @@ const mockSentinelActivities = {
 const mockLogtoConfigs = {
   getMessageRateLimitOverride: jest.fn().mockResolvedValue(null),
 };
+
+// Hoisted so individual tests can queue a one-off language list via `mockResolvedValueOnce`.
+const mockFindAllCustomLanguageTags = jest.fn().mockResolvedValue([]);
 
 describe('sendCode parameter passing', () => {
   // To make a void callable function/method
@@ -76,7 +84,7 @@ describe('sendCode parameter passing', () => {
       hasUserWithNormalizedPhone: jest.fn().mockResolvedValue(true),
     },
     customPhrases: {
-      findAllCustomLanguageTags: jest.fn().mockResolvedValue([]),
+      findAllCustomLanguageTags: mockFindAllCustomLanguageTags,
     },
     signInExperiences: {
       findDefaultSignInExperience: jest.fn().mockResolvedValue({
@@ -151,7 +159,63 @@ describe('sendCode parameter passing', () => {
     );
   });
 
-  it('should pass the region-tagged body locale through verbatim (ka-GE stays ka-GE) without requiring a configured custom language', async () => {
+  it('should normalize a supported region-tagged body locale to its base tag (fr-CA -> fr)', async () => {
+    const ctx = {
+      request: { ip: '127.0.0.1' },
+      query: {},
+      createLog: jest.fn(() => ({ append: jest.fn().mockImplementation(resolveVoid) })),
+      experienceInteraction: mockExperienceInteraction,
+      emailI18n: { locale: 'en' },
+    };
+
+    const libraries = { passcodes: mockPasscodeLibrary } as unknown as Partial<Libraries>;
+    await sendCode({
+      identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
+      interactionEvent: InteractionEvent.SignIn,
+      locale: 'fr-CA',
+      createVerificationRecord: () => mockCodeVerification,
+      libraries: libraries as unknown as Libraries,
+      queries: mockQueries,
+      ctx: ctx as unknown as ExperienceInteractionRouterContext,
+    });
+
+    expect(mockSendVerificationCode).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'fr' }),
+      expect.objectContaining({ skipDelivery: false })
+    );
+  });
+
+  it('should pass the body locale through when it is a supported base tag', async () => {
+    const ctx = {
+      request: { ip: '127.0.0.1' },
+      query: {},
+      createLog: jest.fn(() => ({ append: jest.fn().mockImplementation(resolveVoid) })),
+      experienceInteraction: mockExperienceInteraction,
+      emailI18n: { locale: 'en' },
+    };
+
+    const libraries = { passcodes: mockPasscodeLibrary } as unknown as Partial<Libraries>;
+    await sendCode({
+      identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
+      interactionEvent: InteractionEvent.SignIn,
+      locale: 'de',
+      createVerificationRecord: () => mockCodeVerification,
+      libraries: libraries as unknown as Libraries,
+      queries: mockQueries,
+      ctx: ctx as unknown as ExperienceInteractionRouterContext,
+    });
+
+    expect(mockSendVerificationCode).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'de' }),
+      expect.objectContaining({ skipDelivery: false })
+    );
+  });
+
+  it('should keep an exact custom-language tag (ka-GE stays ka-GE when configured)', async () => {
+    // `ka-GE` is not a built-in language, but the tenant configured it as a custom language,
+    // so it resolves exactly instead of falling back to the request-context locale.
+    mockFindAllCustomLanguageTags.mockResolvedValueOnce(['ka-GE']);
+
     const ctx = {
       request: { ip: '127.0.0.1' },
       query: {},
@@ -177,19 +241,46 @@ describe('sendCode parameter passing', () => {
     );
   });
 
-  it('should pass the body locale through as-is when it is already a base tag', async () => {
+  it('should override ctx.emailI18n.locale only with a supported body locale', async () => {
     const ctx = {
       request: { ip: '127.0.0.1' },
       query: {},
       createLog: jest.fn(() => ({ append: jest.fn().mockImplementation(resolveVoid) })),
       experienceInteraction: mockExperienceInteraction,
-      emailI18n: { locale: 'en' },
+      emailI18n: { locale: 'ja' },
     };
 
     const libraries = { passcodes: mockPasscodeLibrary } as unknown as Partial<Libraries>;
     await sendCode({
       identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
       interactionEvent: InteractionEvent.SignIn,
+      locale: 'fr',
+      createVerificationRecord: () => mockCodeVerification,
+      libraries: libraries as unknown as Libraries,
+      queries: mockQueries,
+      ctx: ctx as unknown as ExperienceInteractionRouterContext,
+    });
+
+    expect(mockSendVerificationCode).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'fr' }),
+      expect.objectContaining({ skipDelivery: false })
+    );
+  });
+
+  it('should keep the request-context locale when the body locale is not supported', async () => {
+    const ctx = {
+      request: { ip: '127.0.0.1' },
+      query: {},
+      createLog: jest.fn(() => ({ append: jest.fn().mockImplementation(resolveVoid) })),
+      experienceInteraction: mockExperienceInteraction,
+      emailI18n: { locale: 'ja' },
+    };
+
+    const libraries = { passcodes: mockPasscodeLibrary } as unknown as Partial<Libraries>;
+    await sendCode({
+      identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
+      interactionEvent: InteractionEvent.SignIn,
+      // `ka` is neither a built-in nor a configured custom language.
       locale: 'ka',
       createVerificationRecord: () => mockCodeVerification,
       libraries: libraries as unknown as Libraries,
@@ -198,38 +289,12 @@ describe('sendCode parameter passing', () => {
     });
 
     expect(mockSendVerificationCode).toHaveBeenCalledWith(
-      expect.objectContaining({ locale: 'ka' }),
+      expect.objectContaining({ locale: 'ja' }),
       expect.objectContaining({ skipDelivery: false })
     );
   });
 
-  it('should override ctx.emailI18n.locale with the body locale (passed verbatim) when locale is provided', async () => {
-    const ctx = {
-      request: { ip: '127.0.0.1' },
-      query: {},
-      createLog: jest.fn(() => ({ append: jest.fn().mockImplementation(resolveVoid) })),
-      experienceInteraction: mockExperienceInteraction,
-      emailI18n: { locale: 'jp' },
-    };
-
-    const libraries = { passcodes: mockPasscodeLibrary } as unknown as Partial<Libraries>;
-    await sendCode({
-      identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
-      interactionEvent: InteractionEvent.SignIn,
-      locale: 'ka-GE',
-      createVerificationRecord: () => mockCodeVerification,
-      libraries: libraries as unknown as Libraries,
-      queries: mockQueries,
-      ctx: ctx as unknown as ExperienceInteractionRouterContext,
-    });
-
-    expect(mockSendVerificationCode).toHaveBeenCalledWith(
-      expect.objectContaining({ locale: 'ka-GE' }),
-      expect.objectContaining({ skipDelivery: false })
-    );
-  });
-
-  it('should pass the region-tagged body locale through verbatim in MFA-style calls (no interactionEvent)', async () => {
+  it('should normalize the body locale in MFA-style calls (no interactionEvent)', async () => {
     const ctx = {
       request: { ip: '127.0.0.1' },
       query: {},
@@ -242,7 +307,7 @@ describe('sendCode parameter passing', () => {
     await sendCode({
       identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
       // MFA flows do not pass interactionEvent
-      locale: 'ka-GE',
+      locale: 'pt-BR',
       createVerificationRecord: () => mockCodeVerification,
       libraries: libraries as unknown as Libraries,
       queries: mockQueries,
@@ -250,12 +315,12 @@ describe('sendCode parameter passing', () => {
     });
 
     expect(mockSendVerificationCode).toHaveBeenCalledWith(
-      expect.objectContaining({ locale: 'ka-GE' }),
+      expect.objectContaining({ locale: 'pt-BR' }),
       expect.objectContaining({ skipDelivery: false })
     );
   });
 
-  it('should pass locale through in MFA-style calls with base tag locale', async () => {
+  it('should keep the request-context locale for an unsupported body locale in MFA-style calls', async () => {
     const ctx = {
       request: { ip: '127.0.0.1' },
       query: {},
@@ -268,7 +333,7 @@ describe('sendCode parameter passing', () => {
     await sendCode({
       identifier: { type: SignInIdentifier.Phone, value: '+8613123456789' },
       // MFA flows do not pass interactionEvent
-      locale: 'ka',
+      locale: 'xyz',
       createVerificationRecord: () => mockCodeVerification,
       libraries: libraries as unknown as Libraries,
       queries: mockQueries,
@@ -276,7 +341,7 @@ describe('sendCode parameter passing', () => {
     });
 
     expect(mockSendVerificationCode).toHaveBeenCalledWith(
-      expect.objectContaining({ locale: 'ka' }),
+      expect.objectContaining({ locale: 'en' }),
       expect.objectContaining({ skipDelivery: false })
     );
   });
@@ -478,6 +543,48 @@ describe('sendCode parameter passing', () => {
     });
   });
 
+  it('masks the submitted code in the audit log payload', async () => {
+    const append = jest.fn().mockImplementation(resolveVoid);
+    const codeVerificationRecord = {
+      id: 'verification-id',
+      identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
+      verify: jest.fn().mockImplementation(resolveVoid),
+    };
+    const ctx = {
+      request: { ip: '127.0.0.1' },
+      i18n: { languages: ['en'] },
+      createLog: jest.fn(() => ({ append })),
+      appendExceptionHookContext: jest.fn(),
+      experienceInteraction: {
+        interactionEvent: InteractionEvent.SignIn,
+        getVerificationRecordByTypeAndId: jest.fn(() => codeVerificationRecord),
+        save: jest.fn().mockImplementation(resolveVoid),
+      },
+    };
+    const sentinel = {
+      reportActivity: jest.fn(async () => [SentinelDecision.Allowed, Date.now() + 60_000] as const),
+    };
+
+    await verifyCode({
+      verificationId: 'verification-id',
+      code: '123456',
+      identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
+      verificationType: VerificationType.EmailVerificationCode,
+      sentinel: sentinel as unknown as Sentinel,
+      queries: mockQueries,
+      ctx: ctx as unknown as ExperienceInteractionRouterContext,
+    });
+
+    expect(append).toHaveBeenCalledWith({
+      payload: {
+        identifier: { type: SignInIdentifier.Email, value: 'test@example.com' },
+        verificationId: 'verification-id',
+        code: sensitiveDataMask,
+      },
+    });
+    expect(ctx.experienceInteraction.save).toHaveBeenCalled();
+  });
+
   const buildSignInCtx = (
     experienceInteraction: MockExperienceInteraction = mockExperienceInteraction
   ) => ({
@@ -626,3 +733,4 @@ describe('getMfaIdentifier', () => {
     ).rejects.toMatchError(new RequestError({ code: 'session.identifier_not_found', status: 400 }));
   });
 });
+/* eslint-enable max-lines */

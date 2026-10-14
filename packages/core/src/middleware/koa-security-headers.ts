@@ -174,7 +174,10 @@ const createSecurityHeaderSettings = (tenantId: string): SecurityHeaderSettings 
     customUiCsp: CustomUiCsp = {},
     capEndpoint?: string
   ) => {
-    const capOrigin = capEndpoint && new URL(capEndpoint).origin;
+    // A malformed Cap endpoint stored in the provider config must not 500 every experience
+    // response — skip the CSP relaxation instead of throwing on the URL parse.
+    const capOrigin =
+      capEndpoint && URL.canParse(capEndpoint) ? new URL(capEndpoint).origin : undefined;
 
     // @ts-expect-error: helmet typings has lots of {A?: T, B?: never} | {A?: never, B?: T} options definitions. Optional settings type can not inferred correctly.
     const settings: HelmetOptions = {

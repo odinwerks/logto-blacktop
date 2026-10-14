@@ -16,6 +16,7 @@ import { z } from 'zod';
 import koaGuard from '#src/middleware/koa-guard.js';
 import { buildMessageRateGuard, withMessageRateGuard } from '#src/sentinel/message-rate-guard.js';
 import { assertFirstPartyClient } from '#src/utils/assert-first-party-client.js';
+import { resolveMessageLocale } from '#src/utils/i18n.js';
 
 import {
   buildVerificationRecordByIdAndType,
@@ -97,8 +98,8 @@ export default function verificationRoutes<T extends UserRouter>(
           .optional(),
         // Blacktop: explicitly request a locale for the verification-code message. Authenticated
         // callers (e.g. the admin dashboard) use this to override the locale otherwise derived
-        // from the request context. Passed through verbatim (region tags preserved, e.g. `ka-GE`
-        // stays `ka-GE`); the connector handles its own fallback chain.
+        // from the request context. Resolved against the supported languages before reaching a
+        // connector: region tags normalize to their base tag, unsupported tags fall back.
         locale: z.string().optional(),
       }),
       response: z.object({ verificationRecordId: z.string(), expiresAt: z.string() }),
@@ -134,10 +135,13 @@ export default function verificationRoutes<T extends UserRouter>(
           ? await libraries.passcodes.buildVerificationCodeContext({ user, applicationId }, ctx)
           : undefined;
 
-      // Blacktop: explicit `locale` (passed verbatim; connectors cannot expand base tags back
-      // to region tags, e.g. ka -> ka-GE) > `ctx.emailI18n` (resolved by koa-email-i18n from
-      // `?lang=`, the ui_locales cookie, Accept-Language) > connector fallback.
-      const overrideLocale = bodyLocale?.trim();
+      // Blacktop: explicit `locale` resolved against the tenant's supported languages (no
+      // verbatim passthrough) > `ctx.emailI18n` (resolved by koa-email-i18n from `?lang=`, the
+      // ui_locales cookie, Accept-Language) > connector fallback.
+      const requestedLocale = bodyLocale?.trim();
+      const overrideLocale = requestedLocale
+        ? await resolveMessageLocale({ queries, locale: requestedLocale })
+        : undefined;
 
       const send = async () =>
         codeVerification.sendVerificationCode({
