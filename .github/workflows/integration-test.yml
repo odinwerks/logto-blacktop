@@ -22,12 +22,36 @@ jobs:
     env:
       INTEGRATION_TEST: true
       DEV_FEATURES_ENABLED: ${{ matrix.dev-features-enabled }}
+      # Console's Vite build exceeds Node's default heap ceiling on hosted runners.
+      NODE_OPTIONS: --max-old-space-size=4096
 
     steps:
-      - uses: logto-io/actions-package-logto-artifact@v3
+      # Inlined from logto-io/actions-package-logto-artifact: the action's own checkout does not
+      # populate git submodules, so `pnpm i` fails on the ubill-sms lockfile importer.
+      - uses: actions/checkout@v4
         with:
-          artifact-name: integration-test-${{ github.sha }}-dev-features-${{ matrix.dev-features-enabled }}
+          submodules: true
+
+      - name: Setup Node and pnpm
+        uses: silverhand-io/actions-node-pnpm-run-steps@v5
+        with:
           pnpm-version: 12.10.1
+          node-version: ^22.14.0
+
+      - name: Build and package
+        run: |
+          # package.sh's `pnpm cli connector link` trips pnpm 12's verify-deps-before-run on the
+          # production-pruned workspace (reinstall can't resolve @logto/cli@workspace:^).
+          pnpm config set verify-deps-before-run false
+          pnpm -r build
+          ./.scripts/package.sh
+
+      - name: Upload Logto artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-${{ github.sha }}-dev-features-${{ matrix.dev-features-enabled }}
+          path: /tmp/logto.tar.gz
+          retention-days: 3
 
   run-logto:
     strategy:
@@ -57,6 +81,9 @@ jobs:
       SELF_HOSTED_LICENSE_PUBLIC_KEY: '{"crv":"Ed25519","x":"kW7_S4kvfOBm8dRpABVDK3TU7AReEPzqb4s3FDRBWzg","kty":"OKP"}'
 
     steps:
+      # The action's internal `tests/` checkout does not populate git submodules, so its inner
+      # `pnpm i` drops the ubill-sms importer via frozenLockfile=false in pnpm-workspace.yaml
+      # (the only location pnpm 12 honors for it).
       - uses: logto-io/actions-run-logto-integration-tests@v4.0.1
         with:
           logto-artifact: integration-test-${{ github.sha }}-dev-features-${{ env.DEV_FEATURES_ENABLED }}
