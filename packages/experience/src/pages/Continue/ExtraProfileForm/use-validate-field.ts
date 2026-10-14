@@ -41,6 +41,23 @@ const isValidUrlField = (value: unknown): boolean => {
   return isValidUrl(value);
 };
 
+/**
+ * The avatar field is a Url-typed field whose value is rendered back as `<img src>` on every
+ * surface that shows a user profile — including the admin console — so a bare URL check is not
+ * enough: require `https` and forbid embedded credentials (the server guard accepts any
+ * parseable URL).
+ */
+const isValidAvatarUrl = (value: unknown): boolean => {
+  s.assert(value, s.string());
+
+  try {
+    const { protocol, username, password, hostname } = new URL(value);
+    return protocol === 'https:' && !username && !password && Boolean(hostname);
+  } catch {
+    return false;
+  }
+};
+
 const isValidNumberRange = (value: unknown, config: CustomProfileFieldBaseConfig): boolean => {
   s.assert(value, s.string());
   const parsedNumber = Number(value);
@@ -84,7 +101,8 @@ const useValidateField = () => {
       }
 
       if (type === CustomProfileFieldType.Url) {
-        return isValidUrlField(value) || generalInvalidMessage;
+        const isValid = name === 'avatar' ? isValidAvatarUrl(value) : isValidUrlField(value);
+        return isValid || generalInvalidMessage;
       }
 
       if (type === CustomProfileFieldType.Number) {

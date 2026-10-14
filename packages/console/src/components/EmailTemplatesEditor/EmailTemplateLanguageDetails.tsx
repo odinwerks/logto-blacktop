@@ -119,14 +119,34 @@ function EmailTemplateLanguageDetails({ languageTag, initialTemplates, allLangua
     [draft, languageTag]
   );
 
+  // `PUT` only upserts the templates it is sent, so a type the user emptied would never be
+  // removed on its own — the persisted row would stay live. Types that had a non-empty row at
+  // baseline and are now empty must be deleted explicitly.
+  const removedTemplateTypes = useMemo(
+    () =>
+      templateTypes.filter(
+        (type) => !isDetailsEmpty(baseline[type]) && isDetailsEmpty(draft[type])
+      ),
+    [baseline, draft]
+  );
+
   const onSave = async () => {
-    if (savableTemplates.length === 0) {
+    if (savableTemplates.length === 0 && removedTemplateTypes.length === 0) {
       return;
     }
 
     setIsSaving(true);
     try {
-      await api.put('api/email-templates', { json: { templates: savableTemplates } });
+      // `PUT` requires a non-empty array; when every row was emptied only deletions remain.
+      if (savableTemplates.length > 0) {
+        await api.put('api/email-templates', { json: { templates: savableTemplates } });
+      }
+
+      await Promise.all(
+        removedTemplateTypes.map(async (templateType) =>
+          api.delete('api/email-templates', { searchParams: { languageTag, templateType } })
+        )
+      );
       await mutateEmailTemplates();
       // Re-baseline against the just-saved snapshot so further edits are tracked correctly.
       setBaseline(draft);
@@ -206,7 +226,7 @@ function EmailTemplateLanguageDetails({ languageTag, initialTemplates, allLangua
           type="primary"
           title="connector_details.email_templates.save_language"
           isLoading={isSaving}
-          disabled={savableTemplates.length === 0}
+          disabled={savableTemplates.length === 0 && removedTemplateTypes.length === 0}
           onClick={onSave}
         />
       </div>

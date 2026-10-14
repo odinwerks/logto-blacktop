@@ -110,7 +110,7 @@ describe('koaAccountCenterSsr()', () => {
     expect(ctx.body).not.toContain('<script>');
   });
 
-  it('should leave the body untouched when the placeholder is absent but stamp nonces', async () => {
+  it('should not stamp nonces on a string body that is not the SSR document', async () => {
     const ctx = {
       ...baseCtx,
       path: '/',
@@ -119,7 +119,7 @@ describe('koaAccountCenterSsr()', () => {
     ctx.set('Content-Security-Policy', "script-src 'self' 'nonce-aGVsbG8='");
     await koaAccountCenterSsr(tenant.libraries)(ctx, next);
     expect(next).toHaveBeenCalledTimes(1);
-    expect(ctx.body).toBe('<script nonce="aGVsbG8=">no placeholder</script>');
+    expect(ctx.body).toBe('<script>no placeholder</script>');
   });
 
   it('should inject SSR data for Account Center deep links', async () => {

@@ -36,12 +36,6 @@ await mockEsmWithActual('#src/utils/storage/index.js', () => ({
   })),
 }));
 
-// Mock detectImageType
-const mockDetectImageType = jest.fn();
-await mockEsmWithActual('#src/utils/file.js', () => ({
-  detectImageType: mockDetectImageType,
-}));
-
 // Mock get-scoped-profile
 const mockGetScopedProfile = jest.fn();
 const mockGetAccountCenterFilteredProfile = jest.fn();
@@ -106,8 +100,16 @@ const avatarRequest = createRequester({
   tenantContext,
 });
 
-// Helper: create a buffer with valid JPEG magic bytes
-const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+// Complete, well-formed images — the shared avatar sniff verifies the end marker, so bare
+// magic-byte stubs are rejected.
+const jpegBuffer = Buffer.from(
+  'FFD8FFE000104A46494600010100000100010000FFDB004300080606070605080707070909080A0C140D0C0B0B0C1912130F141D1A1F1E1D1A1C1C20242E2720222C231C1C2837292C30313434341F27393D38323C2E333432FFDB0043010909090C0B0C180D0D1832211C213232323232323232323232323232323232323232323232323232323232323232FFC00011080001000103011100021100031100FFC4001500010100000000000000000000000000000000FFC40014100100000000000000000000000000000000FFDA000C03010002110311003F00FFD9',
+  'hex'
+);
+const pngBuffer = Buffer.from(
+  '89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C4890000000D4944415478DA63FCFFFFFF1F00040501FE6F1B5F570000000049454E44AE426082',
+  'hex'
+);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -138,10 +140,6 @@ describe('POST /my-account/avatar', () => {
   });
 
   it('should return 400 when file is not an allowed image type', async () => {
-    // DetectImageType returns undefined for non-image data
-    // eslint-disable-next-line unicorn/no-useless-undefined -- mock must return undefined
-    mockDetectImageType.mockReturnValue(undefined);
-
     const response = await avatarRequest
       .post('/my-account/avatar')
       .attach('file', Buffer.from('not an image'), 'test.txt');
@@ -151,17 +149,25 @@ describe('POST /my-account/avatar', () => {
   });
 
   it('should return 400 when magic bytes do not match the claimed MIME', async () => {
-    // Upload file with text content but claiming image/png content type.
-    // detectImageType returns undefined for non-image bytes.
-    // DetectImageType returns undefined for non-image data
-    // eslint-disable-next-line unicorn/no-useless-undefined -- mock must return undefined
-    mockDetectImageType.mockReturnValue(undefined);
-
+    // Upload file with text content but claiming image/png content type:
+    // detection returns undefined for non-image bytes.
     const response = await avatarRequest
       .post('/my-account/avatar')
       .attach('file', Buffer.from('pretending to be png'), {
         filename: 'fake.png',
         contentType: 'image/png',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('guard.mime_type_not_allowed');
+  });
+
+  it('should return 400 when the image is truncated (no end marker)', async () => {
+    const response = await avatarRequest
+      .post('/my-account/avatar')
+      .attach('file', jpegBuffer.subarray(0, 12), {
+        filename: 'truncated.jpg',
+        contentType: 'image/jpeg',
       });
 
     expect(response.status).toBe(400);
@@ -228,7 +234,6 @@ describe('POST /my-account/avatar', () => {
   });
 
   it('should return 500 when storage provider is not configured', async () => {
-    mockDetectImageType.mockReturnValue({ mime: 'image/jpeg', extension: 'jpg' });
     Reflect.deleteProperty(SystemContext.shared, 'storageProviderConfig');
 
     const response = await avatarRequest
@@ -240,7 +245,6 @@ describe('POST /my-account/avatar', () => {
   });
 
   it('should return 500 when storage provider is not S3Storage', async () => {
-    mockDetectImageType.mockReturnValue({ mime: 'image/jpeg', extension: 'jpg' });
     SystemContext.shared.storageProviderConfig = {
       provider: StorageProvider.AzureStorage,
       connectionString: 'fake',
@@ -257,9 +261,6 @@ describe('POST /my-account/avatar', () => {
 
   it('should upload avatar, clean up old files, update user record, and return profile', async () => {
     const now = Date.now();
-
-    const detected = { mime: 'image/jpeg', extension: 'jpg' };
-    mockDetectImageType.mockReturnValue(detected);
 
     SystemContext.shared.storageProviderConfig = {
       provider: StorageProvider.S3Storage,
@@ -331,7 +332,6 @@ describe('POST /my-account/avatar', () => {
 
   it('should keep the bucket private and point the avatar at the proxy route without a publicUrl', async () => {
     const dateNow = jest.spyOn(Date, 'now').mockReturnValue(1_785_066_085_172);
-    mockDetectImageType.mockReturnValue({ mime: 'image/png', extension: 'png' });
 
     SystemContext.shared.storageProviderConfig = {
       provider: StorageProvider.S3Storage,
@@ -350,7 +350,7 @@ describe('POST /my-account/avatar', () => {
 
     const response = await avatarRequest
       .post('/my-account/avatar')
-      .attach('file', jpegBuffer, 'holiday photo.png');
+      .attach('file', pngBuffer, 'holiday photo.png');
 
     expect(response.status).toBe(200);
     expect(mockUploadFileFunction).toHaveBeenCalledWith(
@@ -368,8 +368,6 @@ describe('POST /my-account/avatar', () => {
   });
 
   it('should return 500 and leave the old avatar alone when S3 upload fails', async () => {
-    mockDetectImageType.mockReturnValue({ mime: 'image/jpeg', extension: 'jpg' });
-
     SystemContext.shared.storageProviderConfig = {
       provider: StorageProvider.S3Storage,
       bucket: 'test-bucket',
@@ -394,8 +392,6 @@ describe('POST /my-account/avatar', () => {
 
   it('should still return 200 when cleanup fails (best-effort)', async () => {
     const now = Date.now();
-
-    mockDetectImageType.mockReturnValue({ mime: 'image/jpeg', extension: 'jpg' });
 
     SystemContext.shared.storageProviderConfig = {
       provider: StorageProvider.S3Storage,

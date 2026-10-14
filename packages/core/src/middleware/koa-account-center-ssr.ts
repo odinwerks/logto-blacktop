@@ -27,7 +27,7 @@ export default function koaAccountCenterSsr<StateT, ContextT extends WithI18nCon
   return async (ctx, next) => {
     await next();
 
-    if (typeof ctx.body !== 'string') {
+    if (typeof ctx.body !== 'string' || !ctx.body.includes(accountCenterSsrPlaceholder)) {
       return;
     }
 
@@ -35,6 +35,8 @@ export default function koaAccountCenterSsr<StateT, ContextT extends WithI18nCon
      * The account center CSP (`koa-security-headers.ts`) drops `'unsafe-inline'` in favor of a
      * per-request nonce. Read the nonce back out of the emitted `Content-Security-Policy`
      * header and stamp it on every script tag so the SSR bootstrap and theme scripts still run.
+     * Only the SSR document reaches this point (see the placeholder check above), so the
+     * blanket `<script` rewrite can never touch an unrelated string body.
      */
     const cspNonce = /'nonce-([A-Za-z0-9+/=]+)'/u.exec(
       ctx.response.get('content-security-policy')
@@ -42,11 +44,6 @@ export default function koaAccountCenterSsr<StateT, ContextT extends WithI18nCon
     const htmlWithNonce = cspNonce
       ? ctx.body.replaceAll('<script', `<script nonce="${cspNonce}"`)
       : ctx.body;
-
-    if (!htmlWithNonce.includes(accountCenterSsrPlaceholder)) {
-      ctx.body = htmlWithNonce;
-      return;
-    }
 
     const signInExperience = await trySafe(
       libraries.signInExperiences.getAccountCenterSsrSignInExperience()

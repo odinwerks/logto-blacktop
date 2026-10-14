@@ -12,11 +12,11 @@ import { object } from 'zod';
 
 import RequestError from '#src/errors/RequestError/index.js';
 import koaGuard from '#src/middleware/koa-guard.js';
+import { detectAvatarImage } from '#src/routes/avatar-upload.js';
 import type { RouterInitArgs } from '#src/routes/types.js';
 import SystemContext from '#src/tenants/SystemContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { getConsoleLogFromContext } from '#src/utils/console.js';
-import { detectImageType } from '#src/utils/file.js';
 import { storeUserAvatar } from '#src/utils/storage/assets.js';
 import { buildStorage } from '#src/utils/storage/index.js';
 
@@ -82,11 +82,8 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
       // type, decide the `user-assets/{userId}/you.{ext}` key it replaces; anything else
       // (zip, svg, ico, spoofed types) is rejected instead of hosted.
       const data = await readFile(file.filepath);
-      const detected = detectImageType(data);
-      assertThat(
-        detected && avatarMimeTypes.includes(detected.mime),
-        'guard.mime_type_not_allowed'
-      );
+      const detected = detectAvatarImage(data);
+      assertThat(detected, 'guard.mime_type_not_allowed');
 
       const consoleLog = getConsoleLogFromContext(ctx);
 
@@ -96,7 +93,7 @@ export default function userAssetsRoutes<T extends AuthedMeRouter>(
           storageProviderConfig,
           userId: ctx.auth.id,
           data,
-          contentType: detected.mime,
+          contentType: detected.mimeType,
           extension: detected.extension,
           endpointOrigin: tenant.envSet.endpoint.origin,
           logError: (message, error) => {

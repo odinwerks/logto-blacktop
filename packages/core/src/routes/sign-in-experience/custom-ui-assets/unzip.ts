@@ -23,8 +23,12 @@ const zipMethodDeflated = 8;
 
 const inflateRawAsync = promisify(inflateRaw);
 
-/** Metadata such as `__MACOSX/._index.html` or `.DS_Store` is never part of the UI. */
-const isHidden = (entryName: string) => entryName.split('/').some((part) => part.startsWith('.'));
+/**
+ * Metadata such as `__MACOSX/` (including the directory entry itself, which has no dotfile
+ * marker) or `.DS_Store` is never part of the UI.
+ */
+const isHidden = (entryName: string) =>
+  entryName.split('/').some((part) => part === '__MACOSX' || part.startsWith('.'));
 
 /**
  * The single top-level folder every entry sits in, if there is one: zipping a `dist` folder instead
