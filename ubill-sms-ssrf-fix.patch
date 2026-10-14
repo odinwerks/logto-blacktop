@@ -1,0 +1,608 @@
+diff --git a/src/index.test.ts b/src/index.test.ts
+index 9129717..1bf6bab 100644
+--- a/src/index.test.ts
++++ b/src/index.test.ts
+@@ -1,6 +1,6 @@
+ import nock from 'nock';
+ 
+-import { TemplateType } from '@logto/connector-kit';
++import { ConnectorError, TemplateType } from '@logto/connector-kit';
+ import { afterEach, describe, expect, it, vi } from 'vitest';
+ 
+ import createConnector from './index.js';
+@@ -14,6 +14,8 @@ const mockedConfig = {
+ 
+ const getConfig = vi.fn().mockResolvedValue(mockedConfig);
+ 
++const testTemplates = [{ usageType: 'Generic', content: 'Your verification code is {{code}}.' }];
++
+ describe('Ubill SMS connector', () => {
+   afterEach(() => {
+     nock.cleanAll();
+@@ -159,4 +161,65 @@ describe('Ubill SMS connector', () => {
+ 
+     expect(mockedPost.isDone()).toBe(true);
+   });
++
++  it.each(['http://api.ubill.dev/v1/sms/send', 'https://user:secret@api.ubill.dev/v1/sms/send'])(
++    'rejects unsafe apiUrl %s before sending',
++    async (apiUrl) => {
++      const connector = await createConnector({ getConfig });
++
++      await expect(
++        connector.sendMessage(
++          {
++            to: '+995591234567',
++            type: TemplateType.Generic,
++            payload: { code: '123456' },
++          },
++          { ...mockedConfig, apiUrl, templates: testTemplates }
++        )
++      ).rejects.toThrow(ConnectorError);
++    }
++  );
++
++  it('rejects an apiUrl that resolves to a special-use address', async () => {
++    const connector = await createConnector({ getConfig });
++
++    await expect(
++      connector.sendMessage(
++        {
++          to: '+995591234567',
++          type: TemplateType.Generic,
++          payload: { code: '123456' },
++        },
++        {
++          ...mockedConfig,
++          apiUrl: 'https://127.0.0.1:9/v1/sms/send',
++          templates: testTemplates,
++        }
++      )
++    ).rejects.toThrow(ConnectorError);
++  });
++
++  it('does not echo the upstream response body on API errors', async () => {
++    const url = new URL(apiUrl);
++    nock(url.origin).post(url.pathname).reply(500, 'provider internal detail');
++
++    const connector = await createConnector({ getConfig });
++    const error = await connector
++      .sendMessage(
++        {
++          to: '+995591234567',
++          type: TemplateType.Generic,
++          payload: { code: '123456' },
++        },
++        { ...mockedConfig, templates: testTemplates }
++      )
++      .catch((error_: unknown) => error_);
++
++    if (!(error instanceof ConnectorError)) {
++      throw new TypeError('Expected a ConnectorError');
++    }
++
++    expect(error.message).toContain('status 500');
++    expect(error.message).not.toContain('provider internal detail');
++  });
+ });
+diff --git a/src/index.ts b/src/index.ts
+index d01ab9c..0367854 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -18,6 +18,7 @@ import {
+ } from '@logto/connector-kit';
+ 
+ import { defaultMetadata } from './constant.js';
++import { assertSafeApiUrl, getSsrfAgents, stripApiKeyOnCrossOriginRedirect } from './ssrf-guard.js';
+ import type { UbillSmsResponse } from './types.js';
+ import { ubillSmsConfigGuard } from './types.js';
+ 
+@@ -30,6 +31,11 @@ const sendMessage =
+ 
+     const { apiKey, brandId, apiUrl, templates, translations } = config;
+ 
++    // `apiUrl` comes from connector config: it must be a plain https URL, and the
++    // request below must never reach a special-use (private/loopback/link-local)
++    // address. The connected socket is checked per hop by the guarded agents.
++    assertSafeApiUrl(apiUrl);
++
+     // Find template for the message type, falling back to Generic when the requested type is
+     // not configured.
+     const template =
+@@ -74,11 +80,15 @@ const sendMessage =
+ 
+     try {
+       const response = await got.post<UbillSmsResponse>(apiUrl, {
++        agent: getSsrfAgents(),
+         headers: {
+           'Content-Type': 'application/json',
+           Accept: 'application/json',
+           key: apiKey,
+         },
++        hooks: {
++          beforeRedirect: [stripApiKeyOnCrossOriginRedirect],
++        },
+         json: body,
+         responseType: 'json',
+       });
+@@ -89,25 +99,20 @@ const sendMessage =
+       if (result.statusID === 0) {
+         return response;
+       }
++      // Do not echo `result.message` (upstream response body content) into the
++      // thrown error; the numeric status is enough to triage.
+       throw new ConnectorError(
+         ConnectorErrorCodes.General,
+-        `Ubill API error: ${result.message} (statusID: ${result.statusID})`
++        `Ubill API error (statusID: ${result.statusID})`
+       );
+     } catch (error: unknown) {
+       if (error instanceof HTTPError) {
+-        const {
+-          response: { body: rawBody },
+-        } = error;
+-
+-        assert(
+-          typeof rawBody === 'string',
+-          new ConnectorError(
+-            ConnectorErrorCodes.InvalidResponse,
+-            `Invalid response raw body type: ${typeof rawBody}`
+-          )
++        // Do not echo the upstream response body into the thrown error: it can
++        // carry provider internals. The status code is enough to triage.
++        throw new ConnectorError(
++          ConnectorErrorCodes.General,
++          `Ubill API request failed with status ${error.response.statusCode}`
+         );
+-
+-        throw new ConnectorError(ConnectorErrorCodes.General, rawBody);
+       }
+ 
+       // Re-throw ConnectorError instances
+diff --git a/src/ssrf-guard.test.ts b/src/ssrf-guard.test.ts
+new file mode 100644
+index 0000000..55c72f8
+--- /dev/null
++++ b/src/ssrf-guard.test.ts
+@@ -0,0 +1,121 @@
++import type { Options, PlainResponse } from 'got';
++
++import { ConnectorError } from '@logto/connector-kit';
++import { describe, expect, it } from 'vitest';
++
++import {
++  assertSafeApiUrl,
++  isSpecialUseIP,
++  stripApiKeyOnCrossOriginRedirect,
++} from './ssrf-guard.js';
++
++describe('isSpecialUseIP', () => {
++  it.each([
++    '0.0.0.1',
++    '10.0.0.1',
++    '100.64.0.1',
++    '127.0.0.1',
++    '169.254.169.254',
++    '172.16.0.1',
++    '192.0.0.1',
++    '192.168.1.1',
++    '198.18.0.1',
++    '240.0.0.1',
++  ])('flags IPv4 special-use address %s', (address) => {
++    expect(isSpecialUseIP(address)).toBe(true);
++  });
++
++  it.each(['8.8.8.8', '1.1.1.1', '91.223.106.42'])('allows public IPv4 %s', (address) => {
++    expect(isSpecialUseIP(address)).toBe(false);
++  });
++
++  it.each([
++    '::1',
++    '::',
++    '::ffff:127.0.0.1',
++    '::ffff:10.0.0.1',
++    '64:ff9b::1',
++    '100::1',
++    '2001:db8::1',
++    '2001::1',
++    '2002::1',
++    'fc00::1',
++    'fd00::1',
++    'fe80::1',
++    '3fff::1',
++  ])('flags IPv6 special-use address %s', (address) => {
++    expect(isSpecialUseIP(address)).toBe(true);
++  });
++
++  it.each(['::ffff:8.8.8.8', '2606:4700:4700::1111', '2001:4860:4860::8888'])(
++    'allows public IPv6 %s',
++    (address) => {
++      expect(isSpecialUseIP(address)).toBe(false);
++    }
++  );
++});
++
++describe('assertSafeApiUrl', () => {
++  it('accepts a plain https URL', () => {
++    expect(assertSafeApiUrl('https://api.ubill.dev/v1/sms/send').origin).toBe(
++      'https://api.ubill.dev'
++    );
++  });
++
++  it.each([
++    'http://api.ubill.dev/v1/sms/send',
++    'ftp://api.ubill.dev',
++    'not-a-url',
++    'https://user:secret@api.ubill.dev/v1/sms/send',
++  ])('rejects %s', (apiUrl) => {
++    expect(() => assertSafeApiUrl(apiUrl)).toThrow(ConnectorError);
++  });
++});
++
++const makeRedirectArgs = (from: string, to: string) => {
++  const options = {
++    url: new URL(to),
++    headers: { key: 'api-key', 'Content-Type': 'application/json' },
++  };
++  const response = {
++    request: { options: { url: new URL(from) } },
++  };
++
++  return [options, response] as unknown as [Options, PlainResponse];
++};
++
++describe('stripApiKeyOnCrossOriginRedirect', () => {
++  it('drops the key header when the redirect leaves the original origin', () => {
++    const [options, response] = makeRedirectArgs(
++      'https://api.ubill.dev/v1/sms/send',
++      'https://evil.example.com/collect'
++    );
++
++    stripApiKeyOnCrossOriginRedirect(options, response);
++
++    expect(options.headers.key).toBeUndefined();
++    expect(options.headers['Content-Type']).toBe('application/json');
++  });
++
++  it('keeps the key header on a same-origin redirect', () => {
++    const [options, response] = makeRedirectArgs(
++      'https://api.ubill.dev/v1/sms/send',
++      'https://api.ubill.dev/v2/sms/send'
++    );
++
++    stripApiKeyOnCrossOriginRedirect(options, response);
++
++    expect(options.headers.key).toBe('api-key');
++  });
++
++  it('refuses a redirect that downgrades to http', () => {
++    const [options, response] = makeRedirectArgs(
++      'https://api.ubill.dev/v1/sms/send',
++      'http://api.ubill.dev/v1/sms/send'
++    );
++
++    expect(() => {
++      stripApiKeyOnCrossOriginRedirect(options, response);
++    }).toThrow(ConnectorError);
++  });
++});
+diff --git a/src/ssrf-guard.ts b/src/ssrf-guard.ts
+new file mode 100644
+index 0000000..d2dacc3
+--- /dev/null
++++ b/src/ssrf-guard.ts
+@@ -0,0 +1,314 @@
++/**
++ * @file SSRF protection for the outbound Ubill API request.
++ *
++ * `apiUrl` is operator-supplied connector config, so the request must never
++ * reach a special-use address (loopback, private, link-local, CGNAT, ...).
++ *
++ * This mirrors the socket-level guard core applies to operator-supplied URLs
++ * (`@logto/core` `src/utils/outbound-request.ts`): instead of resolving the
++ * hostname up front — a TOCTOU window, since the HTTP client resolves it
++ * again independently — the check runs on `connect` against the address the
++ * socket is actually bound to. Literal IP hosts, hostnames resolving to a
++ * special-use address, and every redirect hop are all covered.
++ *
++ * The special-use IP classifier ports `isSpecialUseIP` from the pinned
++ * `node-oidc-provider` helper `lib/helpers/fetch_request.js` — the exact
++ * classifier core's guard reuses — since a connector package cannot import
++ * it. The IPv6 prefix lookup is simplified to a `startsWith` scan; the
++ * upstream trie is a hot-path optimization irrelevant at SMS-send rates.
++ *
++ * Unlike core there is no opt-out switch: a connector's only legitimate
++ * target is the public Ubill API, so the guard is always on.
++ */
++
++import { type Optional } from '@silverhand/essentials';
++import type { Options, PlainResponse } from 'got';
++import http from 'node:http';
++import https from 'node:https';
++import { type Socket } from 'node:net';
++
++import { ConnectorError, ConnectorErrorCodes } from '@logto/connector-kit';
++
++/**
++ * IANA IPv4 Special-Purpose Address Registry entries an operator-supplied URL
++ * must never reach. Same table as the pinned oidc-provider classifier.
++ * @see https://www.iana.org/assignments/iana-ipv4-special-registry/
++ */
++const specialUseIpv4Ranges: ReadonlyArray<{ start: number; end: number }> = [
++  { start: 0x00_00_00_00, end: 0x00_ff_ff_ff }, // 0.0.0.0/8 "This network" [RFC791]
++  { start: 0x0a_00_00_00, end: 0x0a_ff_ff_ff }, // 10.0.0.0/8 Private-Use [RFC1918]
++  { start: 0x64_40_00_00, end: 0x64_7f_ff_ff }, // 100.64.0.0/10 Shared Address Space [RFC6598]
++  { start: 0x7f_00_00_00, end: 0x7f_ff_ff_ff }, // 127.0.0.0/8 Loopback [RFC1122]
++  { start: 0xa9_fe_00_00, end: 0xa9_fe_ff_ff }, // 169.254.0.0/16 Link Local [RFC3927]
++  { start: 0xac_10_00_00, end: 0xac_1f_ff_ff }, // 172.16.0.0/12 Private-Use [RFC1918]
++  { start: 0xc0_00_00_00, end: 0xc0_00_00_ff }, // 192.0.0.0/24 IETF Protocol Assignments [RFC6890]
++  { start: 0xc0_00_02_00, end: 0xc0_00_02_ff }, // 192.0.2.0/24 Documentation (TEST-NET-1) [RFC5737]
++  { start: 0xc0_1f_c4_00, end: 0xc0_1f_c4_ff }, // 192.31.196.0/24 AS112-v4 [RFC7535]
++  { start: 0xc0_34_c1_00, end: 0xc0_34_c1_ff }, // 192.52.193.0/24 AMT [RFC7450]
++  { start: 0xc0_58_63_00, end: 0xc0_58_63_ff }, // 192.88.99.0/24 Deprecated (6to4 Relay Anycast) [RFC7526]
++  { start: 0xc0_a8_00_00, end: 0xc0_a8_ff_ff }, // 192.168.0.0/16 Private-Use [RFC1918]
++  { start: 0xc0_af_30_00, end: 0xc0_af_30_ff }, // 192.175.48.0/24 Direct Delegation AS112 Service [RFC7534]
++  { start: 0xc6_12_00_00, end: 0xc6_13_ff_ff }, // 198.18.0.0/15 Benchmarking [RFC2544]
++  { start: 0xc6_33_64_00, end: 0xc6_33_64_ff }, // 198.51.100.0/24 Documentation (TEST-NET-2) [RFC5737]
++  { start: 0xcb_00_71_00, end: 0xcb_00_71_ff }, // 203.0.113.0/24 Documentation (TEST-NET-3) [RFC5737]
++  { start: 0xf0_00_00_00, end: 0xff_ff_ff_ff }, // 240.0.0.0/4 Reserved [RFC1112]
++];
++
++const ipv4ToInt = (ip: string): number =>
++  ip.split('.').reduce((value, octet) => value * 256 + Number(octet), 0);
++
++const isSpecialUseIPv4 = (address: string): boolean => {
++  const value = ipv4ToInt(address);
++
++  return specialUseIpv4Ranges.some(({ start, end }) => value >= start && value <= end);
++};
++
++/**
++ * IANA IPv6 Special-Purpose Address Registry entries, as expanded lowercase
++ * hex prefixes matched via `startsWith`. Non-nibble-aligned CIDRs are split
++ * into nibble-aligned entries, same as the pinned oidc-provider classifier.
++ * @see https://www.iana.org/assignments/iana-ipv6-special-registry/
++ */
++const specialUseIpv6Prefixes: readonly string[] = [
++  '0064ff9b0000000000000000', // 64:ff9b::/96 IPv4-IPv6 Translat. [RFC6052]
++  '0064ff9b0001', // 64:ff9b:1::/48 IPv4-IPv6 Translat. [RFC8215]
++  '0100000000000000', // 100::/64 Discard-Only [RFC6666]
++  '0100000000000001', // 100:0:0:1::/64 Dummy IPv6 Prefix [RFC9780]
++  '200100', // 2001::/23 IETF Protocol Assignments [RFC2928] (1/2)
++  '200101', // 2001::/23 IETF Protocol Assignments [RFC2928] (2/2)
++  '20010db8', // 2001:db8::/32 Documentation [RFC3849]
++  '2002', // 2002::/16 6to4 [RFC3056]
++  '2620004f8000', // 2620:4f:8000::/48 Direct Delegation AS112 Service [RFC7534]
++  '3fff0', // 3fff::/20 Documentation [RFC9637]
++  '5f00', // 5f00::/16 Segment Routing (SRv6) SIDs [RFC9602]
++  'fc', // Unique-Local (fc00::/7) [RFC4193] (1/2)
++  'fd', // Unique-Local (fc00::/7) [RFC4193] (2/2)
++  'fe8', // Link-Local Unicast (fe80::/10) [RFC4291] (1/4)
++  'fe9', // Link-Local Unicast (fe80::/10) [RFC4291] (2/4)
++  'fea', // Link-Local Unicast (fe80::/10) [RFC4291] (3/4)
++  'feb', // Link-Local Unicast (fe80::/10) [RFC4291] (4/4)
++  // TCP cannot connect to multicast: ff00::/8 [RFC4291] intentionally omitted.
++  // ::1/128 Loopback, ::/128 Unspecified, and ::ffff:0:0/96 IPv4-mapped are
++  // handled explicitly in `isSpecialUseIPv6` (no `startsWith` match possible).
++];
++
++const nonemptyParts = (text: string) => text.split(':').filter((part) => part !== '');
++
++/** Expands an IPv6 address into 8 groups x 4 lowercase hex digits for prefix matching. */
++const expandIPv6 = (address: string): string => {
++  const doubleColonIndex = address.indexOf('::');
++
++  if (doubleColonIndex === -1) {
++    return address
++      .split(':')
++      .map((part) => part.padStart(4, '0'))
++      .join('');
++  }
++
++  const leftParts = nonemptyParts(address.slice(0, doubleColonIndex));
++  const rightParts = nonemptyParts(address.slice(doubleColonIndex + 2));
++  const middleParts = Array.from(
++    { length: 8 - leftParts.length - rightParts.length },
++    () => '0000'
++  );
++
++  return [...leftParts, ...middleParts, ...rightParts]
++    .map((part) => part.padStart(4, '0'))
++    .join('');
++};
++
++const isSpecialUseIPv6 = (address: string): boolean => {
++  const lower = address.toLowerCase();
++
++  if (lower === '::' || lower === '::1') {
++    return true;
++  }
++
++  if (lower.startsWith('::ffff:')) {
++    const ipv4Part = lower.slice(7);
++
++    if (ipv4Part.includes('.')) {
++      return isSpecialUseIPv4(ipv4Part);
++    }
++  }
++
++  const expanded = expandIPv6(lower);
++
++  return specialUseIpv6Prefixes.some((prefix) => expanded.startsWith(prefix));
++};
++
++/**
++ * Whether an IP address is special-use. `socket.remoteAddress` is always a
++ * valid IP; colons only appear in IPv6.
++ */
++export const isSpecialUseIP = (address: string): boolean =>
++  address.includes(':') ? isSpecialUseIPv6(address) : isSpecialUseIPv4(address);
++
++const blockedAddressMessage = 'hostname resolves to a special-use IP address';
++
++/**
++ * Destroys the socket once connected if its peer is a special-use address.
++ * Mirrors `guardSocket` in core's `outbound-request.ts` (minus the env-driven
++ * allowlist, which a connector cannot read).
++ */
++const guardSocket = <T extends Socket>(socket: T): T => {
++  const assertPublicPeer = () => {
++    const { remoteAddress } = socket;
++
++    if (remoteAddress !== undefined && isSpecialUseIP(remoteAddress)) {
++      socket.destroy(new Error(blockedAddressMessage));
++    }
++  };
++
++  if (socket.connecting) {
++    socket.once('connect', assertPublicPeer);
++  } else {
++    assertPublicPeer();
++  }
++
++  return socket;
++};
++
++/**
++ * `Agent.createConnection()` is the documented socket factory both agents use,
++ * but it is missing from `@types/node`'s `Agent` declaration, so the base
++ * implementation has to be reached through a typed view of the prototype.
++ *
++ * @see https://nodejs.org/api/http.html#agentcreateconnectionoptions-callback
++ */
++type ConnectionOptions = Record<string, unknown>;
++
++type ConnectionFactory = {
++  createConnection: (options: ConnectionOptions, callback?: unknown) => Socket;
++};
++
++const asConnectionFactory = (agent: http.Agent | https.Agent): ConnectionFactory =>
++  // eslint-disable-next-line no-restricted-syntax -- see `ConnectionFactory`
++  agent as unknown as ConnectionFactory;
++
++const defaultAgentOptions: http.AgentOptions = {
++  keepAlive: true,
++  scheduling: 'lifo',
++  timeout: 5000,
++};
++
++class SsrfProtectedHttpAgent extends http.Agent {
++  constructor() {
++    super(defaultAgentOptions);
++  }
++
++  createConnection(options: ConnectionOptions, callback?: unknown): Socket {
++    return guardSocket(
++      asConnectionFactory(http.Agent.prototype).createConnection.call(this, options, callback)
++    );
++  }
++}
++
++class SsrfProtectedHttpsAgent extends https.Agent {
++  constructor() {
++    super(defaultAgentOptions);
++  }
++
++  createConnection(options: ConnectionOptions, callback?: unknown): Socket {
++    return guardSocket(
++      asConnectionFactory(https.Agent.prototype).createConnection.call(this, options, callback)
++    );
++  }
++}
++
++/** Memoizes a factory so the shared agent pair is built at most once. */
++const once = <T>(build: () => T): (() => T) => {
++  const cache = new Map<'value', T>();
++
++  return () => {
++    if (!cache.has('value')) {
++      cache.set('value', build());
++    }
++
++    // eslint-disable-next-line no-restricted-syntax -- guarded by the `has` check above
++    return cache.get('value') as T;
++  };
++};
++
++/**
++ * `got`'s `agent` option, guarding both protocols. Both must be set: covering
++ * only one leaves a cross-protocol redirect (`https:` -> `http:`) unguarded.
++ * Built lazily and shared: an agent pair per request would leak pools.
++ */
++export const getSsrfAgents = once(() => ({
++  http: new SsrfProtectedHttpAgent(),
++  https: new SsrfProtectedHttpsAgent(),
++}));
++
++/**
++ * Parses the configured `apiUrl` and rejects anything that is not a plain
++ * `https:` URL. The peer-IP side is covered by the agents above; this catches
++ * the parts they cannot: plaintext schemes (the `key` auth header must never
++ * travel unencrypted), non-HTTP schemes, and embedded credentials.
++ *
++ * @returns The parsed URL, so callers can reuse it for redirect checks.
++ */
++export const assertSafeApiUrl = (apiUrl: string): URL => {
++  const url = (() => {
++    try {
++      return new URL(apiUrl);
++    } catch {
++      throw new ConnectorError(
++        ConnectorErrorCodes.InvalidConfig,
++        `Invalid Ubill API URL: ${apiUrl}`
++      );
++    }
++  })();
++
++  if (url.protocol !== 'https:') {
++    throw new ConnectorError(
++      ConnectorErrorCodes.InvalidConfig,
++      `Ubill API URL must use https: ${apiUrl}`
++    );
++  }
++
++  if (url.username !== '' || url.password !== '') {
++    throw new ConnectorError(
++      ConnectorErrorCodes.InvalidConfig,
++      'Ubill API URL must not contain credentials'
++    );
++  }
++
++  return url;
++};
++
++/** `got` types `options.url` loosely; normalize to a `URL` instance when present. */
++const toUrl = (url: string | URL | undefined): Optional<URL> => {
++  if (url === undefined) {
++    return undefined;
++  }
++
++  return typeof url === 'string' ? new URL(url) : url;
++};
++
++/**
++ * `got` `beforeRedirect` hook: drops the `key` auth header whenever a redirect
++ * hops to a different origin so the API key cannot leak to a third party, and
++ * refuses `http:` redirect targets (TLS must not be downgraded mid-request).
++ */
++export const stripApiKeyOnCrossOriginRedirect = (
++  options: Options,
++  response: PlainResponse
++): void => {
++  const redirectUrl = toUrl(options.url);
++  const requestUrl = toUrl(response.request.options.url);
++
++  if (redirectUrl?.protocol !== 'https:') {
++    throw new ConnectorError(
++      ConnectorErrorCodes.General,
++      `Refusing non-https redirect from Ubill API to ${redirectUrl?.origin ?? 'an unknown URL'}`
++    );
++  }
++
++  if (requestUrl === undefined || redirectUrl.origin !== requestUrl.origin) {
++    const { key: _apiKey, ...headersWithoutApiKey } = options.headers;
++
++    // eslint-disable-next-line @silverhand/fp/no-mutation -- got's documented hook contract
++    options.headers = headersWithoutApiKey;
++  }
++};
