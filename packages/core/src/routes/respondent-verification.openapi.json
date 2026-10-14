@@ -1,23 +1,15 @@
 {
-  "tags": [
-    {
-      "name": "Respondent verification",
-      "description": "Minimal read-only user and session tab-liveness verification contracts."
-    }
-  ],
   "paths": {
     "/api/users/{userId}/status": {
       "get": {
         "summary": "Get respondent user status",
-        "description": "Returns only the user ID and whether the account is active or suspended.",
-        "tags": ["Respondent verification"]
+        "description": "Returns only the user ID and whether the account is active or suspended."
       }
     },
     "/api/users/{userId}/session-verifications": {
       "post": {
         "summary": "Verify a respondent session is live",
-        "description": "Resolves the per-client authorization SID to (account, client) and passes only if a logged-in tab on that same account+client is open and visible (a live Session row with a fresh heartbeat). Tab-liveness, not human presence: an unattended but open tab counts.",
-        "tags": ["Respondent verification"]
+        "description": "Resolves the per-client authorization SID to (account, client) and passes only if a logged-in tab on that same account+client is open and visible (a live Session row with a fresh heartbeat). Tab-liveness, not human presence: an unattended but open tab counts."
       }
     }
   }

@@ -8,6 +8,7 @@ import OrganizationEmpty from '@/assets/images/organization-empty.svg?react';
 import Drawer from '@/components/Drawer';
 import PageMeta from '@/components/PageMeta';
 import { OrganizationTemplateTabs, organizationTemplateLink } from '@/consts';
+import { isCloud } from '@/consts/env';
 import { subscriptionPage } from '@/consts/pages';
 import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
@@ -38,7 +39,7 @@ function OrganizationTemplate() {
   const isOrganizationsDisabled =
     // Check if the organizations feature is disabled except for paid tenants.
     // Paid tenants can create organizations with organization feature add-on applied to their subscription.
-    !isFeatureEnabled(currentSubscriptionQuota.organizationsLimit) && !isPaidTenant;
+    isCloud && !isFeatureEnabled(currentSubscriptionQuota.organizationsLimit) && !isPaidTenant;
 
   const { navigate } = useTenantPathname();
 

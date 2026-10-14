@@ -82,6 +82,43 @@
         }
       }
     },
+    "/api/my-account/avatar": {
+      "post": {
+        "operationId": "UpdateAccountAvatar",
+        "summary": "Update account avatar",
+        "description": "Upload a single avatar image to the configured storage provider and set it as the user's avatar. The user record is updated and the filtered account profile is returned. Requires the `profile` scope, the `avatar` field to be editable in the account center configuration, and a first-party application.",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "description": "The avatar image file to upload. Must be an allowed image type and not exceed the maximum upload file size."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The avatar was uploaded and the profile was updated successfully."
+          },
+          "400": {
+            "description": "The request is invalid (e.g. file too large, image type not allowed, storage is not configured, or the avatar field is not editable)."
+          },
+          "401": {
+            "description": "Permission denied, the access token does not include the `profile` scope."
+          },
+          "403": {
+            "description": "Permission denied, the application is a third-party application."
+          },
+          "500": {
+            "description": "Failed to upload the file to the storage provider."
+          }
+        }
+      }
+    },
     "/api/my-account/profile": {
       "patch": {
         "operationId": "UpdateOtherProfile",
@@ -777,6 +814,27 @@
           },
           "401": {
             "description": "Permission denied, the verification record is invalid or the session does not have the required scope to revoke sessions."
+          }
+        }
+      }
+    },
+    "/api/my-account/sessions/heartbeat": {
+      "post": {
+        "operationId": "SendSessionHeartbeat",
+        "summary": "Send a session heartbeat",
+        "description": "Record activity on the caller's current session by updating its `lastActiveAt` timestamp, keeping the per-account-client tab-liveness state fresh. Requires a session-backed first-party access token with the Sessions scope.",
+        "responses": {
+          "204": {
+            "description": "The heartbeat was recorded successfully."
+          },
+          "400": {
+            "description": "The field is not editable."
+          },
+          "401": {
+            "description": "Permission denied, the access token is not session-backed or does not have the required scope."
+          },
+          "403": {
+            "description": "Forbidden."
           }
         }
       }
