@@ -36,6 +36,10 @@ function PasswordExpirationCard({
 
   const isEnabled = watch('isPasswordExpirationEnabled');
   const expirationDays = watch('passwordExpirationDays');
+  // The reminder must fire before the expiration itself, so its max is `expirationDays - 1`.
+  // `expirationDays` can transiently be 0/NaN while the period input is mid-edit; floor the max at
+  // 0 so the numeric input never receives a negative or NaN bound.
+  const reminderMaxDays = Math.max(0, (expirationDays || minValidPeriodDays) - 1);
 
   return (
     <FormCard
@@ -108,23 +112,23 @@ function PasswordExpirationCard({
             <Controller
               name="passwordReminderDays"
               control={control}
-              rules={{ min: 0, max: expirationDays - 1 }}
+              rules={{ min: 0, max: reminderMaxDays }}
               render={({ field: { onChange, value, name } }) => (
                 <NumericInput
                   className={styles.minLength}
                   name={name}
                   value={String(value)}
                   min={0}
-                  max={expirationDays - 1}
+                  max={reminderMaxDays}
                   error={
                     errors.passwordReminderDays &&
-                    t('expiration_reminder_error', { max: expirationDays - 1 })
+                    t('expiration_reminder_error', { max: reminderMaxDays })
                   }
                   onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
                     onChange(value === '' ? 0 : Number(value));
                   }}
                   onValueUp={() => {
-                    onChange(value + 1);
+                    onChange(Math.min(reminderMaxDays, value + 1));
                   }}
                   onValueDown={() => {
                     onChange(Math.max(0, value - 1));
@@ -132,8 +136,8 @@ function PasswordExpirationCard({
                   onBlur={() => {
                     if (value < 0) {
                       onChange(0);
-                    } else if (value >= expirationDays) {
-                      onChange(expirationDays - 1);
+                    } else if (value > reminderMaxDays) {
+                      onChange(reminderMaxDays);
                     }
                   }}
                 />

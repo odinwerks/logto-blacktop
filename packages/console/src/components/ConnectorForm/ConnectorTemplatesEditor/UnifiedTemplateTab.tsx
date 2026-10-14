@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import EditIcon from '@/assets/icons/edit.svg?react';
 import Button from '@/ds-components/Button';
 import CodeEditor from '@/ds-components/CodeEditor';
-import DangerousRaw from '@/ds-components/DangerousRaw';
 import FormField from '@/ds-components/FormField';
 import Textarea from '@/ds-components/Textarea';
 
@@ -101,13 +100,13 @@ function UnifiedTemplateTab({
                 type="outline"
                 size="medium"
                 icon={<EditIcon />}
-                title={<DangerousRaw>Configure Subjects</DangerousRaw>}
+                title="connector_details.unified_editor.configure_subjects"
                 onClick={() => setIsSubjectModalOpen(true)}
               />
               <Button
                 type="primary"
                 size="medium"
-                title={<DangerousRaw>Preview & Test</DangerousRaw>}
+                title="connector_details.unified_editor.preview_test"
                 onClick={() => setIsPreviewModalOpen(true)}
               />
             </div>

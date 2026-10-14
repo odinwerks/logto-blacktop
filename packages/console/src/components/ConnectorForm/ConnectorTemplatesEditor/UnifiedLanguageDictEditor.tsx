@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import DeleteIcon from '@/assets/icons/delete.svg?react';
 import Button from '@/ds-components/Button';
 import CodeEditor from '@/ds-components/CodeEditor';
-import DangerousRaw from '@/ds-components/DangerousRaw';
 import IconButton from '@/ds-components/IconButton';
 import TabNav, { TabNavItem } from '@/ds-components/TabNav';
 import TextInput from '@/ds-components/TextInput';
@@ -192,7 +191,7 @@ const UnifiedLanguageDictEditor = memo(({ languageTag, dict, onChange }: EditorP
             <Button
               type="primary"
               size="medium"
-              title={<DangerousRaw>+</DangerousRaw>}
+              title="connector_details.template_editor.add_key"
               onClick={onAddKey}
             />
           </div>

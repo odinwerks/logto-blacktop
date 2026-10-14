@@ -69,19 +69,14 @@ function ConfigFormFields({ formItems, connectorType, connectorFactoryId }: Prop
     // skipped in the map below (owned entirely by the editor) so it does not surface as its own
     // (empty) form field. Inlining the connector-type check lets TypeScript narrow `connectorType`
     // to a defined `ConnectorType` for the editor's required prop.
+    //
+    // The mount requires a declared `translations` form item — without one the editor has no field
+    // to own, so the `templates`/`deliveries` item falls through to the plain JSON field instead.
     if (
+      hasTranslationsItem &&
       (connectorType === ConnectorType.Sms || connectorType === ConnectorType.Email) &&
       (item.key === 'templates' || item.key === 'deliveries')
     ) {
-      if (!hasTranslationsItem) {
-        // TODO: add an i18n key for this message once product copy is finalized.
-        return (
-          <div className={styles.note}>
-            Translation support is not configured for this connector.
-          </div>
-        );
-      }
-
       return (
         <ConnectorTemplatesEditor
           formItem={item}

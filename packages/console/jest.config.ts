@@ -27,10 +27,16 @@ const config: Config.InitialOptions = {
     // cannot transform. Stubbing first keeps CSS-module imports (both `@/`-prefixed and relative)
     // class-names proxies in every test.
     '^@/(.*)\\.svg\\?react$': '<rootDir>/src/$1.svg',
+    // `@withtyped/client` is ESM-only (no `require`/`default` export condition) so jest cannot
+    // resolve it; stub it with the minimal `ResponseError` shape the code under test uses.
+    '^@withtyped/client$': '<rootDir>/jest.withtyped-client.cjs',
     '\\.module\\.(css|sass|scss)$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@logto/shared/(.*)$': '<rootDir>/../shared/lib/$1',
   },
+  // Strips the `?react` suffix from *relative* `svg?react` imports (e.g. `components/Region`'s
+  // flag imports) so they resolve to the real `.svg` file handled by `jest-transformer-svg`.
+  resolver: '<rootDir>/jest.resolver.cjs',
   transformIgnorePatterns: ['node_modules/(?!(.*(nanoid|jose|ky|@logto|@silverhand))/)'],
 };
 

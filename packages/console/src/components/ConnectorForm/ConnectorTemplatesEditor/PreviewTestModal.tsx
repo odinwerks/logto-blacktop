@@ -8,7 +8,6 @@ import ReactModal from 'react-modal';
 
 import Button from '@/ds-components/Button';
 import CodeEditor from '@/ds-components/CodeEditor';
-import DangerousRaw from '@/ds-components/DangerousRaw';
 import FormField from '@/ds-components/FormField';
 import ModalLayout from '@/ds-components/ModalLayout';
 import Select, { type Option } from '@/ds-components/Select';
@@ -138,7 +137,9 @@ export default function PreviewTestModal({
       // Parse full form config using current form values and items, then override deliveries and
       // translations with the already-compiled preview values. This avoids the stale-mirror problem
       // when the user clicks Send Test while the editor's debounced write-back has not flushed yet.
-      const parsedConfig = configParser(watch(), formItems ?? []);
+      // Passing an empty `formItems` array must not take the item-parse path: `[]` is truthy and
+      // would post `config: {}`. Fall back to `undefined` so the parser uses `jsonConfig` instead.
+      const parsedConfig = configParser(watch(), formItems?.length ? formItems : undefined);
       const configWithFreshMirror = {
         ...parsedConfig,
         ...(compiledDeliveries && { deliveries: compiledDeliveries }),
@@ -179,12 +180,12 @@ export default function PreviewTestModal({
       <div className={styles.modalWrapper}>
         <ModalLayout
           size="large"
-          title={<DangerousRaw>Preview & Test Template</DangerousRaw>}
+          title="connector_details.unified_editor.preview_test_modal_title"
           className={styles.layoutBody}
           footer={
             <div className={styles.testSendRow}>
               <div className={styles.emailInput}>
-                <FormField title={<DangerousRaw>Recipient Email</DangerousRaw>}>
+                <FormField title="connector_details.unified_editor.recipient_email">
                   <TextInput
                     value={testEmail}
                     placeholder="Enter test email..."
@@ -197,14 +198,14 @@ export default function PreviewTestModal({
               <Button
                 className={styles.sendButton}
                 type="primary"
-                title={<DangerousRaw>{isSending ? 'Sending...' : 'Send Test'}</DangerousRaw>}
-                disabled={isSending}
+                title="connector_details.unified_editor.send_test"
+                isLoading={isSending}
                 onClick={handleSendTest}
               />
               <Button
                 className={styles.sendButton}
                 type="default"
-                title={<DangerousRaw>Close</DangerousRaw>}
+                title="general.close"
                 onClick={onClose}
               />
             </div>
@@ -212,7 +213,7 @@ export default function PreviewTestModal({
           onClose={onClose}
         >
           <div className={styles.controlsRow}>
-            <FormField title={<DangerousRaw>Delivery Type</DangerousRaw>}>
+            <FormField title="connector_details.unified_editor.delivery_type">
               <Select
                 size="medium"
                 value={selectedTemplateType}
@@ -225,7 +226,7 @@ export default function PreviewTestModal({
               />
             </FormField>
 
-            <FormField title={<DangerousRaw>Language</DangerousRaw>}>
+            <FormField title="connector_details.select_language">
               <Select
                 size="medium"
                 value={selectedLanguage}
