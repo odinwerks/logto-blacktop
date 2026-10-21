@@ -26,7 +26,6 @@ import {
 import { WellKnownCache } from '#src/caches/well-known.js';
 import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
-import type { SubscriptionLibrary } from '#src/libraries/subscription.js';
 import { ssoConnectorFactories } from '#src/sso/index.js';
 import { mockSsoConnectorLibrary } from '#src/test-utils/mock-libraries.js';
 
@@ -79,8 +78,6 @@ const getLogtoConnectors = jest.spyOn(connectorLibrary, 'getLogtoConnectors');
 const getSelfHostedSubscription = jest.fn(async () => ({
   quota: { ...ossDefaultQuota, hideLogtoBranding: false as boolean },
 }));
-// Only the self-hosted entitlement reader is used by the sign-in experience library.
-const subscription = { getSelfHostedSubscription } as unknown as SubscriptionLibrary;
 
 const { createSignInExperienceLibrary, getForgotPasswordAvailability } = await import('./index.js');
 const {
@@ -94,8 +91,7 @@ const {
   queries,
   connectorLibrary,
   mockSsoConnectorLibrary,
-  new WellKnownCache('foo', new TtlCache()),
-  subscription
+  new WellKnownCache('foo', new TtlCache())
 );
 
 const getPublicSignInExperience = (signInExperience: SignInExperience) => {
@@ -303,7 +299,7 @@ describe('getFullSignInExperience() hideLogtoBranding', () => {
   });
 
   it.each([false, true])(
-    'should mask the saved value by the license outside Cloud (granted: %s)',
+    'should serve the saved value on self-hosted, whatever the license grants (granted: %s)',
     async (granted) => {
       setIsCloud(false);
       getSelfHostedSubscription.mockResolvedValueOnce({
@@ -312,11 +308,11 @@ describe('getFullSignInExperience() hideLogtoBranding', () => {
 
       const { hideLogtoBranding } = await getFullSignInExperience({ locale: 'en' });
 
-      expect(hideLogtoBranding).toBe(granted);
+      expect(hideLogtoBranding).toBe(true);
     }
   );
 
-  it('should not read the license on Cloud', async () => {
+  it('should not read the license at all', async () => {
     setIsCloud(true);
 
     const { hideLogtoBranding } = await getFullSignInExperience({ locale: 'en' });
