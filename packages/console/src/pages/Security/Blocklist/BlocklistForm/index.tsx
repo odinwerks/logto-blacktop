@@ -113,15 +113,13 @@ function BlocklistForm({ formData }: Props) {
           }
           learnMoreLink={{ href: emailBlocklist }}
         >
-          {isCloud && (
-            <FormField title="security.blocklist.disposable_email.title">
-              <Switch
-                disabled={isFreeTenant}
-                label={t('blocklist.disposable_email.description')}
-                {...register('blockDisposableAddresses')}
-              />
-            </FormField>
-          )}
+          <FormField title="security.blocklist.disposable_email.title">
+            <Switch
+              disabled={isFreeTenant}
+              label={t('blocklist.disposable_email.description')}
+              {...register('blockDisposableAddresses')}
+            />
+          </FormField>
           <FormField title="security.blocklist.email_subaddressing.title">
             <Switch
               disabled={isFreeTenant && isCloud}

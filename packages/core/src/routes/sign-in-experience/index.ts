@@ -46,7 +46,7 @@ const isNonSkippableMfaPromptPolicy = (policy: MfaPolicy) =>
 export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
   ...args: RouterInitArgs<T>
 ) {
-  const [router, { id: tenantId, queries, libraries, connectors, subscription }] = args;
+  const [router, { id: tenantId, queries, libraries, connectors }] = args;
   const { findDefaultSignInExperience, updateDefaultSignInExperience } = queries.signInExperiences;
   const { deleteConnectorById } = queries.connectors;
   const { findUserById } = queries.users;
@@ -359,25 +359,12 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
 
       /**
        * On Cloud, both features are gated by the tenant subscription through the
-       * `bringYourUiEnabled` quota guard below. On a self-hosted deployment that guard is a no-op,
-       * so each feature is gated by its own entitlement in the installed license instead: the
-       * Custom UI CSP by `bringYourUi`.
+       * `bringYourUiEnabled` quota guard below. On a self-hosted deployment that guard is a no-op.
        *
-       * Blacktop: hiding the Logto branding is unlocked on self-hosted — the Console offers that
-       * toggle without a license, so the write has to accept it as well. Otherwise the setting
-       * could never be turned on here and the branding would stay visible.
+       * Blacktop: hiding the Logto branding and the Custom UI CSP are both unlocked on self-hosted.
+       * The Console offers both without a license, so the write has to accept them as well.
+       * Otherwise a saved value could never be set here and the branding would stay visible.
        */
-      if (!EnvSet.values.isCloud && hasCustomUiCsp) {
-        const { quota: licenseQuota } = await subscription.getSelfHostedSubscription();
-
-        assertThat(
-          licenseQuota.bringYourUi,
-          new RequestError({
-            code: 'request.invalid_input',
-            details: 'Custom UI CSP configuration is not available',
-          })
-        );
-      }
       if (hideLogtoBranding === true || hasCustomUiCsp) {
         await quota.guardTenantUsageByKey('bringYourUiEnabled');
       }
