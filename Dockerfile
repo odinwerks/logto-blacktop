@@ -86,7 +86,12 @@ ENV PRIVATE_KEY_ROTATION_GRACE_PERIOD=${private_key_rotation_grace_period}
 # alteration-scripts dir — as before.
 COPY --from=builder --chown=node:0 /etc/logto .
 RUN mkdir -p /etc/logto/packages/cli/alteration-scripts && chmod g+w /etc/logto/packages/cli/alteration-scripts
-USER node
+# Run as `node:0`, not plain `node`: `USER node` switches to the node user's own
+# primary group (gid 1000), which is not the group that owns the tree. The
+# folder above is group 0 and group-writable, so without the explicit `:0` the
+# entrypoint's `db alteration deploy` cannot copy the alteration scripts into it
+# and the container dies before `npm start`.
+USER node:0
 EXPOSE 3001
 ENTRYPOINT ["npm", "run"]
 CMD ["start"]
