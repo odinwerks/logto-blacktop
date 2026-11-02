@@ -59,6 +59,20 @@ const createSecurityHeaderSettings = (tenantId: string): SecurityHeaderSettings 
   const tenantEndpointOrigin = getTenantEndpoint(tenantId, EnvSet.values).origin;
   // Logto Cloud uses cloud service to serve the admin console; while Logto OSS uses a fixed path under the admin URL set.
   const adminOrigins = isCloud ? cloudUrlSet.origins : adminUrlSet.origins;
+  // SEC-02: in production, do not advertise the localhost admin preview as a
+  // frame ancestor. The admin listener stays up for the Cloudflare portal
+  // ingress, but a page served from the visitor's own localhost must not be
+  // able to frame the login UI.
+  const frameAncestors = isProduction
+    ? adminOrigins.filter((origin) => {
+        try {
+          const { hostname } = new URL(origin);
+          return hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '::1';
+        } catch {
+          return true;
+        }
+      })
+    : adminOrigins;
   const coreOrigins = urlSet.origins;
   const developmentOrigins = isProduction
     ? []
@@ -209,7 +223,7 @@ const createSecurityHeaderSettings = (tenantId: string): SecurityHeaderSettings 
           // WARNING (high risk): Need to allow self-hosted terms of use page loaded in an iframe
           frameSrc: ["'self'", 'https:', gsiOrigin],
           // Allow being loaded by console preview iframe
-          frameAncestors: ["'self'", ...adminOrigins],
+          frameAncestors: ["'self'", ...frameAncestors],
           defaultSrc: ["'self'", gsiOrigin],
         },
       },
