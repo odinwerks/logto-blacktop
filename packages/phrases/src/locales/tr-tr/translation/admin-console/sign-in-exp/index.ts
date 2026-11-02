@@ -109,8 +109,22 @@ const sign_in_exp = {
     csp_source_invalid_error:
       'Geçerli bir kaynak ifadesi girin. https:// URL’leri kullanın; connect-src ayrıca wss:// desteği sunar. CSP anahtar kelimeleri ve noktalı virgüller desteklenmez.',
     csp_source_duplicate_error: 'Bu kaynak ifadesi zaten listede.',
+    coop_tip:
+      'Özel oturum açma UI’nizi farklı kaynaklı pencerelerden yalıtın. Yalnızca özel UI varlıkları sunulduğunda uygulanır.',
+    coop_unsafe_none: 'Ayarlanmadı (varsayılan)',
+    coop_same_origin_allow_popups: 'same-origin-allow-popups (önerilen)',
+    coop_warning:
+      'Oturum açma sayfasını farklı kaynaklı bir açılır pencerede açan ve window.opener kullanan uygulamalar çalışmayı durdurur. same-origin, sosyal oturum açma pencereleri gibi özel UI’nizin kendi açtığı açılır pencerelerin bağlantısını da keser.',
   },
   account_center: {
+    recent_authentication: {
+      title: 'Son kimlik doğrulama',
+      description:
+        "Parola değiştirme veya 2 aşamalı doğrulamayı kapatma gibi hassas hesap işlemleri, Account Center'da ya da Account API'yi çağıran bir uygulamada yapılsın, yakın zamanda oturum açmayı gerektirir. Bu pencere, oturum açmanın ne kadar yeni olması gerektiğini tanımlar.",
+      maximum_authentication_age_in_minutes: 'Dakika cinsinden maksimum kimlik doğrulama yaşı',
+      maximum_authentication_age_in_minutes_tip:
+        'Bir oturum açmanın hassas işlemler için ne kadar süre yeterince yeni kaldığı. Bir istemci `max_age` parametresiyle daha kısa bir pencere isteyebilir.',
+    },
     title: 'HESAP MERKEZİ',
     description: "Hesap merkezi akışlarını Logto API'leriyle özelleştirin.",
     enable_account_api: "Hesap merkezi ve Account API'yi etkinleştir",
@@ -132,6 +146,8 @@ const sign_in_exp = {
           title: 'Güvenlik doğrulaması',
           description:
             'Güvenlik ayarlarını değiştirmeden önce kullanıcıların kimliğini doğrulayıp 10 dakika geçerli bir doğrulama kayıt kimliği almaları gerekir. Bir doğrulama yöntemini (e-posta, telefon, şifre) etkinleştirmek için aşağıdaki Account API iznini <strong>Yalnızca okuma</strong> (minimum) veya <strong>Düzenle</strong> olarak ayarlayın, böylece sistem kullanıcının yapılandırıp yapılandırmadığını algılayabilir. <a>Daha fazla bilgi</a>',
+          description_step_up:
+            "Güvenlik ayarlarını değiştirmeden önce yerleşik Account Center yakın zamanda oturum açmayı gerektirir. Mevcut oturum açma, yapılandırılmış son kimlik doğrulama penceresinden daha eskiyse Account Center bir OIDC step-up başlatır ve kullanıcıdan kimliğini doğrulamasını ister. Kullanıcıların Account Center'da bir doğrulama yöntemini (e-posta, telefon veya parola) görüntülemesine veya yönetmesine izin vermek için aşağıdaki ilgili Account API iznini <strong>Yalnızca okuma</strong> veya <strong>Düzenle</strong> olarak ayarlayın. Bu hassas işlemler için Account API'yi doğrudan çağıran uygulamalar bunun yerine bir doğrulama kayıt kimliği kullanmaya devam edebilir. <a>Daha fazla bilgi</a>",
         },
         groups: {
           identifiers: {
@@ -142,6 +158,9 @@ const sign_in_exp = {
           },
           session_management: {
             title: 'Oturum yönetimi',
+          },
+          developer_settings: {
+            title: 'Geliştirici ayarları',
           },
         },
       },
@@ -186,6 +205,9 @@ const sign_in_exp = {
       custom_data_description: 'Kullanıcıda saklanan özel JSON verilerine erişimi kontrol edin.',
       sessions: 'Oturumlar',
       trusted_devices: 'Güvenilir cihazlar',
+      personal_access_tokens: 'Kişisel erişim belirteçleri',
+      personal_access_tokens_description:
+        'Bunu etkinleştirmek, kullanıcıların oturum kapatma ve parola sıfırlama işlemlerinden sonra bile aktif kalan ve belirteç değişimi etkinleştirilmiş herhangi bir birinci taraf uygulama tarafından erişim belirteçleriyle değiştirilebilenuzun ömürlü kişisel erişim belirteçleri oluşturmasına olanak tanır.',
     },
     profile_fields: {
       title: 'Önceden oluşturulmuş hesap merkezi için profil alanları',
@@ -224,9 +246,9 @@ const sign_in_exp = {
       flows_title: 'Hazır güvenlik ayarı akışlarını entegre et',
       single_task_flows_title: 'Hazır tek görev akışını entegre et',
       flows_description:
-        "Hesap ayar URL'nizi oluşturmak için alan adınızı rota ile birleştirin (örneğin, https://auth.foo.com/account/email). İsteğe bağlı olarak `redirect=` ile başarılı bir güncellemeden sonra kullanıcıları uygulamanıza geri döndürebilir, `show_success=true` ile başarı sayfasını görünür tutabilir, `ui_locales=` ile varsayılan dili geçersiz kılabilir veya `identifier=` ile tanımlayıcı giriş alanını önceden doldurabilirsiniz.",
+        "Hesap ayar URL'nizi oluşturmak için alan adınızı rota ile birleştirin (örneğin, https://auth.foo.com/account/email). İsteğe bağlı olarak `redirect=` ile başarılı bir güncellemeden sonra kullanıcıları uygulamanıza geri döndürebilir, `show_success=true` ile başarı sayfasını görünür tutabilir, `ui_locales=` ile varsayılan dili geçersiz kılabilir veya `identifier=` ile e-posta, telefon veya kullanıcı adı rotasında yeni değeri önceden doldurabilirsiniz.",
       single_task_flows_description:
-        'Kullanıcıları doğrudan belirli bir akışa yönlendirin (örneğin, e-posta bağlama). İsteğe bağlı olarak `redirect=` ile başarılı bir güncellemeden sonra kullanıcıları uygulamanıza geri döndürebilir, `show_success=true` ile başarı sayfasını görünür tutabilir, `ui_locales=` ile varsayılan dili geçersiz kılabilir veya `identifier=` ile tanımlayıcı giriş alanını önceden doldurabilirsiniz.',
+        'Kullanıcıları doğrudan belirli bir akışa yönlendirin (örneğin, e-posta bağlama). İsteğe bağlı olarak `redirect=` ile başarılı bir güncellemeden sonra kullanıcıları uygulamanıza geri döndürebilir, `show_success=true` ile başarı sayfasını görünür tutabilir, `ui_locales=` ile varsayılan dili geçersiz kılabilir veya `identifier=` ile e-posta, telefon veya kullanıcı adı rotasında yeni değeri önceden doldurabilirsiniz.',
       tooltips: {
         email: 'Birincil e-posta adresinizi güncelleyin',
         phone: 'Birincil telefon numaranızı güncelleyin',

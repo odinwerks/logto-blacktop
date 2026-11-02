@@ -75,6 +75,8 @@ describe('GET /.well-known/sign-in-exp', () => {
     const {
       emailBlocklistPolicy: _emailBlocklistPolicy,
       forgotPasswordMethods: _forgotPasswordMethods,
+      ssoBrandingBeforeEmailMatch: _ssoBrandingBeforeEmailMatch,
+      crossOriginOpenerPolicy: _crossOriginOpenerPolicy,
       ...expectedSignInExperience
     } = mockSignInExperience;
     expect(response.body).toMatchObject({

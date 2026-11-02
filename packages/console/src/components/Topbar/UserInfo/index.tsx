@@ -5,15 +5,17 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ExternalLinkIcon from '@/assets/icons/external-link.svg?react';
+import File from '@/assets/icons/file.svg?react';
 import Globe from '@/assets/icons/globe.svg?react';
 import Palette from '@/assets/icons/palette.svg?react';
 import Profile from '@/assets/icons/profile.svg?react';
 import SignOut from '@/assets/icons/sign-out.svg?react';
 import SingleSignOn from '@/assets/icons/single-sign-on.svg?react';
+import { useSelfHostedLicenses } from '@/cloud/hooks/use-self-hosted-licenses';
 import UserAvatar from '@/components/UserAvatar';
 import UserInfoCard from '@/components/UserInfoCard';
 import { adminTenantEndpoint } from '@/consts';
-import { isCloud, isDevFeaturesEnabled } from '@/consts/env';
+import { isCloud } from '@/consts/env';
 import { GlobalRoute } from '@/contexts/TenantsProvider';
 import Divider from '@/ds-components/Divider';
 import Dropdown, { DropdownItem } from '@/ds-components/Dropdown';
@@ -35,6 +37,7 @@ function UserInfo() {
   const { signOut } = useSignOut();
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { user, isLoading: isLoadingUser } = useCurrentUser();
+  const { data: selfHostedLicenses, error: selfHostedLicensesError } = useSelfHostedLicenses();
   const anchorRef = useRef<HTMLDivElement>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const postSignOutRedirectUri = useRedirectUri('signOut');
@@ -77,8 +80,25 @@ function UserInfo() {
       >
         <UserInfoCard className={styles.userInfo} user={user} avatarSize="large" />
         <Divider />
+        {isCloud && !selfHostedLicensesError && Boolean(selfHostedLicenses?.length) && (
+          <DropdownItem
+            className={classNames(styles.dropdownItem, isLoading && styles.loading)}
+            icon={<File className={styles.icon} />}
+            onClick={() => {
+              window.open(GlobalRoute.SelfHostedLicenses, '_blank', 'noopener,noreferrer');
+            }}
+          >
+            {t('cloud.self_hosted_licenses.title')}
+            <Spacer />
+            <div className={styles.icon}>
+              <FlipOnRtl>
+                <ExternalLinkIcon />
+              </FlipOnRtl>
+            </div>
+          </DropdownItem>
+        )}
         {/* Console SSO */}
-        {isCloud && isDevFeaturesEnabled && (
+        {isCloud && (
           <DropdownItem
             className={classNames(styles.dropdownItem, isLoading && styles.loading)}
             icon={<SingleSignOn className={styles.icon} />}

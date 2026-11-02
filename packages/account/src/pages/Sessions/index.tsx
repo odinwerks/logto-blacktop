@@ -1,22 +1,21 @@
+/* eslint-disable max-lines -- Sessions and third-party grants share their loading and step-up state on this page. */
 import classNames from 'classnames';
 import { HTTPError } from 'ky';
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 
 import PageContext from '@ac/Providers/PageContextProvider/PageContext';
 import AccountPageHeader from '@ac/components/AccountPageHeader';
 import ConfirmModal from '@ac/components/ConfirmModal';
 import PageFooter from '@ac/components/PageFooter';
 import { layoutClassNames } from '@ac/constants/layout';
-import { verifiedActionRoute } from '@ac/constants/routes';
-import { getPendingReturn, setPendingReturn } from '@ac/utils/account-center-route';
 import { isEditableField } from '@ac/utils/security-page';
-import { sessionStorage } from '@ac/utils/session-storage';
+import { consumePendingStepUpAction } from '@ac/utils/step-up';
 
 import { getSessions, revokeSession, getGrants, revokeGrant } from '../../apis/sessions';
 import useApi from '../../hooks/use-api';
 import useErrorHandler from '../../hooks/use-error-handler';
+import useStepUp, { useIdentityProof } from '../../hooks/use-step-up';
 import homeStyles from '../Home/index.module.scss';
 
 import GrantRow from './GrantRow';
@@ -26,9 +25,13 @@ import { normalizeGrantRows, type AccountSession, type GrantedAppRow } from './u
 
 const Sessions = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { accountCenterSettings, verificationId, setVerificationId, setToast } =
-    useContext(PageContext);
+  const { accountCenterSettings, setToast } = useContext(PageContext);
+  const {
+    isReady: isIdentityProofReady,
+    isChecking: isCheckingIdentityProof,
+    checkIdentityProof,
+  } = useIdentityProof();
+  const { requestStepUp, startStepUp } = useStepUp();
   const [sessions, setSessions] = useState<AccountSession[]>();
   const [grantRows, setGrantRows] = useState<GrantedAppRow[]>();
   const [hasGrantLoadingError, setHasGrantLoadingError] = useState(false);
@@ -39,6 +42,7 @@ const Sessions = () => {
   const [removingAppId, setRemovingAppId] = useState<string>();
   const handleError = useErrorHandler();
   const isFetchingRef = useRef(false);
+  const hasAutoLoadedRef = useRef(false);
 
   const getSessionsApi = useApi(getSessions, { silent: true });
   const revokeSessionApi = useApi(revokeSession);
@@ -48,13 +52,8 @@ const Sessions = () => {
   const sessionControl = accountCenterSettings?.fields.session;
   const isEditable = isEditableField(sessionControl);
 
-  const handlePermissionDenied = useCallback(async () => {
-    setVerificationId(undefined);
-    setToast(t('account_center.verification.verification_required'));
-  }, [setVerificationId, setToast, t]);
-
   const fetchData = useCallback(
-    async (verifiedId: string) => {
+    async (isResumed = false) => {
       if (isFetchingRef.current) {
         return;
       }
@@ -64,17 +63,19 @@ const Sessions = () => {
       setIsLoading(true);
 
       const [sessionResponse, grantResponse] = await Promise.all([
-        getSessionsApi(verifiedId),
-        getGrantsApi(verifiedId),
+        getSessionsApi(),
+        getGrantsApi(),
       ]);
 
       const [sessionError, sessionResult] = sessionResponse;
       const [grantError, grantResult] = grantResponse;
 
       if (sessionError) {
-        await handleError(sessionError, {
-          'verification_record.permission_denied': handlePermissionDenied,
-        });
+        if (await requestStepUp(sessionError, { type: 'load-sessions' }, { isResumed })) {
+          return;
+        }
+
+        await handleError(sessionError);
         setIsLoading(false);
         // eslint-disable-next-line @silverhand/fp/no-mutation
         isFetchingRef.current = false;
@@ -86,9 +87,11 @@ const Sessions = () => {
       }
 
       if (grantError) {
-        await handleError(grantError, {
-          'verification_record.permission_denied': handlePermissionDenied,
-        });
+        if (await requestStepUp(grantError, { type: 'load-sessions' }, { isResumed })) {
+          return;
+        }
+
+        await handleError(grantError);
         setHasGrantLoadingError(true);
       } else if (grantResult) {
         setGrantRows(normalizeGrantRows(grantResult.grants));
@@ -100,65 +103,132 @@ const Sessions = () => {
       // eslint-disable-next-line @silverhand/fp/no-mutation
       isFetchingRef.current = false;
     },
-    [getSessionsApi, getGrantsApi, handleError, handlePermissionDenied]
+    [getSessionsApi, getGrantsApi, handleError, requestStepUp]
   );
 
   useEffect(() => {
-    if (!verificationId || hasLoaded || isLoading) {
+    if (
+      !isIdentityProofReady ||
+      isCheckingIdentityProof ||
+      hasLoaded ||
+      isLoading ||
+      hasAutoLoadedRef.current
+    ) {
       return;
     }
 
-    const pendingAction = sessionStorage.getPendingVerifiedAction();
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    hasAutoLoadedRef.current = true;
 
-    if (pendingAction === 'load-sessions') {
-      sessionStorage.clearPendingVerifiedAction();
+    void fetchData();
+  }, [fetchData, hasLoaded, isCheckingIdentityProof, isIdentityProofReady, isLoading]);
+
+  const handleManage = useCallback(async () => {
+    if (await checkIdentityProof()) {
+      await fetchData();
+      return;
     }
 
-    void fetchData(verificationId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verificationId]);
+    await startStepUp({ type: 'load-sessions' });
+  }, [checkIdentityProof, fetchData, startStepUp]);
 
-  const navigateTo = useCallback(
-    (route: string) => {
-      setPendingReturn(getPendingReturn() ?? window.location.href);
-      navigate(route);
+  const handleRevokeSession = useCallback(
+    async (sessionId: string, isResumed = false) => {
+      const [error] = await revokeSessionApi(sessionId);
+
+      if (error) {
+        if (await requestStepUp(error, { type: 'revoke-session', sessionId }, { isResumed })) {
+          return;
+        }
+
+        await handleError(error);
+
+        if (isResumed) {
+          // The resumed action owns this page load; reload the list so a failed replay does not
+          // leave the page in its Manage state.
+          await fetchData(true);
+        }
+        return;
+      }
+
+      if (isResumed) {
+        // The confirmed revocation runs once after the step-up, then the list reloads with the
+        // elevated token.
+        await fetchData(true);
+        return;
+      }
+
+      setSessions((previous) => previous?.filter((item) => item.payload.uid !== sessionId));
     },
-    [navigate]
+    [fetchData, handleError, requestStepUp, revokeSessionApi]
   );
 
-  const handleManage = useCallback(() => {
-    if (verificationId) {
-      void fetchData(verificationId);
-      return;
-    }
+  const handleRevokeGrants = useCallback(
+    async (applicationId: string, grantIds: string[], isResumed = false) => {
+      setRemovingAppId(applicationId);
 
-    sessionStorage.setPendingVerifiedAction('load-sessions');
-    navigateTo(verifiedActionRoute);
-  }, [verificationId, fetchData, navigateTo]);
+      const results = await Promise.allSettled(
+        grantIds.map(async (grantId) => {
+          const [error] = await revokeGrantApi(grantId);
+          if (error) {
+            throw error instanceof Error ? error : new Error('revoke_failed');
+          }
+        })
+      );
+
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure) {
+        if (
+          await requestStepUp(
+            failure.reason,
+            { type: 'revoke-grant', applicationId, grantIds },
+            { isResumed }
+          )
+        ) {
+          return;
+        }
+
+        if (failure.reason instanceof HTTPError) {
+          await handleError(failure.reason);
+        } else {
+          setToast(t('account_center.sessions.revoke_grant_failed'));
+        }
+        setRemovingAppId(undefined);
+
+        if (isResumed) {
+          // The resumed action owns this page load; reload the list so a failed replay does not
+          // leave the page in its Manage state.
+          await fetchData(true);
+        }
+        return;
+      }
+
+      if (isResumed) {
+        // The confirmed revocation runs once after the step-up, then the list reloads with the
+        // elevated token.
+        setRemovingAppId(undefined);
+        await fetchData(true);
+        return;
+      }
+
+      setGrantRows((previous) => previous?.filter((item) => item.applicationId !== applicationId));
+      setRemovingAppId(undefined);
+    },
+    [fetchData, handleError, requestStepUp, revokeGrantApi, setToast, t]
+  );
 
   const handleRevoke = useCallback(
     async (session: AccountSession) => {
-      if (!verificationId) {
+      const { uid } = session.payload;
+
+      if (await checkIdentityProof()) {
+        await handleRevokeSession(uid);
         return;
       }
 
-      const [error] = await revokeSessionApi(verificationId, session.payload.uid);
-      if (error) {
-        await handleError(error, {
-          'verification_record.permission_denied': async () => {
-            setVerificationId(undefined);
-            setHasLoaded(false);
-            setToast(t('account_center.verification.verification_required'));
-          },
-        });
-        return;
-      }
-
-      setSessions((previous) =>
-        previous?.filter((item) => item.payload.uid !== session.payload.uid)
-      );
+      await startStepUp({ type: 'revoke-session', sessionId: uid });
     },
-    [verificationId, revokeSessionApi, handleError, setVerificationId, setToast, t]
+    [checkIdentityProof, handleRevokeSession, startStepUp]
   );
 
   const handleConfirmRevoke = useCallback(async () => {
@@ -171,39 +241,46 @@ const Sessions = () => {
 
   const handleRevokeGrant = useCallback(
     async (app: GrantedAppRow) => {
-      if (!verificationId) {
+      if (await checkIdentityProof()) {
+        await handleRevokeGrants(app.applicationId, app.grantIds);
         return;
       }
 
-      setRemovingAppId(app.applicationId);
-
-      const results = await Promise.allSettled(
-        app.grantIds.map(async (grantId) => {
-          const [error] = await revokeGrantApi(verificationId, grantId);
-          if (error) {
-            throw error instanceof Error ? error : new Error('revoke_failed');
-          }
-        })
-      );
-
-      const failure = results.find((result) => result.status === 'rejected');
-      if (failure) {
-        if (failure.reason instanceof HTTPError) {
-          await handleError(failure.reason);
-        } else {
-          setToast(t('account_center.sessions.revoke_grant_failed'));
-        }
-        setRemovingAppId(undefined);
-        return;
-      }
-
-      setGrantRows((previous) =>
-        previous?.filter((item) => item.applicationId !== app.applicationId)
-      );
-      setRemovingAppId(undefined);
+      await startStepUp({
+        type: 'revoke-grant',
+        applicationId: app.applicationId,
+        grantIds: app.grantIds,
+      });
     },
-    [verificationId, revokeGrantApi, handleError, setToast, t]
+    [checkIdentityProof, handleRevokeGrants, startStepUp]
   );
+
+  useEffect(() => {
+    const action = consumePendingStepUpAction(['load-sessions', 'revoke-session', 'revoke-grant']);
+
+    if (!action) {
+      return;
+    }
+
+    // The resumed action owns this page load; do not also auto-load the list.
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    hasAutoLoadedRef.current = true;
+
+    switch (action.type) {
+      case 'load-sessions': {
+        void fetchData(true);
+        break;
+      }
+      case 'revoke-session': {
+        void handleRevokeSession(action.sessionId, true);
+        break;
+      }
+      case 'revoke-grant': {
+        void handleRevokeGrants(action.applicationId, action.grantIds, true);
+        break;
+      }
+    }
+  }, [fetchData, handleRevokeGrants, handleRevokeSession]);
 
   const handleConfirmRevokeGrant = useCallback(async () => {
     if (!revokeGrantTarget) {
@@ -253,10 +330,16 @@ const Sessions = () => {
               ) : (
                 <div className={classNames(styles.row, layoutClassNames.row)}>
                   <div className={styles.sessionInfo}>
-                    {isLoading ? (
+                    {isLoading || isCheckingIdentityProof ? (
                       <div className={styles.meta}>{t('account_center.sessions.loading')}</div>
                     ) : (
-                      <button type="button" className={styles.actionButton} onClick={handleManage}>
+                      <button
+                        type="button"
+                        className={styles.actionButton}
+                        onClick={() => {
+                          void handleManage();
+                        }}
+                      >
                         {t('account_center.security.manage')}
                       </button>
                     )}
@@ -336,3 +419,4 @@ const Sessions = () => {
 };
 
 export default Sessions;
+/* eslint-enable max-lines */

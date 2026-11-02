@@ -2,8 +2,15 @@ import {
   handleAccountCenterRoute,
   setRouteRestore,
   getPendingReturn,
+  getLoginHint,
+  setLoginHint,
 } from './account-center-route';
 import { accountStorage } from './session-storage';
+
+jest.mock('@ac/constants/env', () => ({
+  __esModule: true,
+  isDevFeaturesEnabled: true,
+}));
 
 const setLocation = (pathname: string, search = '', origin = 'http://localhost') => {
   // eslint-disable-next-line @silverhand/fp/no-mutating-methods
@@ -19,6 +26,7 @@ const setLocation = (pathname: string, search = '', origin = 'http://localhost')
 };
 
 const mockReplaceState = jest.fn();
+const mockPushState = jest.fn();
 
 describe('account-center-route', () => {
   beforeEach(() => {
@@ -26,6 +34,8 @@ describe('account-center-route', () => {
     jest.clearAllMocks();
     // eslint-disable-next-line @silverhand/fp/no-mutation
     window.history.replaceState = mockReplaceState;
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    window.history.pushState = mockPushState;
   });
 
   describe('handleAccountCenterRoute – route restore', () => {
@@ -36,6 +46,17 @@ describe('account-center-route', () => {
       handleAccountCenterRoute();
 
       expect(mockReplaceState).toHaveBeenCalledWith({}, '', '/account/security');
+      expect(mockPushState).not.toHaveBeenCalled();
+    });
+
+    it('keeps the base path entry below a restored task flow', () => {
+      accountStorage.routeRestore.set('/account/password');
+      setLocation('/account');
+
+      handleAccountCenterRoute();
+
+      expect(mockPushState).toHaveBeenCalledWith({}, '', '/account/password');
+      expect(mockReplaceState).not.toHaveBeenCalled();
     });
 
     it('clears the stored route after restoration (one-time use)', () => {
@@ -119,6 +140,34 @@ describe('account-center-route', () => {
     });
   });
 
+  describe('handleAccountCenterRoute – login hint', () => {
+    it('stores the login_hint query parameter on any route', () => {
+      setLocation('/account/security', '?login_hint=foo%40example.com');
+
+      handleAccountCenterRoute();
+
+      expect(getLoginHint()).toBe('foo@example.com');
+    });
+
+    it('clears a stored login hint when the URL has none', () => {
+      setLoginHint('foo@example.com');
+      setLocation('/account/security');
+
+      handleAccountCenterRoute();
+
+      expect(getLoginHint()).toBeUndefined();
+    });
+
+    it('keeps the stored login hint on the auth callback', () => {
+      setLoginHint('foo@example.com');
+      setLocation('/account', '?code=abc123');
+
+      handleAccountCenterRoute();
+
+      expect(getLoginHint()).toBe('foo@example.com');
+    });
+  });
+
   describe('setRouteRestore', () => {
     it('stores known routes', () => {
       setRouteRestore('/account/security');
@@ -138,6 +187,16 @@ describe('account-center-route', () => {
     it('stores sessions route', () => {
       setRouteRestore('/account/sessions');
       expect(accountStorage.routeRestore.get()).toBe('/account/sessions');
+    });
+
+    it('stores a social subpage route only with the account center base path', () => {
+      setRouteRestore('/account/social/google');
+      expect(accountStorage.routeRestore.get()).toBe('/account/social/google');
+    });
+
+    it('does not store a route whose known prefix sits outside the base path', () => {
+      setRouteRestore('/social/google');
+      expect(accountStorage.routeRestore.get()).toBeUndefined();
     });
 
     it('does not store unknown routes', () => {

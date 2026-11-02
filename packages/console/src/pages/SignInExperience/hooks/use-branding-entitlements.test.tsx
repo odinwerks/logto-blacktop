@@ -29,6 +29,7 @@ const renderWithContext = (context: Partial<FullContext>) => {
 };
 
 const withLicense = (quota: Partial<LicenseQuota>): Partial<FullContext> => ({
+  licenseQuota: { ...ossDefaultQuota, ...quota },
   license: {
     plan: ReservedPlanId.SelfHostedPro,
     env: LicenseEnv.Production,

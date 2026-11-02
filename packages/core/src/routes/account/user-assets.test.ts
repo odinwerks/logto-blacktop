@@ -26,8 +26,8 @@ const { mockEsmWithActual } = createMockUtils(jest);
 
 // An in-memory bucket behind the mocked storage builder, so a test can assert what is actually
 // left after a sequence of uploads — the invariant the fixed route must keep.
-const objects = new Map<string, Buffer>();
-const uploadFile = jest.fn(async (data: Buffer, key: string) => {
+const objects = new Map<string, Uint8Array>();
+const uploadFile = jest.fn(async (data: Uint8Array, key: string) => {
   objects.set(key, data);
   return { url: `http://rustfs:9000/logto/${key}` };
 });
@@ -63,6 +63,7 @@ const mockedQueries = {
         webauthnRelatedOrigins: [],
         deleteAccountUrl: null,
         customCss: null,
+        maximumAuthenticationAgeInSeconds: 600,
         profileFields: null,
       })
     ),
@@ -87,7 +88,7 @@ const requester = createRequester({
     (router: ManagementApiRouter, tenant: TenantContext) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
       router.use(koaAccountCenter(tenant.queries) as any);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       accountUserAssetsRoutes(router as any, tenant);
     },
   ] as never[],
@@ -126,6 +127,7 @@ const avatarUrl = (extension: string, time: number) =>
   `${tenantContext.envSet.endpoint.origin}/api/user-assets/${mockUser.id}/you.${extension}?v=${time}`;
 
 describe('POST /my-account/user-assets/avatar', () => {
+  // eslint-disable-next-line @silverhand/fp/no-let
   let currentTime: number;
 
   beforeEach(() => {

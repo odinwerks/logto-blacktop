@@ -87,7 +87,7 @@ describe('connector services route', () => {
             code: '000000',
             phone: '12345678901',
           },
-          ip: '::ffff:127.0.0.1',
+          ip: '127.0.0.1',
         },
         { test: 123 }
       );
@@ -116,7 +116,7 @@ describe('connector services route', () => {
             code: '000000',
             email: 'test@email.com',
           },
-          ip: '::ffff:127.0.0.1',
+          ip: '127.0.0.1',
         },
         { test: 123 }
       );

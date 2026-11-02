@@ -15,14 +15,14 @@ const tenants = {
   license: {
     purchase_title: 'PLANY SELF-HOSTED',
     purchase_description:
-      'Plany Pro i Przedsiębiorstwo self-hosted odblokowują płatne funkcje na Twojej instancji, takie jak ukrycie marki Logto, własny interfejs, SSO inicjowane przez IdP, współpraca w konsoli oraz nieograniczona liczba aplikacji SAML. Kup plan, aby otrzymać klucz licencyjny.',
+      'Plany Pro i Przedsiębiorstwo self-hosted odblokowują płatne funkcje na Twojej instancji, takie jak ukrycie marki Logto, własny interfejs, współpraca w konsoli oraz nieograniczona liczba aplikacji SAML. Kup plan, aby otrzymać klucz licencyjny.',
     purchase_button: 'Zobacz plany self-hosted',
     install_title: 'INSTALACJA LICENCJI',
     install_description: 'Wklej klucz licencyjny otrzymany po zakupie planu self-hosted.',
     install_button: 'Zainstaluj licencję',
     key_field: 'Klucz licencyjny',
     key_field_description:
-      'Klucz jest weryfikowany na Twojej instancji i nigdy jej nie opuszcza. Jeśli Twój klucz wygasł, pobierz nowy z konta Logto.',
+      'Klucz jest weryfikowany na Twojej instancji i wysyłany do Logto podczas odświeżania licencji. Skontaktuj się z Logto, aby otrzymać nowy klucz, jeśli obecny wygasł.',
     key_placeholder: 'Wklej tutaj swój klucz licencyjny',
     installed_toast: 'Licencja została zainstalowana.',
     details_title: 'LICENCJA',
@@ -45,9 +45,17 @@ const tenants = {
     refusal_reason_revoked: 'unieważniona',
     refusal_reason_unknown: 'niedostępna',
     grace_expired_description:
-      'Okres karencji licencji zakończył się {{graceEndsAt}}. Ta instancja wróciła do domyślnych ustawień OSS. Pobierz nowy klucz z Logto Cloud i zainstaluj go ponownie.',
+      'Okres karencji licencji zakończył się {{graceEndsAt}}. To wdrożenie wróciło do domyślnych ustawień OSS. Skontaktuj się z Logto, aby otrzymać nowy klucz licencyjny, i zainstaluj go ponownie.',
     get_fresh_key_button: 'Pobierz nowy klucz licencyjny',
     replace_button: 'Zmień licencję',
+    usage_banner_description:
+      'To wdrożenie przekracza limity użytkowania swojego planu self-hosted:',
+    usage_banner_metric: '{{metric}}: {{value}} (limit {{limit}})',
+    usage_banner_action:
+      'Skontaktuj się z nami w ciągu 30 dni, aby ulepszyć plan lub zmniejszyć użytkowanie.',
+    usage_metric_mau: 'Miesięcznie aktywni użytkownicy',
+    usage_metric_access_tokens: 'Miesięczne tokeny dostępu',
+    usage_metric_production_deployments: 'Wdrożenia produkcyjne',
   },
   members: {
     card_title: 'Zarządzaj tenantami bezpieczniej dzięki Logto Cloud',
@@ -102,6 +110,12 @@ const tenants = {
   full_env_tag: {
     development: 'Development',
     production: 'Production',
+  },
+  view_only: {
+    tag: 'Tylko podgląd',
+    notification:
+      'Masz dostęp tylko do odczytu do tego najemcy. Poproś administratora najemcy, jeśli musisz wprowadzić zmiany.',
+    hidden: 'Ukryte dla przeglądających',
   },
   deletion_card: {
     title: 'USUWANIE',

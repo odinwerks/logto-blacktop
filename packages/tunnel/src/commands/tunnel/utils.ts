@@ -43,7 +43,17 @@ const indexContentType = 'text/html; charset=utf-8';
 const noCache = 'no-cache, no-store, must-revalidate';
 const maxAgeSevenDays = 'max-age=604_800_000';
 
-export const getSafeStaticFilePath = (staticPath: string, requestUrl: string) => {
+const isPathInsideRoot = (root: string, targetPath: string) => {
+  const relativePath = path.relative(root, targetPath);
+  return !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+};
+
+/**
+ * Resolve the request URL to a file path inside the static root. Returns `undefined` if the file
+ * does not exist or resolves outside of the static root, either lexically (e.g. `..` segments) or
+ * through symlinks.
+ */
+export const getSafeStaticFilePath = async (staticPath: string, requestUrl: string) => {
   const [pathname = ''] = requestUrl.split(/[#?]/);
   const decodedPathname = trySafe(() => decodeURIComponent(pathname));
 
@@ -54,31 +64,52 @@ export const getSafeStaticFilePath = (staticPath: string, requestUrl: string) =>
   const staticRoot = path.resolve(staticPath);
   const requestPath = decodedPathname.replace(/^\/+/, '');
   const resolvedPath = path.resolve(staticRoot, requestPath);
-  const relativePath = path.relative(staticRoot, resolvedPath);
 
-  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+  if (!isPathInsideRoot(staticRoot, resolvedPath)) {
     return;
   }
 
-  return resolvedPath;
+  // Resolve symlinks, so that a symlink inside the static root cannot point to a file outside of it
+  const [realStaticRoot, realPath] = await Promise.all([
+    trySafe(fs.realpath(staticRoot)),
+    trySafe(fs.realpath(resolvedPath)),
+  ]);
+
+  if (!realStaticRoot || !realPath || !isPathInsideRoot(realStaticRoot, realPath)) {
+    return;
+  }
+
+  return realPath;
 };
 
 const readFile = async (requestPath: string, start?: number, end?: number) => {
   const fileHandle = await fs.open(requestPath, 'r');
   const { size } = await fileHandle.stat();
   const readStart = start ?? 0;
-  const readEnd = end ?? Math.max(size - 1, 0);
+  // Clamp the requested range to the file size
+  const readEnd = Math.min(end ?? size - 1, size - 1);
+
+  if (start !== undefined && start > readEnd) {
+    await fileHandle.close();
+    throw new Error('Range not satisfiable.');
+  }
+
   const buffer = Buffer.alloc(readEnd - readStart + 1);
   await fileHandle.read(buffer, 0, buffer.length, readStart);
   await fileHandle.close();
-  return { buffer, totalFileSize: size };
+  return { buffer, totalFileSize: size, readStart, readEnd };
 };
 
-const setRangeHeaders = (response: http.ServerResponse, range: string, totalFileSize: number) => {
+const setRangeHeaders = (
+  response: http.ServerResponse,
+  range: string,
+  {
+    readStart,
+    readEnd,
+    totalFileSize,
+  }: { readStart: number; readEnd: number; totalFileSize: number }
+) => {
   if (range) {
-    const { start, end } = parseRange(range);
-    const readStart = start ?? 0;
-    const readEnd = end ?? totalFileSize - 1;
     response.setHeader('Accept-Ranges', 'bytes');
     response.setHeader('Content-Range', `bytes ${readStart}-${readEnd}/${totalFileSize}`);
   }
@@ -86,12 +117,11 @@ const setRangeHeaders = (response: http.ServerResponse, range: string, totalFile
 
 const isStaticFileProxyMethod = (method?: string) => method === 'HEAD' || method === 'GET';
 
-const getStaticFileRequestPath = (
+const getStaticFileRequestPath = async (
   staticPath: string,
   requestUrl: string,
   fallBackToIndex: boolean
-) =>
-  fallBackToIndex ? path.resolve(staticPath, index) : getSafeStaticFilePath(staticPath, requestUrl);
+) => getSafeStaticFilePath(staticPath, fallBackToIndex ? `/${index}` : requestUrl);
 
 const getStaticFileErrorStatusCode = (errorMessage: string, requestPath: string) =>
   errorMessage === 'Range not satisfiable.' ? 416 : existsSync(requestPath) ? 500 : 404;
@@ -108,7 +138,7 @@ export const createStaticFileProxy =
     }
 
     const fallBackToIndex = !isFileAssetPath(request.url);
-    const requestPath = getStaticFileRequestPath(staticPath, request.url, fallBackToIndex);
+    const requestPath = await getStaticFileRequestPath(staticPath, request.url, fallBackToIndex);
     const { range = '' } = request.headers;
 
     if (!requestPath) {
@@ -118,10 +148,10 @@ export const createStaticFileProxy =
 
     try {
       const { start, end } = parseRange(range);
-      const { buffer, totalFileSize } = await readFile(requestPath, start, end);
+      const { buffer, totalFileSize, readStart, readEnd } = await readFile(requestPath, start, end);
       response.setHeader('cache-control', fallBackToIndex ? noCache : maxAgeSevenDays);
       response.setHeader('content-type', getMimeType(request.url));
-      setRangeHeaders(response, range, totalFileSize);
+      setRangeHeaders(response, range, { readStart, readEnd, totalFileSize });
 
       response.setHeader('content-length', String(buffer.length));
       response.writeHead(range ? 206 : 200);

@@ -27,6 +27,7 @@ import Switch from '@/ds-components/Switch';
 import TextInput from '@/ds-components/TextInput';
 import Textarea from '@/ds-components/Textarea';
 import useApi, { type RequestError } from '@/hooks/use-api';
+import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
 import useDomainSelection from '@/hooks/use-domain-selection';
 import { trySubmitSafe } from '@/utils/form';
 import { applyDomain } from '@/utils/url';
@@ -86,6 +87,9 @@ const nameIdFormatToOptionDescriptionMap = Object.freeze({
 function Settings({ data, mutateApplication, isDeleted }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { tenantEndpoint } = useContext(AppDataContext);
+  const {
+    access: { isReadOnly },
+  } = useCurrentTenantScopes();
   const [selectedDomain, setSelectedDomain] = useDomainSelection();
   const [showCreateSecretModal, setShowCreateSecretModal] = useState(false);
 
@@ -283,13 +287,15 @@ function Settings({ data, mutateApplication, isDeleted }: Props) {
             {secretsData.length === 0 && !secrets.error ? (
               <>
                 <div className={styles.empty}>{t('application_details.secrets.empty')}</div>
-                <Button
-                  icon={<Plus />}
-                  title="application_details.secrets.create_new_secret"
-                  onClick={() => {
-                    setShowCreateSecretModal(true);
-                  }}
-                />
+                {!isReadOnly && (
+                  <Button
+                    icon={<Plus />}
+                    title="application_details.secrets.create_new_secret"
+                    onClick={() => {
+                      setShowCreateSecretModal(true);
+                    }}
+                  />
+                )}
               </>
             ) : (
               <>
@@ -302,16 +308,18 @@ function Settings({ data, mutateApplication, isDeleted }: Props) {
                   onActivate={onActivate}
                   onDeactivate={onDeactivate}
                 />
-                <Button
-                  size="small"
-                  type="text"
-                  className={styles.add}
-                  icon={<CirclePlus />}
-                  title="application_details.secrets.create_new_secret"
-                  onClick={() => {
-                    setShowCreateSecretModal(true);
-                  }}
-                />
+                {!isReadOnly && (
+                  <Button
+                    size="small"
+                    type="text"
+                    className={styles.add}
+                    icon={<CirclePlus />}
+                    title="application_details.secrets.create_new_secret"
+                    onClick={() => {
+                      setShowCreateSecretModal(true);
+                    }}
+                  />
+                )}
               </>
             )}
             <CreateSecretModal

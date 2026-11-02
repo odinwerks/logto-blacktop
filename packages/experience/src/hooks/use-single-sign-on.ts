@@ -1,8 +1,9 @@
-import { VerificationType } from '@logto/schemas';
+import { InteractionEvent, VerificationType } from '@logto/schemas';
 import { useCallback, useContext } from 'react';
 
 import UserInteractionContext from '@/Providers/UserInteractionContextProvider/UserInteractionContext';
-import { getSsoAuthorizationUrl } from '@/apis/experience';
+import { getSsoAuthorizationUrl, initInteraction } from '@/apis/experience';
+import useAbortDirectSignIn from '@/hooks/use-abort-direct-sign-in';
 import useApi from '@/hooks/use-api';
 import useErrorHandler from '@/hooks/use-error-handler';
 import { searchKeys } from '@/shared/utils/search-parameters';
@@ -11,10 +12,25 @@ import { buildSocialLandingUri, generateState, storeState } from '@/utils/social
 import { storeRedirectContext } from '@/utils/social-redirect-fallback-context';
 
 import useGlobalRedirectTo from './use-global-redirect-to';
+import useStepUpContext from './use-step-up-context';
+import { usePureStepUpErrorHandler } from './use-step-up-error-handler';
 
 const useSingleSignOn = () => {
   const handleError = useErrorHandler();
-  const asyncInvokeSingleSignOn = useApi(getSsoAuthorizationUrl);
+  const abortDirectSignIn = useAbortDirectSignIn();
+  const { isPureStepUp } = useStepUpContext();
+  const stepUpErrorHandlers = usePureStepUpErrorHandler();
+  const getAuthorizationUrl = useCallback(
+    async (connectorId: string, payload: unknown) => {
+      if (!isPureStepUp) {
+        await initInteraction(InteractionEvent.SignIn);
+      }
+
+      return getSsoAuthorizationUrl(connectorId, payload);
+    },
+    [isPureStepUp]
+  );
+  const asyncInvokeSingleSignOn = useApi(getAuthorizationUrl);
   const redirectTo = useGlobalRedirectTo({
     shouldClearInteractionContextSession: false,
     isReplace: false,
@@ -56,7 +72,13 @@ const useSingleSignOn = () => {
       });
 
       if (error) {
-        await handleError(error);
+        // Failures before the IdP redirect never reach the callback listener, so a direct sign-in
+        // must exit here as well. Hosted sign-ins keep the regular error handling.
+        if (!isPureStepUp && (await abortDirectSignIn())) {
+          return;
+        }
+
+        await handleError(error, stepUpErrorHandlers);
 
         return;
       }
@@ -88,7 +110,16 @@ const useSingleSignOn = () => {
       // Invoke Web Sign In flow
       await redirectTo(authorizationUri);
     },
-    [asyncInvokeSingleSignOn, handleError, nativeSignInHandler, redirectTo, setVerificationId]
+    [
+      abortDirectSignIn,
+      asyncInvokeSingleSignOn,
+      handleError,
+      isPureStepUp,
+      nativeSignInHandler,
+      redirectTo,
+      setVerificationId,
+      stepUpErrorHandlers,
+    ]
   );
 };
 

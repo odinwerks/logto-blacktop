@@ -10,14 +10,21 @@ import FormCard from '@/components/FormCard';
 import PageMeta from '@/components/PageMeta';
 import CardTitle from '@/ds-components/CardTitle';
 import FormField from '@/ds-components/FormField';
+import { getUpcomingBillAmount } from '@/utils/upcoming-invoice';
 
 import AddOnTable from './AddOnTable';
 import BillInfo from './BillInfo';
 import SubscriptionPlanTable from './SubscriptionPlanTable';
 import styles from './index.module.scss';
 
-function Subscription() {
-  const { logtoEnterpriseId = '' } = useParams();
+type Props = {
+  /** Overrides the route parameter when the plan is shown outside the Enterprise route. */
+  readonly logtoEnterpriseId?: string;
+};
+
+function Subscription(props: Props) {
+  const params = useParams();
+  const logtoEnterpriseId = props.logtoEnterpriseId ?? params.logtoEnterpriseId ?? '';
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
 
   const cloudApi = useCloudApi();
@@ -41,9 +48,10 @@ function Subscription() {
     }
   );
 
-  const upcomingBill = useMemo(() => {
-    return data?.subscription?.upcomingInvoice?.subtotal ?? 0;
-  }, [data?.subscription?.upcomingInvoice?.subtotal]);
+  const upcomingBill = useMemo(
+    () => getUpcomingBillAmount(data?.subscription?.upcomingInvoice) ?? 0,
+    [data?.subscription?.upcomingInvoice]
+  );
 
   return (
     <div className={styles.container}>

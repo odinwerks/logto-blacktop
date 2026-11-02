@@ -1,6 +1,8 @@
 import type { ZodType } from 'zod';
 import { z } from 'zod';
 
+import { licenseUsageWarningGuard } from '../consts/license.js';
+
 // Alteration state
 export enum AlterationStateKey {
   AlterationState = 'alterationState',
@@ -231,7 +233,7 @@ export const cloudflareGuard: Readonly<{
  * one license no matter how many instances share the database.
  */
 export const installedLicenseGuard = z.object({
-  /** The raw Ed25519-signed license key JWT, exactly as it was installed. */
+  /** The raw ES256-signed license key JWT, exactly as it was installed. */
   jwt: z.string(),
   /** When the key was installed, as an ISO 8601 timestamp. */
   installedAt: z.string(),
@@ -259,6 +261,11 @@ export const licenseRefreshStateGuard = z.object({
   lastAttemptAt: z.string().optional(),
   /** The refusal reason returned by the license service, if the last attempt was refused. */
   refusalReason: z.string().optional(),
+  /**
+   * The usage warnings returned by the license service with the last answered refresh, such as too
+   * many production deployments, which only Logto Cloud can count.
+   */
+  cloudNotices: z.array(licenseUsageWarningGuard).optional(),
 });
 
 export type LicenseRefreshState = z.infer<typeof licenseRefreshStateGuard>;

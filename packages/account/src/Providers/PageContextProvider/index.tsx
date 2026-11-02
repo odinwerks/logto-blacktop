@@ -1,23 +1,19 @@
+import { useLogto } from '@logto/react';
+import { Theme } from '@logto/schemas';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
 import { getAccountCenterSettings } from '@ac/apis/account-center';
 import { getSignInExperienceSettings } from '@ac/apis/sign-in-experience';
 import { getUserInfo } from '@ac/apis/user';
 import useApi from '@ac/hooks/use-api';
 import { useSessionHeartbeat } from '@ac/hooks/use-session-heartbeat';
 import { changeLanguage, getPreferredLanguage } from '@ac/i18n/utils';
-import { getUiLocales } from '@ac/utils/account-center-route';
+import { getUiLocales, isAuthCallbackUrl } from '@ac/utils/account-center-route';
 import { isVisibleField } from '@ac/utils/security-page';
 import { getThemeBySystemPreference, subscribeToSystemTheme } from '@ac/utils/theme';
-import { useLogto } from '@logto/react';
-import { Theme } from '@logto/schemas';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { PageContextType } from './PageContext';
 import PageContext from './PageContext';
-import {
-  clearVerificationRecord,
-  getStoredVerificationId,
-  persistVerificationRecord,
-} from './verification-storage';
 
 type Props = {
   readonly children: React.ReactNode;
@@ -46,7 +42,6 @@ const PageContextProvider = ({ children }: Props) => {
   const [userInfo, setUserInfo] = useState<PageContextType['userInfo']>(undefined);
   const [userInfoError, setUserInfoError] = useState<Error>();
   const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(false);
-  const [verificationId, setVerificationId] = useState<string>();
   const [isLoadingExperience, setIsLoadingExperience] = useState(true);
   const [experienceError, setExperienceError] = useState<Error>();
 
@@ -99,29 +94,9 @@ const PageContextProvider = ({ children }: Props) => {
   }, [loadUserInfo]);
 
   useEffect(() => {
-    const storedVerificationId = getStoredVerificationId();
-
-    if (storedVerificationId) {
-      setVerificationId(storedVerificationId);
-    }
-  }, []);
-
-  const setVerificationIdCallback = useCallback((id?: string, expiresAt?: string) => {
-    setVerificationId(id);
-
-    if (!id || !expiresAt) {
-      clearVerificationRecord();
-      return;
-    }
-
-    persistVerificationRecord({
-      verificationId: id,
-      expiresAt,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
+    // Skip fetching user info on the OIDC callback URL: a step-up keeps the previous token set
+    // (`clearTokens: false`) until `handleSignInCallback` replaces it and reloads `/account`.
+    if (!isAuthenticated || isAuthCallbackUrl()) {
       setUserInfo(undefined);
       setUserInfoError(undefined);
       setIsLoadingUserInfo(false);
@@ -210,8 +185,6 @@ const PageContextProvider = ({ children }: Props) => {
       refreshUserInfo,
       userInfoError,
       isLoadingUserInfo,
-      verificationId,
-      setVerificationId: setVerificationIdCallback,
       isLoadingExperience,
       experienceError,
     }),
@@ -227,8 +200,6 @@ const PageContextProvider = ({ children }: Props) => {
       userInfo,
       userInfoError,
       isLoadingUserInfo,
-      verificationId,
-      setVerificationIdCallback,
     ]
   );
 

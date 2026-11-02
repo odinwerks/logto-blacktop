@@ -3,11 +3,10 @@ import VerificationCodeInput, {
   defaultLength,
 } from '@experience/shared/components/VerificationCode';
 import { type TFuncKey } from 'i18next';
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import LoadingContext from '@ac/Providers/LoadingContextProvider/LoadingContext';
-import SwitchVerificationMethodLink from '@ac/components/SwitchVerificationMethodLink';
 import useApi from '@ac/hooks/use-api';
 import useErrorHandler from '@ac/hooks/use-error-handler';
 import SecondaryPageLayout from '@ac/layouts/SecondaryPageLayout';
@@ -33,7 +32,6 @@ type Props = {
   readonly onSubmit: (code: string) => void;
   readonly onBack: () => void;
   readonly onInvalidCode: (errorMessage: string) => void;
-  readonly onSwitchMethod?: () => void;
   readonly sendCode: (
     accessToken: string,
     identifier: string
@@ -56,7 +54,6 @@ const IdentifierVerifyStep = ({
   onSubmit,
   onBack,
   onInvalidCode,
-  onSwitchMethod,
   sendCode,
 }: Props) => {
   const { t } = useTranslation();
@@ -76,13 +73,22 @@ const IdentifierVerifyStep = ({
     setCountdown(resendCooldownSeconds);
   }, [verificationRecordId, resetSignal]);
 
-  // Auto-submit when all 6 digits are entered
+  /**
+   * Auto-submit once the code is fully entered. `onSubmit` is intentionally accessed through a
+   * ref so this effect does not depend on its identity: `useApi` clears `loading` before the
+   * parent handles a step-up challenge, which rebuilds the callback and would otherwise submit
+   * the same — already consumed — code again.
+   */
+  const onSubmitRef = useRef(onSubmit);
+  // eslint-disable-next-line @silverhand/fp/no-mutation
+  onSubmitRef.current = onSubmit;
+
   useEffect(() => {
     if (!isCodeReady) {
       return;
     }
-    onSubmit(codeInput.join(''));
-  }, [codeInput, isCodeReady, onSubmit]);
+    onSubmitRef.current(codeInput.join(''));
+  }, [codeInput, isCodeReady]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || countdown <= 0) {
@@ -180,9 +186,6 @@ const IdentifierVerifyStep = ({
             onSubmit(codeInput.join(''));
           }}
         />
-        {onSwitchMethod && (
-          <SwitchVerificationMethodLink className={styles.switchMethod} onClick={onSwitchMethod} />
-        )}
       </div>
     </SecondaryPageLayout>
   );

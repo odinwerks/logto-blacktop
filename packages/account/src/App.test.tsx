@@ -6,11 +6,7 @@ import { Main } from './App';
 import renderWithPageContext, {
   mockAccountCenterSettings,
 } from './__mocks__/RenderWithPageContext';
-
-jest.mock('@ac/constants/env', () => ({
-  __esModule: true,
-  isDevFeaturesEnabled: false,
-}));
+import { getLoginHint, setLoginHint } from './utils/account-center-route';
 
 // Note: jest.requireActual('@logto/react') can't be used here, as it pulls in
 // @logto/client → @logto/js, which fails to resolve under the monorepo's
@@ -65,7 +61,6 @@ type UseLogtoReturn = {
   isAuthenticated: boolean;
   isLoading: boolean;
   signIn: jest.Mock;
-  clearAllTokens: jest.Mock;
 };
 
 const setupUseLogto = (overrides: Partial<UseLogtoReturn> = {}): UseLogtoReturn => {
@@ -73,7 +68,6 @@ const setupUseLogto = (overrides: Partial<UseLogtoReturn> = {}): UseLogtoReturn 
     isAuthenticated: true,
     isLoading: false,
     signIn: jest.fn(),
-    clearAllTokens: jest.fn(),
     ...overrides,
   };
   (useLogto as jest.Mock).mockReturnValue(value);
@@ -83,6 +77,7 @@ const setupUseLogto = (overrides: Partial<UseLogtoReturn> = {}): UseLogtoReturn 
 describe('Account Center <Main /> auth-redirect effects', () => {
   afterEach(() => {
     jest.clearAllMocks();
+    sessionStorage.clear();
   });
 
   describe('userInfoError while authenticated', () => {
@@ -172,6 +167,44 @@ describe('Account Center <Main /> auth-redirect effects', () => {
         expect.objectContaining({ redirectUri: expect.any(String) })
       );
       expect(signIn.mock.calls[0]?.[0]?.prompt).toBeUndefined();
+    });
+
+    it('forwards the stored login hint to sign-in', () => {
+      setLoginHint('foo@example.com');
+      setLocation('/account/profile');
+      const { signIn } = setupUseLogto({ isAuthenticated: false });
+
+      renderWithPageContext(<Main />, { initialEntries: ['/profile'] }, { pageContext: {} });
+
+      expect(signIn).toHaveBeenCalledWith(
+        expect.objectContaining({ loginHint: 'foo@example.com' })
+      );
+    });
+  });
+
+  describe('login hint lifetime', () => {
+    it('clears the stored login hint once the signed-in user is loaded', () => {
+      setLoginHint('foo@example.com');
+      setLocation('/account/profile');
+      setupUseLogto();
+
+      renderWithPageContext(<Main />, { initialEntries: ['/profile'] }, { pageContext: {} });
+
+      expect(getLoginHint()).toBeUndefined();
+    });
+
+    it('keeps the stored login hint while user info fails, for the re-auth fallback', () => {
+      setLoginHint('foo@example.com');
+      setLocation('/account/profile');
+      setupUseLogto();
+
+      renderWithPageContext(
+        <Main />,
+        { initialEntries: ['/profile'] },
+        { pageContext: { userInfo: undefined, userInfoError: new Error('userinfo failed') } }
+      );
+
+      expect(getLoginHint()).toBe('foo@example.com');
     });
   });
 
@@ -280,17 +313,20 @@ describe('Account Center <Main /> auth-redirect effects', () => {
   });
 
   describe('auth callback in flight', () => {
-    it('does not fire the auth-redirect signIn while handling the ?code= callback', () => {
-      setLocation('/account', '?code=abc123');
-      const { signIn } = setupUseLogto({ isAuthenticated: false });
+    it.each([false, true])(
+      'does not fire the auth-redirect signIn while handling the ?code= callback (isAuthenticated=%s)',
+      (isAuthenticated) => {
+        setLocation('/account', '?code=abc123');
+        const { signIn } = setupUseLogto({ isAuthenticated });
 
-      renderWithPageContext(
-        <Main />,
-        { initialEntries: ['/account?code=abc123'] },
-        { pageContext: { userInfoError: new Error('still loading') } }
-      );
+        renderWithPageContext(
+          <Main />,
+          { initialEntries: ['/account?code=abc123'] },
+          { pageContext: { userInfoError: new Error('still loading') } }
+        );
 
-      expect(signIn).not.toHaveBeenCalled();
-    });
+        expect(signIn).not.toHaveBeenCalled();
+      }
+    );
   });
 });

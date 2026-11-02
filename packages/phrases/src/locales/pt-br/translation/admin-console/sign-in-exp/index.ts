@@ -109,8 +109,22 @@ const sign_in_exp = {
     csp_source_invalid_error:
       'Insira uma expressão de origem válida. Use URLs https://; connect-src também aceita wss://. Palavras-chave CSP e ponto e vírgula não são aceitos.',
     csp_source_duplicate_error: 'Esta expressão de origem já está listada.',
+    coop_tip:
+      'Isole sua interface de login personalizada de janelas de outras origens. Aplicado somente quando os ativos de UI personalizados são servidos.',
+    coop_unsafe_none: 'Não definido (padrão)',
+    coop_same_origin_allow_popups: 'same-origin-allow-popups (recomendado)',
+    coop_warning:
+      'Apps que abrem a página de login em um pop-up de outra origem e dependem de window.opener deixarão de funcionar. same-origin também corta os pop-ups que a própria UI personalizada abre, como janelas de login social.',
   },
   account_center: {
+    recent_authentication: {
+      title: 'Autenticação recente',
+      description:
+        'Operações sensíveis na conta, como alterar a senha ou desativar a verificação em duas etapas, exigem um login recente, seja no Account Center ou em um aplicativo que chama a Account API. Esta janela define quão recente esse login deve ser.',
+      maximum_authentication_age_in_minutes: 'Idade máxima de autenticação em minutos',
+      maximum_authentication_age_in_minutes_tip:
+        'Por quanto tempo um login continua recente o suficiente para operações sensíveis. Um cliente ainda pode solicitar uma janela menor com o parâmetro `max_age`.',
+    },
     title: 'CENTRO DE CONTA',
     description: 'Personalize os fluxos do centro de conta com as APIs do Logto.',
     enable_account_api: 'Ativar o centro de conta e a Account API',
@@ -132,6 +146,8 @@ const sign_in_exp = {
           title: 'Verificação de segurança',
           description:
             'Antes de alterar as configurações de segurança, os usuários devem verificar sua identidade para obter um ID de registro de verificação válido por 10 minutos. Para habilitar um método de verificação (e-mail, telefone, senha), defina a permissão da Account API abaixo como <strong>Somente leitura</strong> (mínimo) ou <strong>Editar</strong> para que o sistema possa detectar se o usuário o configurou. <a>Saiba mais</a>',
+          description_step_up:
+            'Antes de alterar as configurações de segurança, o Account Center integrado exige um login recente. Se o login atual for mais antigo que a janela de autenticação recente configurada, o Account Center inicia um OIDC step-up e solicita que o usuário verifique sua identidade. Para permitir que os usuários visualizem ou gerenciem um método de verificação (e-mail, telefone ou senha) no Account Center, defina a permissão correspondente da Account API abaixo como <strong>Somente leitura</strong> ou <strong>Editar</strong>. Para essas operações sensíveis, os aplicativos que chamam a Account API diretamente ainda podem usar um ID de registro de verificação. <a>Saiba mais</a>',
         },
         groups: {
           identifiers: {
@@ -142,6 +158,9 @@ const sign_in_exp = {
           },
           session_management: {
             title: 'Gerenciamento de sessão',
+          },
+          developer_settings: {
+            title: 'Configurações de desenvolvedor',
           },
         },
       },
@@ -188,6 +207,9 @@ const sign_in_exp = {
         'Controle o acesso aos dados JSON personalizados armazenados no usuário.',
       sessions: 'Sessões',
       trusted_devices: 'Dispositivos confiáveis',
+      personal_access_tokens: 'Tokens de acesso pessoal',
+      personal_access_tokens_description:
+        'Habilitar isso permite que os usuários criem tokens de acesso pessoal de longa duração que permanecem ativos mesmo após sair da conta ou redefinir a senha, e podem ser trocados por tokens de acesso por qualquer aplicativo primário com troca de tokens habilitada.',
     },
     profile_fields: {
       title: 'Campos de perfil para o centro de conta pré-construído',
@@ -226,9 +248,9 @@ const sign_in_exp = {
       flows_title: 'Integrar fluxos de configuração de segurança prontos para uso',
       single_task_flows_title: 'Integre um fluxo de tarefa única pronto para uso',
       flows_description:
-        'Combine seu domínio com a rota para formar o URL de configurações da conta (por exemplo, https://auth.foo.com/account/email). Opcionalmente, adicione `redirect=` para retornar os usuários ao seu aplicativo após uma atualização bem-sucedida, `show_success=true` para manter a página de sucesso visível, `ui_locales=` para substituir o idioma padrão, ou `identifier=` para preencher previamente o campo de entrada do identificador.',
+        'Combine seu domínio com a rota para formar o URL de configurações da conta (por exemplo, https://auth.foo.com/account/email). Opcionalmente, adicione `redirect=` para retornar os usuários ao seu aplicativo após uma atualização bem-sucedida, `show_success=true` para manter a página de sucesso visível, `ui_locales=` para substituir o idioma padrão, ou `identifier=` para preencher previamente o novo valor na rota de email, telefone ou nome de usuário.',
       single_task_flows_description:
-        'Direcione os usuários diretamente para um fluxo específico (por exemplo, vinculação de email). Opcionalmente, adicione `redirect=` para retornar os usuários ao seu aplicativo após uma atualização bem-sucedida, `show_success=true` para manter a página de sucesso visível, `ui_locales=` para substituir o idioma padrão, ou `identifier=` para preencher previamente o campo de entrada do identificador.',
+        'Direcione os usuários diretamente para um fluxo específico (por exemplo, vinculação de email). Opcionalmente, adicione `redirect=` para retornar os usuários ao seu aplicativo após uma atualização bem-sucedida, `show_success=true` para manter a página de sucesso visível, `ui_locales=` para substituir o idioma padrão, ou `identifier=` para preencher previamente o novo valor na rota de email, telefone ou nome de usuário.',
       tooltips: {
         email: 'Atualize seu endereço de e-mail principal',
         phone: 'Atualize seu número de telefone principal',

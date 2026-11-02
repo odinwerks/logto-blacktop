@@ -4,8 +4,35 @@ import { z } from 'zod';
 const pendingConnectorCreationGuard = z.object({
   key: z.string().min(1),
   providerName: z.nativeEnum(SsoProviderName),
+  funding: z.enum(['included', 'personal']).optional(),
+  enterpriseId: z.string().min(1).optional(),
+  subscriptionId: z.string().optional(),
+  checkoutKey: z.string().optional(),
+  /**
+   * The billing Customer choice sent with every Checkout request for `checkoutKey`; `{}` means the
+   * default Customer. Saved before the first request, so a retry never asks again or sends another.
+   */
+  customerChoice: z
+    .object({
+      customerId: z.string().min(1).optional(),
+      newCustomer: z.literal(true).optional(),
+    })
+    .optional(),
+  sessionId: z.string().optional(),
 });
-const getPendingConnectorCreationStorageKey = (userId: string) => `console-sso:create:${userId}`;
+export type PendingConnectorCreation = z.infer<typeof pendingConnectorCreationGuard>;
+
+/** Persist recovery before any billing or connector write. */
+export const savePendingConnectorCreation = (
+  userId: string,
+  operation: PendingConnectorCreation
+) => {
+  localStorage.setItem(getPendingConnectorCreationStorageKey(userId), JSON.stringify(operation));
+  return operation;
+};
+
+export const getPendingConnectorCreationStorageKey = (userId: string) =>
+  `console-sso:create:${userId}`;
 
 /** Recover only the same user's operation; the server resolves customer ownership. */
 export const readPendingConnectorCreation = (userId: string) => {
@@ -19,6 +46,34 @@ export const readPendingConnectorCreation = (userId: string) => {
   } catch {}
 };
 
+const isSameCustomerChoice = (
+  left: PendingConnectorCreation['customerChoice'],
+  right: PendingConnectorCreation['customerChoice']
+) =>
+  left === right ||
+  (left !== undefined &&
+    right !== undefined &&
+    left.customerId === right.customerId &&
+    left.newCustomer === right.newCustomer);
+
+/** Ignore results from an operation or payment attempt replaced in another tab. */
+export const isPendingConnectorCreationCurrent = (
+  userId: string,
+  operation: PendingConnectorCreation
+) => {
+  const current = readPendingConnectorCreation(userId);
+  return (
+    current?.key === operation.key &&
+    current.providerName === operation.providerName &&
+    current.funding === operation.funding &&
+    current.enterpriseId === operation.enterpriseId &&
+    current.checkoutKey === operation.checkoutKey &&
+    isSameCustomerChoice(current.customerChoice, operation.customerChoice) &&
+    current.sessionId === operation.sessionId &&
+    current.subscriptionId === operation.subscriptionId
+  );
+};
+
 /** Persist before sending a request so a lost response or reload cannot create a duplicate. */
 export const getOrCreatePendingConnectorCreation = (
   userId: string,
@@ -29,8 +84,7 @@ export const getOrCreatePendingConnectorCreation = (
     return existing;
   }
   const operation = { key: crypto.randomUUID(), providerName };
-  localStorage.setItem(getPendingConnectorCreationStorageKey(userId), JSON.stringify(operation));
-  return operation;
+  return savePendingConnectorCreation(userId, operation);
 };
 
 export const clearPendingConnectorCreation = (userId: string) => {

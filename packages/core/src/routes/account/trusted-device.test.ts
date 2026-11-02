@@ -58,11 +58,13 @@ const buildRequester = ({
   identityVerified = true,
   scopes = new Set([UserScope.TrustedDevices]),
   clientId,
+  isFirstPartyClient,
 }: {
   field?: AccountCenterControlValue;
   identityVerified?: boolean;
   scopes?: Set<string>;
   clientId?: string;
+  isFirstPartyClient?: boolean;
 } = {}) => {
   return createRequester({
     middlewares: [koaI18next(), koaErrorHandler()],
@@ -75,6 +77,7 @@ const buildRequester = ({
             identityVerified,
             scopes,
             clientId,
+            isFirstPartyClient,
           };
           ctx.accountCenter = {
             enabled: true,
@@ -171,6 +174,20 @@ describe('account trusted device routes', () => {
     expect(findActiveByUserId).not.toHaveBeenCalled();
   });
 
+  it('rejects GET from a third-party application', async () => {
+    assertFirstPartyClient.mockRejectedValueOnce(
+      new RequestError({ code: 'auth.third_party_application_forbidden', status: 403 })
+    );
+
+    const response = await buildRequester({ clientId: 'third-party-application' }).get(
+      '/my-account/trusted-devices'
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.body).toHaveProperty('code', 'auth.third_party_application_forbidden');
+    expect(findActiveByUserId).not.toHaveBeenCalled();
+  });
+
   it('deletes an owned remote device without clearing the current credential', async () => {
     deleteByIdAndUserId.mockResolvedValueOnce(otherTrustedDevice);
 
@@ -228,5 +245,44 @@ describe('account trusted device routes', () => {
 
     expect(response.status).toBe(404);
     expect(clearCredential).not.toHaveBeenCalled();
+  });
+
+  describe('reauthentication challenge', () => {
+    it('asks a first-party caller that needs recent authentication to step up', async () => {
+      const response = await buildRequester({
+        identityVerified: false,
+        isFirstPartyClient: true,
+      }).get('/my-account/trusted-devices');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('code', 'verification_record.permission_denied');
+      expect(response.headers['www-authenticate']).toBe(
+        'Bearer error="insufficient_user_authentication", ' +
+          'error_description="Recent user authentication is required", ' +
+          'acr_values="urn:logto:acr:1fa", max_age="600"'
+      );
+    });
+
+    it.each([
+      ['a third-party caller, which cannot step up', { isFirstPartyClient: false }],
+      ['a caller whose application was not resolved', {}],
+    ])('does not challenge %s', async (_, options) => {
+      const response = await buildRequester({
+        ...options,
+        identityVerified: false,
+      }).get('/my-account/trusted-devices');
+
+      expect(response.status).toBe(401);
+      expect(response.headers['www-authenticate']).toBeUndefined();
+    });
+
+    it('does not challenge a caller that already carries recent authentication', async () => {
+      const response = await buildRequester({ isFirstPartyClient: true }).get(
+        '/my-account/trusted-devices'
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers['www-authenticate']).toBeUndefined();
+    });
   });
 });

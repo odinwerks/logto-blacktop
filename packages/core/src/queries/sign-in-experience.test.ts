@@ -1,4 +1,4 @@
-import { createMockPool, createMockQueryResult } from '@silverhand/slonik';
+import { createMockPool, createMockQueryResult, type QueryResultRow } from '@silverhand/slonik';
 
 import { mockSignInExperience } from '#src/__mocks__/index.js';
 import { EnvSet } from '#src/env-set/index.js';
@@ -54,7 +54,7 @@ describe('sign-in-experience query', () => {
   it('findDefaultSignInExperience', async () => {
     /* eslint-disable sql/no-unsafe-query */
     const expectSql = `
-      select "tenant_id", "id", "color", "branding", "hide_logto_branding", "language_info", "terms_of_use_url", "privacy_policy_url", "agree_to_terms_policy", "sign_in", "sign_up", "social_sign_in", "social_sign_in_connector_targets", "sign_in_mode", "custom_css", "custom_content", "custom_ui_assets", "custom_ui_csp", "password_policy", "mfa", "adaptive_mfa", "trusted_device", "single_sign_on_enabled", "support_email", "support_website_url", "unknown_session_redirect_url", "captcha_policy", "sentinel_policy", "email_blocklist_policy", "verification_code_policy", "forgot_password_methods", "passkey_sign_in", "sign_up_profile_fields", "password_expiration", "username_policy"
+      select "tenant_id", "id", "color", "branding", "hide_logto_branding", "language_info", "terms_of_use_url", "privacy_policy_url", "agree_to_terms_policy", "sign_in", "sign_up", "social_sign_in", "social_sign_in_connector_targets", "sign_in_mode", "custom_css", "custom_content", "custom_ui_assets", "custom_ui_csp", "cross_origin_opener_policy", "password_policy", "mfa", "adaptive_mfa", "trusted_device", "single_sign_on_enabled", "sso_branding_before_email_match", "support_email", "support_website_url", "unknown_session_redirect_url", "captcha_policy", "sentinel_policy", "email_blocklist_policy", "verification_code_policy", "forgot_password_methods", "passkey_sign_in", "sign_up_profile_fields", "password_expiration", "username_policy"
       from "sign_in_experiences"
       where "id"=$1
     `;
@@ -64,7 +64,7 @@ describe('sign-in-experience query', () => {
       expectSqlAssert(sql, expectSql);
       expect(values).toEqual([id]);
 
-      return createMockQueryResult([databaseValue as unknown as import('@silverhand/slonik').QueryResultRow]);
+      return createMockQueryResult([databaseValue as unknown as QueryResultRow]);
     });
 
     await expect(findDefaultSignInExperience()).resolves.toEqual(databaseValue);
@@ -86,7 +86,7 @@ describe('sign-in-experience query', () => {
       expectSqlAssert(sql, expectSql);
       expect(values).toEqual([termsOfUseUrl, id]);
 
-      return createMockQueryResult([databaseValue as unknown as import('@silverhand/slonik').QueryResultRow]);
+      return createMockQueryResult([databaseValue as unknown as QueryResultRow]);
     });
 
     await expect(updateDefaultSignInExperience({ termsOfUseUrl })).resolves.toEqual(databaseValue);

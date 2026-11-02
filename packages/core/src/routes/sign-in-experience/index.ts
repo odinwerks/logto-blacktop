@@ -3,6 +3,7 @@ import { DemoConnector } from '@logto/connector-kit';
 import { PasswordPolicyChecker } from '@logto/core-kit';
 import {
   ConnectorType,
+  CrossOriginOpenerPolicy,
   SignInExperiences,
   MfaPolicy,
   ProductEvent,
@@ -130,11 +131,26 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
         passkeySignIn,
         passwordExpiration,
         verificationCodePolicy,
+        crossOriginOpenerPolicy,
       } = rest;
 
       const normalizedSignUpProfileFields = await normalizeProfileFields(signUpProfileFields);
       const normalizedCustomUiCsp = conditional(customUiCsp && normalizeCustomUiCsp(customUiCsp));
       const hasCustomUiCsp = hasCustomUiCspSources(normalizedCustomUiCsp);
+      const hasCrossOriginOpenerPolicy =
+        crossOriginOpenerPolicy !== undefined &&
+        crossOriginOpenerPolicy !== CrossOriginOpenerPolicy.UnsafeNone;
+
+      if (hasCrossOriginOpenerPolicy) {
+        // Dev feature: Bring your UI COOP header
+        assertThat(
+          EnvSet.values.isDevFeaturesEnabled,
+          new RequestError({
+            code: 'request.invalid_input',
+            details: 'Cross-Origin-Opener-Policy configuration is not available',
+          })
+        );
+      }
 
       if (languageInfo) {
         await validateLanguageInfo(languageInfo);
@@ -357,15 +373,20 @@ export default function signInExperiencesRoutes<T extends ManagementApiRouter>(
         );
       }
 
+      const requiresBringYourUi =
+        hideLogtoBranding === true || hasCustomUiCsp || hasCrossOriginOpenerPolicy;
+
       /**
-       * On Cloud, both features are gated by the tenant subscription through the
-       * `bringYourUiEnabled` quota guard below. On a self-hosted deployment that guard is a no-op.
+       * On Cloud, hiding the Logto branding, the Custom UI CSP and the Cross-Origin-Opener-Policy
+       * are gated by the tenant subscription through the `bringYourUiEnabled` quota guard below.
+       * On a self-hosted deployment that guard is a no-op.
        *
-       * Blacktop: hiding the Logto branding and the Custom UI CSP are both unlocked on self-hosted.
-       * The Console offers both without a license, so the write has to accept them as well.
-       * Otherwise a saved value could never be set here and the branding would stay visible.
+       * Blacktop: hiding the Logto branding, the Custom UI CSP and the Cross-Origin-Opener-Policy
+       * are all unlocked on self-hosted. The Console offers them without a license, so the write
+       * has to accept them as well. Otherwise a saved value could never be set here and the
+       * branding would stay visible.
        */
-      if (hideLogtoBranding === true || hasCustomUiCsp) {
+      if (requiresBringYourUi) {
         await quota.guardTenantUsageByKey('bringYourUiEnabled');
       }
       if (passkeySignIn?.enabled) {

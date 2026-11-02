@@ -4,9 +4,9 @@ import type { ReactNode } from 'react';
 import { useCallback, useMemo, createContext, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router-dom';
 
-import { type TenantResponse } from '@/types/cloud-router';
 import { defaultTenantResponse } from '@/consts';
 import { isCloud } from '@/consts/env';
+import { type TenantResponse } from '@/types/cloud-router';
 
 /**
  * The reserved routes that don't require authentication.
@@ -31,6 +31,7 @@ export enum GlobalRoute {
   AcceptInvitation = '/accept',
   Profile = '/profile',
   ConsoleSso = '/console-sso',
+  SelfHostedLicenses = '/self-hosted-licenses',
 
   EnterpriseSubscription = '/subscriptions',
   DeleteAccount = '/delete-account',

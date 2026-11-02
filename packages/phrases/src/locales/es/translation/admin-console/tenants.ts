@@ -15,14 +15,14 @@ const tenants = {
   license: {
     purchase_title: 'PLANES AUTOALOJADOS',
     purchase_description:
-      'Los planes Pro y Empresa autoalojados desbloquean funciones de pago en tu propia instancia, como ocultar la marca de Logto, usar tu propia interfaz, SSO iniciado por el IdP, colaboración en la consola y aplicaciones SAML ilimitadas. Compra un plan para obtener tu clave de licencia.',
+      'Los planes Pro y Empresa autoalojados desbloquean funciones de pago en tu propia instancia, como ocultar la marca de Logto, usar tu propia interfaz, colaboración en la consola y aplicaciones SAML ilimitadas. Compra un plan para obtener tu clave de licencia.',
     purchase_button: 'Ver planes autoalojados',
     install_title: 'INSTALAR LICENCIA',
     install_description: 'Pega la clave de licencia que recibiste al comprar un plan autoalojado.',
     install_button: 'Instalar licencia',
     key_field: 'Clave de licencia',
     key_field_description:
-      'La clave se verifica en tu instancia y nunca sale de ella. Obtén una clave nueva desde tu cuenta de Logto si la que tienes ha caducado.',
+      'La clave se verifica en tu instancia y se envía a Logto cuando se actualiza la licencia. Contacta con Logto para obtener una clave nueva si la que tienes ha caducado.',
     key_placeholder: 'Pega aquí tu clave de licencia',
     installed_toast: 'Licencia instalada correctamente.',
     details_title: 'LICENCIA',
@@ -45,9 +45,16 @@ const tenants = {
     refusal_reason_revoked: 'revocada',
     refusal_reason_unknown: 'no disponible',
     grace_expired_description:
-      'El periodo de gracia de la licencia terminó el {{graceEndsAt}}. Esta implementación volvió a los valores predeterminados de OSS. Obtén una clave nueva desde Logto Cloud e instálala de nuevo.',
+      'El periodo de gracia de la licencia terminó el {{graceEndsAt}}. Esta implementación volvió a los valores predeterminados de OSS. Contacta con Logto para obtener una clave de licencia nueva e instálala de nuevo.',
     get_fresh_key_button: 'Obtener una clave nueva',
     replace_button: 'Reemplazar licencia',
+    usage_banner_description: 'Este despliegue supera los límites de uso de su plan autoalojado:',
+    usage_banner_metric: '{{metric}}: {{value}} (límite {{limit}})',
+    usage_banner_action:
+      'Contacta con nosotros en un plazo de 30 días para actualizar tu plan o reducir tu uso.',
+    usage_metric_mau: 'Usuarios activos mensuales',
+    usage_metric_access_tokens: 'Tokens de acceso mensuales',
+    usage_metric_production_deployments: 'Despliegues de producción',
   },
   members: {
     card_title: 'Administra los inquilinos de forma más segura con Logto Cloud',
@@ -102,6 +109,12 @@ const tenants = {
   full_env_tag: {
     development: 'Desarrollo',
     production: 'Producción',
+  },
+  view_only: {
+    tag: 'Solo lectura',
+    notification:
+      'Tienes acceso de solo lectura a este inquilino. Pide a un administrador del inquilino si necesitas hacer cambios.',
+    hidden: 'Oculto para lectores',
   },
   deletion_card: {
     title: 'ELIMINAR',

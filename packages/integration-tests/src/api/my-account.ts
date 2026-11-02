@@ -1,4 +1,6 @@
 import type {
+  AccountCreatedPersonalAccessTokenResponse,
+  AccountPersonalAccessTokenResponse,
   AccountTrustedDeviceResponse,
   GetAccountUserSessionsResponse,
   GetUserApplicationGrantsResponse,
@@ -159,19 +161,20 @@ export const deleteMfaVerification = async (
   });
 
 export const getMfaSettings = async (api: KyInstance) =>
-  api.get('api/my-account/mfa-settings').json<{ skipMfaOnSignIn: boolean }>();
+  api.get('api/my-account/mfa-settings').json<{ skipMfaOnSignIn: boolean; enabled?: boolean }>();
 
 export const updateMfaSettings = async (
   api: KyInstance,
   verificationRecordId: string,
-  skipMfaOnSignIn: boolean
+  skipMfaOnSignIn: boolean,
+  enabled?: boolean
 ) =>
   api
     .patch('api/my-account/mfa-settings', {
-      json: { skipMfaOnSignIn },
+      json: { skipMfaOnSignIn, ...(enabled === undefined ? {} : { enabled }) },
       headers: { [verificationRecordIdHeader]: verificationRecordId },
     })
-    .json<{ skipMfaOnSignIn: boolean }>();
+    .json<{ skipMfaOnSignIn: boolean; enabled?: boolean }>();
 
 export const getMyLogtoConfig = async (api: KyInstance) =>
   api.get('api/my-account/logto-configs').json<{
@@ -211,6 +214,11 @@ export const updateSocialAccessToken = async (
     .put(`api/my-account/identities/${target}/access-token`, {
       json: { verificationRecordId },
     })
+    .json<GetThirdPartyAccessTokenResponse>();
+
+export const getEnterpriseSsoAccessToken = async (api: KyInstance, connectorId: string) =>
+  api
+    .get(`api/my-account/sso-identities/${connectorId}/access-token`)
     .json<GetThirdPartyAccessTokenResponse>();
 
 export const getSessions = async (api: KyInstance, verificationRecordId: string) =>
@@ -278,4 +286,47 @@ export const deleteTrustedDevice = async (
 ) =>
   api.delete(`api/my-account/trusted-devices/${trustedDeviceId}`, {
     headers: { [verificationRecordIdHeader]: verificationRecordId },
+  });
+
+export const getPersonalAccessTokens = async (api: KyInstance) =>
+  api.get('api/my-account/personal-access-tokens').json<AccountPersonalAccessTokenResponse[]>();
+
+export const createPersonalAccessToken = async (
+  api: KyInstance,
+  body: { name: string; expiresAt: number },
+  verificationRecordId?: string
+) =>
+  api
+    .post('api/my-account/personal-access-tokens', {
+      json: body,
+      ...conditional(
+        verificationRecordId && { headers: { [verificationRecordIdHeader]: verificationRecordId } }
+      ),
+    })
+    .json<AccountCreatedPersonalAccessTokenResponse>();
+
+export const renamePersonalAccessToken = async (
+  api: KyInstance,
+  body: { currentName: string; name: string },
+  verificationRecordId?: string
+) =>
+  api
+    .patch('api/my-account/personal-access-tokens', {
+      json: body,
+      ...conditional(
+        verificationRecordId && { headers: { [verificationRecordIdHeader]: verificationRecordId } }
+      ),
+    })
+    .json<AccountPersonalAccessTokenResponse>();
+
+export const deletePersonalAccessToken = async (
+  api: KyInstance,
+  name: string,
+  verificationRecordId?: string
+) =>
+  api.post('api/my-account/personal-access-tokens/delete', {
+    json: { name },
+    ...conditional(
+      verificationRecordId && { headers: { [verificationRecordIdHeader]: verificationRecordId } }
+    ),
   });

@@ -1,11 +1,14 @@
-import { InteractionEvent, type SocialVerificationCallbackPayload } from '@logto/schemas';
+import {
+  InteractionEvent,
+  type SocialVerificationCallbackPayload,
+  type SsoConnectorMetadata,
+} from '@logto/schemas';
 
 import api from '../api';
 
 import { experienceApiRoutes, type VerificationResponse } from './const';
 import {
   identifyAndSubmitInteraction,
-  initInteraction,
   updateInteractionEvent,
   identifyUser,
   submitInteraction,
@@ -16,10 +19,8 @@ export const getSocialAuthorizationUrl = async (
   connectorId: string,
   state: string,
   redirectUri: string
-) => {
-  await initInteraction(InteractionEvent.SignIn);
-
-  return api
+) =>
+  api
     .post(`${experienceApiRoutes.verification}/social/${connectorId}/authorization-uri`, {
       json: {
         state,
@@ -31,7 +32,6 @@ export const getSocialAuthorizationUrl = async (
         authorizationUri: string;
       }
     >();
-};
 
 export const verifySocialVerification = async (
   connectorId: string,
@@ -56,12 +56,10 @@ export const getSsoConnectors = async (email: string) =>
         email,
       },
     })
-    .json<{ connectorIds: string[] }>();
+    .json<{ connectorIds: string[]; connectors?: SsoConnectorMetadata[] }>();
 
-export const getSsoAuthorizationUrl = async (connectorId: string, payload: unknown) => {
-  await initInteraction(InteractionEvent.SignIn);
-
-  return api
+export const getSsoAuthorizationUrl = async (connectorId: string, payload: unknown) =>
+  api
     .post(`${experienceApiRoutes.verification}/sso/${connectorId}/authorization-uri`, {
       json: payload,
     })
@@ -70,15 +68,20 @@ export const getSsoAuthorizationUrl = async (connectorId: string, payload: unkno
         authorizationUri: string;
       }
     >();
-};
+
+export const verifySsoVerification = async (
+  connectorId: string,
+  payload: SocialVerificationCallbackPayload & { verificationId: string }
+) =>
+  api.post(`${experienceApiRoutes.verification}/sso/${connectorId}/verify`, {
+    json: payload,
+  });
 
 export const signInWithSso = async (
   connectorId: string,
   payload: SocialVerificationCallbackPayload & { verificationId: string }
 ) => {
-  await api.post(`${experienceApiRoutes.verification}/sso/${connectorId}/verify`, {
-    json: payload,
-  });
+  await verifySsoVerification(connectorId, payload);
 
   return identifyAndSubmitInteraction({ verificationId: payload.verificationId });
 };

@@ -106,7 +106,7 @@ export default function avatarRoutes<T extends UserRouter>(
 
       // Return updated profile
       const { profile, user } = await getScopedProfile(queries, libraries, scopes, userId);
-      ctx.body = getAccountCenterFilteredProfile(profile, ctx.accountCenter, user);
+      ctx.body = getAccountCenterFilteredProfile(profile, ctx.accountCenter, scopes, user);
 
       return next();
     }

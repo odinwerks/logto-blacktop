@@ -6,7 +6,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import CloudUploadIcon from '@/assets/icons/cloud-upload.svg?react';
 import CustomCssEditorField from '@/components/CustomCssEditorField';
 import { CloudTag } from '@/components/FeatureTag';
-import { isCloud } from '@/consts/env';
+import { isCloud, isDevFeaturesEnabled } from '@/consts/env';
 import { latestProPlanId } from '@/consts/subscriptions';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import Card from '@/ds-components/Card';
@@ -20,6 +20,7 @@ import useBrandingEntitlements from '../../../hooks/use-branding-entitlements';
 import type { SignInExperienceForm } from '../../../types';
 import FormSectionTitle from '../../components/FormSectionTitle';
 
+import CrossOriginOpenerPolicyField from './CrossOriginOpenerPolicyField';
 import CustomUiCspForm from './CustomUiCspForm';
 import styles from './index.module.scss';
 import { getOssBringYourUiCardContent } from './utils';
@@ -58,22 +59,11 @@ function OssBringYourUiCard() {
                     className={styles.highlight}
                   />
                 ),
+                selfHosted: (
+                  <TextLink to={cardContent.selfHostedHref} className={styles.highlight} />
+                ),
               }}
             />
-            {cardContent.hasSelfHostedPlansOption && (
-              <>
-                {' · '}
-                <TextLink
-                  {...(cardContent.selfHostedTargetBlank
-                    ? { href: cardContent.selfHostedHref }
-                    : { to: cardContent.selfHostedHref })}
-                  targetBlank={cardContent.selfHostedTargetBlank}
-                  className={styles.highlight}
-                >
-                  <DynamicT forKey="upsell.explore_self_hosted_plans" />
-                </TextLink>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -85,7 +75,7 @@ function CustomUiForm() {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { getDocumentationUrl } = useDocumentationUrl();
   const { control } = useFormContext<SignInExperienceForm>();
-  const { currentSubscriptionQuota, license } = useContext(SubscriptionDataContext);
+  const { currentSubscriptionQuota } = useContext(SubscriptionDataContext);
   const isBringYourUiEnabled = currentSubscriptionQuota.bringYourUiEnabled;
   const { isCustomUiCspEnabled } = useBrandingEntitlements();
   // A self-hosted license that grants Bring your UI unlocks the upload, onto the storage the
@@ -140,6 +130,10 @@ function CustomUiForm() {
           </FormField>
         )}
         {shouldShowCustomUiCspForm && <CustomUiCspForm isDisabled={!isCustomUiCspEnabled} />}
+        {/* Dev feature: Bring your UI COOP header */}
+        {isDevFeaturesEnabled && shouldShowCustomUiCspForm && (
+          <CrossOriginOpenerPolicyField isDisabled={!isCustomUiCspEnabled} />
+        )}
         {shouldShowOssBringYourUi && <OssBringYourUiCard />}
       </Card>
     </>

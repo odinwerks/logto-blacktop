@@ -4,7 +4,7 @@ import AdmZip from 'adm-zip';
 import { baseApi, authedAdminApi } from '#src/api/api.js';
 import { updateSignInExperience } from '#src/api/index.js';
 import { putSystemLicense } from '#src/api/system.js';
-import { isDevFeaturesEnabled, isExperienceBlobsStorageConfigured } from '#src/constants.js';
+import { isExperienceBlobsStorageConfigured } from '#src/constants.js';
 import { expectRejects } from '#src/helpers/index.js';
 import { buildTestLicensePayload, signTestLicenseKey } from '#src/helpers/license.js';
 
@@ -20,7 +20,7 @@ const buildAssetsFormData = () => {
   const formData = new FormData();
   formData.append(
     'file',
-    new Blob([zip.toBuffer()], { type: 'application/zip' }),
+    new Blob([new Uint8Array(zip.toBuffer())], { type: 'application/zip' }),
     'custom-ui-assets.zip'
   );
 
@@ -45,8 +45,7 @@ const installLicense = async (bringYourUi: boolean) =>
  * are only read on startup, so this needs an instance started with that storage, which the Docker
  * Compose integration setup provides with an S3 mock.
  */
-const describeWithStorage =
-  isDevFeaturesEnabled && isExperienceBlobsStorageConfigured ? describe : describe.skip;
+const describeWithStorage = isExperienceBlobsStorageConfigured ? describe : describe.skip;
 
 describeWithStorage('self-hosted Bring your UI', () => {
   afterAll(async () => {

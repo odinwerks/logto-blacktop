@@ -109,8 +109,22 @@ const sign_in_exp = {
     csp_source_invalid_error:
       '有効なソース式を入力してください。https:// URL を使用してください。connect-src では wss:// もサポートされています。CSP キーワードとセミコロンはサポートされていません。',
     csp_source_duplicate_error: 'このソース式はすでに一覧に含まれています。',
+    coop_tip:
+      'カスタムサインイン UI をクロスオリジンのウィンドウから分離します。カスタム UI アセットが提供される場合にのみ適用されます。',
+    coop_unsafe_none: '未設定（デフォルト）',
+    coop_same_origin_allow_popups: 'same-origin-allow-popups（推奨）',
+    coop_warning:
+      'サインインページをクロスオリジンのポップアップで開き、window.opener に依存しているアプリは動作しなくなります。same-origin は、ソーシャルサインインのウィンドウなど、カスタム UI 自体が開くポップアップも切り離します。',
   },
   account_center: {
+    recent_authentication: {
+      title: '最近の認証',
+      description:
+        'パスワードの変更や2段階認証の無効化など、機密性の高いアカウント操作では、Account Center でも Account API を呼び出すアプリでも、最近のサインインが必要です。この期間は、サインインがどれくらい最近である必要があるかを定義します。',
+      maximum_authentication_age_in_minutes: '最大認証経過時間（分）',
+      maximum_authentication_age_in_minutes_tip:
+        'サインインが機密性の高い操作に対して十分新しいとみなされる期間です。クライアントは `max_age` パラメーターでより短い期間を要求できます。',
+    },
     title: 'アカウントセンター',
     description: 'Logto API を使用してアカウントセンターのフローをカスタマイズします。',
     enable_account_api: 'アカウントセンターと Account API を有効化',
@@ -132,6 +146,8 @@ const sign_in_exp = {
           title: 'セキュリティ検証',
           description:
             'セキュリティ設定を変更する前に、ユーザーは本人確認を行い、有効期限 10 分の検証レコード ID を取得する必要があります。検証方法（メール、電話、パスワード）を有効にするには、下記の Account API 権限を<strong>閲覧のみ</strong>（最低限）または<strong>編集</strong>に設定し、ユーザーが設定済みかどうかをシステムが検出できるようにしてください。<a>詳細</a>',
+          description_step_up:
+            'セキュリティ設定を変更する前に、組み込みの Account Center では最近のサインインが必要です。現在のサインインが設定された最近の認証期間より古い場合、Account Center は OIDC step-up を開始し、ユーザーに本人確認を求めます。ユーザーが Account Center で確認方法（メール、電話、パスワード）を表示または管理できるようにするには、下記の対応する Account API 権限を<strong>閲覧のみ</strong>または<strong>編集</strong>に設定してください。これらの機密性の高い操作では、Account API を直接呼び出すアプリは引き続き検証レコード ID を使用できます。<a>詳細</a>',
         },
         groups: {
           identifiers: {
@@ -142,6 +158,9 @@ const sign_in_exp = {
           },
           session_management: {
             title: 'セッション管理',
+          },
+          developer_settings: {
+            title: '開発者設定',
           },
         },
       },
@@ -187,6 +206,9 @@ const sign_in_exp = {
         'ユーザーに保存されているカスタム JSON データへのアクセスを制御します。',
       sessions: 'セッション',
       trusted_devices: '信頼済みデバイス',
+      personal_access_tokens: '個人用アクセストークン',
+      personal_access_tokens_description:
+        'これを有効にすると、ユーザーはサインアウトやパスワードのリセット後も有効な長期の個人用アクセストークンを作成でき、トークン交換が有効な任意のファーストパーティアプリケーションでアクセストークンと交換できるようになります。',
     },
     profile_fields: {
       title: 'ビルトインアカウントセンターのプロフィールフィールド',
@@ -225,9 +247,9 @@ const sign_in_exp = {
       flows_title: 'すぐに使えるセキュリティ設定フローを統合',
       single_task_flows_title: 'すぐに使える単一タスクフローを統合',
       flows_description:
-        'ドメインとルートを組み合わせてアカウント設定 URL を形成します（例: https://auth.foo.com/account/email）。オプションで `redirect=` を追加して更新成功後にユーザーをアプリに戻したり、`show_success=true` で成功ページを表示し続けたり、`ui_locales=` でデフォルト言語を上書きしたり、`identifier=` で識別子入力フィールドを事前入力したりできます。',
+        'ドメインとルートを組み合わせてアカウント設定 URL を形成します（例: https://auth.foo.com/account/email）。オプションで `redirect=` を追加して更新成功後にユーザーをアプリに戻したり、`show_success=true` で成功ページを表示し続けたり、`ui_locales=` でデフォルト言語を上書きしたり、`identifier=` でメール・電話番号・ユーザー名のルートで新しい値を事前入力したりできます。',
       single_task_flows_description:
-        'ユーザーを特定のフロー（例: メール連携）に直接ルーティングします。オプションで、成功した更新後にユーザーをアプリに戻すための `redirect=`、成功ページを表示し続けるための `show_success=true`、デフォルト言語を上書きするための `ui_locales=`、または識別子入力フィールドを事前入力するための `identifier=` を追加できます。',
+        'ユーザーを特定のフロー（例: メール連携）に直接ルーティングします。オプションで、成功した更新後にユーザーをアプリに戻すための `redirect=`、成功ページを表示し続けるための `show_success=true`、デフォルト言語を上書きするための `ui_locales=`、またはメール・電話番号・ユーザー名のルートで新しい値を事前入力するための `identifier=` を追加できます。',
       tooltips: {
         email: 'プライマリメールアドレスを更新',
         phone: 'プライマリ電話番号を更新',

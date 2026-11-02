@@ -42,13 +42,6 @@ export default function initMeApis(tenant: TenantContext): Koa {
   socialRoutes(meRouter, tenant);
   verificationCodeRoutes(meRouter, tenant);
   userAssetsRoutes(meRouter, tenant);
-
-  /**
-   * Self-hosted plans: tenant settings managed by the tenant members of a self-hosted deployment:
-   * mandatory Console MFA, and the members and invitations.
-   * Blacktop: mounted unconditionally — the Console surfaces these pages on self-hosted, so
-   * gating the routes behind dev features leaves the tab calling 404 APIs.
-   */
   tenantRoutes(meRouter, tenant);
   tenantMemberRoutes(meRouter, tenant);
   tenantInvitationRoutes(meRouter, tenant);

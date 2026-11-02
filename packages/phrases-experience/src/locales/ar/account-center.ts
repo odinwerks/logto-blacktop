@@ -17,36 +17,10 @@ const account_center = {
     sign_out: 'تسجيل الخروج',
   },
   verification: {
-    title: 'التحقق الأمني',
-    description:
-      'تحقق من أنك الشخص المقصود لحماية أمان حسابك. يرجى اختيار الطريقة للتحقق من هويتك.',
     error_send_failed: 'فشل إرسال رمز التحقق. يرجى المحاولة لاحقًا.',
     error_invalid_code: 'رمز التحقق غير صالح أو منتهي الصلاحية.',
     error_verify_failed: 'فشل التحقق. يرجى إدخال الرمز مرة أخرى.',
-    verification_required: 'انتهت صلاحية التحقق. يرجى التحقق من هويتك مرة أخرى.',
-    try_another_method: 'جرّب طريقة أخرى للتحقق',
-    no_available_methods_title: 'لا توجد طرق تحقق متاحة',
-    no_available_methods_description:
-      'لم تقم بإعداد أي طرق للتحقق. يرجى إضافة كلمة مرور أو بريد إلكتروني أو رقم هاتف إلى حسابك أولًا.',
-  },
-  password_verification: {
-    title: 'التحقق من كلمة المرور',
-    description: 'لحماية أمان حسابك، أدخل كلمة المرور للتحقق من هويتك.',
-    error_failed: 'كلمة المرور غير صحيحة. يرجى التحقق من المدخلات.',
-  },
-  verification_method: {
-    password: {
-      name: 'كلمة المرور',
-      description: 'تحقق من كلمة المرور الخاصة بك',
-    },
-    email: {
-      name: 'رمز التحقق عبر البريد الإلكتروني',
-      description: 'أرسل رمز التحقق إلى بريدك الإلكتروني',
-    },
-    phone: {
-      name: 'رمز التحقق عبر الهاتف',
-      description: 'أرسل رمز التحقق إلى رقم هاتفك',
-    },
+    step_up_not_completed: 'لم يكتمل التحقق من الهوية. لم يتم إجراء أي تغييرات على حسابك.',
   },
   email: {
     title: 'ربط البريد الإلكتروني',
@@ -54,7 +28,6 @@ const account_center = {
     verification_title: 'أدخل رمز التحقق من البريد الإلكتروني',
     verification_description: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني {{email_address}}.',
     success: 'تم ربط البريد الإلكتروني الأساسي بنجاح.',
-    verification_required: 'انتهت صلاحية التحقق. يرجى التحقق من هويتك مرة أخرى.',
   },
   phone: {
     title: 'ربط رقم الهاتف',
@@ -62,7 +35,6 @@ const account_center = {
     verification_title: 'أدخل رمز التحقق عبر الرسائل القصيرة',
     verification_description: 'تم إرسال رمز التحقق إلى هاتفك {{phone_number}}.',
     success: 'تم ربط الهاتف الأساسي بنجاح.',
-    verification_required: 'انتهت صلاحية التحقق. يرجى التحقق من هويتك مرة أخرى.',
   },
   username: {
     title: 'تعيين اسم المستخدم',
@@ -97,12 +69,17 @@ const account_center = {
     manage: 'إدارة',
     turn_on_2_step_verification_description:
       'أضف طبقة أمان إضافية. ستتم مطالبتك بخطوة تحقق ثانية عند تسجيل الدخول.',
+    two_step_verification_incomplete_description: 'التحقق بخطوتين مفعّل، لكنه غير نشط بعد.',
+    two_step_verification_off_description:
+      'تفضيلك للتحقق بخطوتين متوقف. قد يظل مطلوبًا إجراء تحقق إضافي وفقًا لسياسات الأمان.',
     turn_off_2_step_verification: 'إيقاف التحقق بخطوتين',
     turn_off_2_step_verification_description:
       'سيؤدي تعطيل التحقق بخطوتين إلى إزالة طبقة الحماية الإضافية من حسابك عند تسجيل الدخول. هل أنت متأكد أنك تريد المتابعة؟',
     disable_2_step_verification: 'تعطيل',
     no_verification_method_warning:
-      'لم تقم بإضافة طريقة تحقق ثانية. أضف طريقة واحدة على الأقل لتفعيل التحقق بخطوتين عند تسجيل الدخول.',
+      'الإعداد غير مكتمل. أضف طريقة تحقق أدناه لإكمال إعداد التحقق بخطوتين.',
+    two_step_verification_load_failed: 'تعذر تحميل إعدادات التحقق بخطوتين. حاول مرة أخرى.',
+    two_step_verification_retry: 'إعادة المحاولة',
     passkey_sign_in_prompt: 'مطالبة بإعداد مفتاح مرور',
     passkey_sign_in_prompt_description:
       'عند التفعيل، سيُطلب منك إعداد مفتاح مرور لتسجيل دخول أسرع وأكثر أمانًا.',
@@ -136,6 +113,41 @@ const account_center = {
       remove_confirmation_description:
         'ستحتاج إلى إكمال المصادقة متعددة العوامل مرة أخرى على هذا الجهاز في المرة القادمة التي تسجل فيها الدخول. ستظل جلستك الحالية نشطة.',
     },
+    personal_access_tokens: {
+      title: 'رموز الوصول الشخصية',
+      description:
+        'استخدم رموز الوصول الشخصية للمصادقة مع واجهات برمجة التطبيقات نيابةً عنك. تظل نشطة حتى تنتهي صلاحيتها أو تقوم بإلغائها، حتى لو قمت بتسجيل الخروج أو تغيير كلمة المرور الخاصة بك.',
+      create: 'إنشاء رمز جديد',
+      created_at: 'تم الإنشاء في {{date}}',
+      expires_on: 'ينتهي في {{date}}',
+      expired_on: 'انتهت صلاحيته في {{date}}',
+      expired: 'منتهي الصلاحية',
+      never_expires: 'لا تنتهي صلاحيته أبدًا',
+      never_expires_warning:
+        'لا يحتوي هذا الرمز على تاريخ انتهاء صلاحية. لمزيد من الأمان، أنشئ رمزًا جديدًا بتاريخ انتهاء صلاحية وألغِ هذا الرمز.',
+      rename: 'إعادة تسمية',
+      revoke: 'إلغاء',
+      loading: 'جارٍ التحميل...',
+      empty: 'لا توجد رموز وصول شخصية.',
+      load_failed: 'فشل تحميل رموز الوصول الشخصية. يرجى المحاولة مرة أخرى.',
+      retry: 'حاول مرة أخرى',
+      create_modal_title: 'إنشاء رمز وصول شخصي',
+      create_modal_description: 'أعطِ رمزك اسمًا وصفيًا واختر فترة انتهاء الصلاحية.',
+      token_name: 'اسم الرمز',
+      token_name_placeholder: 'رمزي',
+      expiration: 'انتهاء الصلاحية',
+      expiration_days: '{{count}} يومًا',
+      created_modal_title: 'تم إنشاء رمز الوصول الشخصي',
+      show_once_warning: 'لن تتمكن من رؤية هذا الرمز مرة أخرى. انسخه الآن واحفظه في مكان آمن.',
+      copied: 'تم نسخ رمز الوصول الشخصي.',
+      rename_modal_title: 'إعادة تسمية رمز الوصول الشخصي',
+      rename_modal_description: 'أدخل اسمًا جديدًا لرمز الوصول الشخصي هذا.',
+      renamed: 'تمت إعادة تسمية رمز الوصول الشخصي بنجاح.',
+      revoke_confirmation_title: 'هل تريد إلغاء رمز الوصول الشخصي؟',
+      revoke_confirmation_description:
+        'ستفقد أي تطبيقات أو نصوص برمجية تستخدم "{{name}}" إمكانية الوصول فورًا. هل أنت متأكد أنك تريد المتابعة؟',
+      revoked: 'تم إلغاء رمز الوصول الشخصي بنجاح.',
+    },
   },
   social: {
     linked: 'تم ربط {{connector}} بنجاح.',
@@ -157,30 +169,10 @@ const account_center = {
     resend_countdown: 'لم تستلمه بعد؟ أعد الإرسال بعد {{seconds}} ث.',
   },
   email_verification: {
-    title: 'تحقق من بريدك الإلكتروني',
-    prepare_description: 'تحقق من هويتك لحماية أمان حسابك. أرسل رمز التحقق إلى بريدك الإلكتروني.',
     email_label: 'عنوان البريد الإلكتروني',
-    send: 'إرسال رمز التحقق',
-    description: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني {{email}}. أدخل الرمز للمتابعة.',
-    resend: 'لم تستلمه بعد؟ <a>إعادة إرسال رمز التحقق</a>',
-    not_received: 'لم تستلمه بعد؟',
-    resend_action: 'إعادة إرسال رمز التحقق',
-    resend_countdown: 'لم تستلمه بعد؟ أعد الإرسال بعد {{seconds}} ث.',
-    error_send_failed: 'فشل إرسال رمز التحقق. يرجى المحاولة لاحقًا.',
-    error_verify_failed: 'فشل التحقق. يرجى إدخال الرمز مرة أخرى.',
-    error_invalid_code: 'رمز التحقق غير صالح أو منتهي الصلاحية.',
   },
   phone_verification: {
-    title: 'تحقق من هاتفك',
-    prepare_description: 'تحقق من هويتك لحماية أمان حسابك. أرسل رمز التحقق إلى هاتفك.',
     phone_label: 'رقم الهاتف',
-    send: 'إرسال رمز التحقق',
-    description: 'تم إرسال رمز التحقق إلى هاتفك {{phone}}. أدخل الرمز للمتابعة.',
-    resend: 'لم تستلمه بعد؟ <a>إعادة إرسال رمز التحقق</a>',
-    resend_countdown: 'لم تستلمه بعد؟ أعد الإرسال بعد {{seconds}} ث.',
-    error_send_failed: 'فشل إرسال رمز التحقق. يرجى المحاولة لاحقًا.',
-    error_verify_failed: 'فشل التحقق. يرجى إدخال الرمز مرة أخرى.',
-    error_invalid_code: 'رمز التحقق غير صالح أو منتهي الصلاحية.',
   },
   mfa: {
     totp_already_added: 'لقد أضفت تطبيق مصادقة بالفعل. يرجى إزالة التطبيق الحالي أولاً.',

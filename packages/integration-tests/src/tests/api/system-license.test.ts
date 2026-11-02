@@ -1,15 +1,15 @@
 import { LicenseEnv, ReservedPlanId, ossDefaultQuota } from '@logto/schemas';
 
 import { getSystemLicense, putSystemLicense } from '#src/api/system.js';
+import { isDevFeaturesEnabled } from '#src/constants.js';
 import { expectRejects } from '#src/helpers/index.js';
 import { buildTestLicensePayload, signTestLicenseKey } from '#src/helpers/license.js';
-import { devFeatureTest } from '#src/utils.js';
 
 const oneYearInSeconds = 365 * 24 * 60 * 60;
 
 /**
  * Flip the first character of the signature, so the key no longer verifies. The last character is
- * no good for this: the final base64url character of a 64-byte Ed25519 signature only carries
+ * no good for this: the final base64url character of a 64-byte ES256 signature only carries
  * padding bits, and changing it can leave the decoded signature untouched.
  */
 const tamper = (license: string) => {
@@ -30,16 +30,24 @@ const payload = buildTestLicensePayload({
 });
 const license = await signTestLicenseKey(payload);
 
-// The license, its routes and the reader are behind the self-hosted plans feature, which the
-// instance under test only enables with `DEV_FEATURES_ENABLED`.
-devFeatureTest.describe('self-hosted license', () => {
+describe('self-hosted license', () => {
   beforeAll(async () => {
     const response = await putSystemLicense(license);
     expect(response.status).toEqual(204);
   });
 
   it('should return the entitlements of the installed license', async () => {
-    const { installedAt, lastRefreshedAt, graceEndsAt, ...entitlements } = await getSystemLicense();
+    const {
+      installedAt,
+      lastRefreshedAt,
+      graceEndsAt,
+      // Self-hosted license usage reporting is still in development, and covered on its own.
+      usageLimits,
+      usage,
+      usageWarnings,
+      usageReportingEnabled,
+      ...entitlements
+    } = await getSystemLicense();
 
     expect(entitlements).toEqual({
       plan: ReservedPlanId.SelfHostedPro,
@@ -59,15 +67,23 @@ devFeatureTest.describe('self-hosted license', () => {
   it('should never return the raw license key', async () => {
     const response = await getSystemLicense();
 
-    expect(Object.keys(response).slice().sort()).toEqual([
-      'env',
-      'expiresAt',
-      'graceEndsAt',
-      'installedAt',
-      'lastRefreshedAt',
-      'plan',
-      'quota',
-    ]);
+    expect(Object.keys(response).slice().sort()).toEqual(
+      [
+        'env',
+        'expiresAt',
+        'graceEndsAt',
+        'installedAt',
+        'lastRefreshedAt',
+        'plan',
+        'quota',
+        // Self-hosted license usage reporting is still in development.
+        ...(isDevFeaturesEnabled
+          ? ['usage', 'usageLimits', 'usageReportingEnabled', 'usageWarnings']
+          : []),
+      ]
+        .slice()
+        .sort()
+    );
     expect(JSON.stringify(response)).not.toContain(license);
   });
 
@@ -110,7 +126,17 @@ devFeatureTest.describe('self-hosted license', () => {
 
     expect(response.status).toEqual(204);
 
-    const { installedAt, lastRefreshedAt, graceEndsAt, ...entitlements } = await getSystemLicense();
+    const {
+      installedAt,
+      lastRefreshedAt,
+      graceEndsAt,
+      // Self-hosted license usage reporting is still in development, and covered on its own.
+      usageLimits,
+      usage,
+      usageWarnings,
+      usageReportingEnabled,
+      ...entitlements
+    } = await getSystemLicense();
 
     expect(entitlements).toEqual({
       plan: ReservedPlanId.SelfHostedEnterprise,

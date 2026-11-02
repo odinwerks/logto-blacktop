@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Sayfa bulunamadı',
@@ -19,36 +18,11 @@ const account_center = {
     sign_out: 'Oturumu kapat',
   },
   verification: {
-    title: 'Güvenlik doğrulaması',
-    description:
-      'Hesap güvenliğinizi korumak için siz olduğunuzu doğrulayın. Kimliğinizi doğrulamak için lütfen yöntemi seçin.',
     error_send_failed: 'Doğrulama kodu gönderilemedi. Lütfen daha sonra tekrar dene.',
     error_invalid_code: 'Doğrulama kodu geçersiz veya süresi dolmuş.',
     error_verify_failed: 'Doğrulama başarısız. Lütfen kodu tekrar gir.',
-    verification_required: 'Doğrulama süresi doldu. Lütfen kimliğini yeniden doğrula.',
-    try_another_method: 'Başka bir doğrulama yöntemi deneyin',
-    no_available_methods_title: 'Kullanılabilir doğrulama yöntemi yok',
-    no_available_methods_description:
-      'Ayarlanmış herhangi bir doğrulama yönteminiz yok. Lütfen önce hesabınıza bir parola, e-posta adresi veya telefon numarası ekleyin.',
-  },
-  password_verification: {
-    title: 'Parolayı doğrula',
-    description: 'Hesabını korumak için kimliğini doğrula. Parolanı gir.',
-    error_failed: 'Yanlış parola. Lütfen girişinizi kontrol edin.',
-  },
-  verification_method: {
-    password: {
-      name: 'Parola',
-      description: 'Parolanızı doğrulayın',
-    },
-    email: {
-      name: 'E-posta doğrulama kodu',
-      description: 'Doğrulama kodunu e-postana gönder',
-    },
-    phone: {
-      name: 'Telefon doğrulama kodu',
-      description: 'Doğrulama kodunu telefon numarana gönder',
-    },
+    step_up_not_completed:
+      'Kimlik doğrulaması tamamlanmadı. Hesabınızda herhangi bir değişiklik yapılmadı.',
   },
   email: {
     title: 'E-postayı bağla',
@@ -56,7 +30,6 @@ const account_center = {
     verification_title: 'E-posta doğrulama kodunu gir',
     verification_description: 'Doğrulama kodu e-postana {{email_address}} gönderildi.',
     success: 'Birincil e-posta başarıyla bağlandı.',
-    verification_required: 'Doğrulama süresi doldu. Lütfen kimliğini yeniden doğrula.',
   },
   phone: {
     title: 'Telefon numarasını bağla',
@@ -64,7 +37,6 @@ const account_center = {
     verification_title: 'SMS doğrulama kodunu gir',
     verification_description: 'Doğrulama kodu telefonuna {{phone_number}} gönderildi.',
     success: 'Birincil telefon başarıyla bağlandı.',
-    verification_required: 'Doğrulama süresi doldu. Lütfen kimliğini yeniden doğrula.',
   },
   username: {
     title: 'Kullanıcı adını ayarla',
@@ -99,12 +71,19 @@ const account_center = {
     manage: 'Yönet',
     turn_on_2_step_verification_description:
       'Ekstra bir güvenlik katmanı ekleyin. Oturum açarken ikinci bir doğrulama adımı istenecektir.',
+    two_step_verification_incomplete_description:
+      '2 adımlı doğrulama açık, ancak henüz etkin değil.',
+    two_step_verification_off_description:
+      '2 adımlı doğrulama tercihiniz kapalı. Güvenlik politikaları ek doğrulama gerektirmeye devam edebilir.',
     turn_off_2_step_verification: '2 adımlı doğrulamayı kapat',
     turn_off_2_step_verification_description:
       '2 adımlı doğrulamayı devre dışı bırakmak, oturum açarken hesabınızdaki ek koruma katmanını kaldıracaktır. Devam etmek istediğinizden emin misiniz?',
     disable_2_step_verification: 'Devre dışı bırak',
     no_verification_method_warning:
-      'İkinci bir doğrulama yöntemi eklemediniz. Oturum açarken 2 adımlı doğrulamayı etkinleştirmek için en az bir tane ekleyin.',
+      'Kurulum tamamlanmadı. 2 adımlı doğrulama kurulumunu tamamlamak için aşağıdan bir doğrulama yöntemi ekleyin.',
+    two_step_verification_load_failed:
+      '2 adımlı doğrulama ayarları yüklenemedi. Lütfen tekrar deneyin.',
+    two_step_verification_retry: 'Tekrar dene',
     passkey_sign_in_prompt: 'Passkey kurulumu için sor',
     passkey_sign_in_prompt_description:
       'Açık olduğunda, daha hızlı ve daha güvenli oturum açma için bir passkey kurmanız istenir.',
@@ -138,6 +117,43 @@ const account_center = {
       remove_confirmation_description:
         'Bu cihazda bir sonraki oturum açışınızda MFA işlemini yeniden tamamlamanız gerekecek. Geçerli oturumunuz etkin kalacak.',
     },
+    personal_access_tokens: {
+      title: 'Kişisel erişim belirteçleri',
+      description:
+        "API'lerle kendi adınıza kimlik doğrulaması yapmak için kişisel erişim belirteçlerini kullanın. Oturumu kapatsanız veya parolanızı değiştirseniz bile süresi dolana ya da siz iptal edene kadar etkin kalırlar.",
+      create: 'Yeni belirteç oluştur',
+      created_at: '{{date}} tarihinde oluşturuldu',
+      expires_on: '{{date}} tarihinde sona eriyor',
+      expired_on: '{{date}} tarihinde sona erdi',
+      expired: 'Süresi doldu',
+      never_expires: 'Süresi asla dolmaz',
+      never_expires_warning:
+        'Bu belirtecin son kullanma tarihi yoktur. Daha iyi güvenlik için son kullanma tarihi olan yeni bir belirteç oluşturun ve bunu iptal edin.',
+      rename: 'Yeniden adlandır',
+      revoke: 'İptal et',
+      loading: 'Yükleniyor...',
+      empty: 'Kişisel erişim belirteci yok.',
+      load_failed: 'Kişisel erişim belirteçleri yüklenemedi. Lütfen tekrar deneyin.',
+      retry: 'Tekrar dene',
+      create_modal_title: 'Kişisel erişim belirteci oluştur',
+      create_modal_description:
+        'Belirtecinize açıklayıcı bir ad verin ve bir geçerlilik süresi seçin.',
+      token_name: 'Belirteç adı',
+      token_name_placeholder: 'Belirtecim',
+      expiration: 'Son kullanma',
+      expiration_days: '{{count}} gün',
+      created_modal_title: 'Kişisel erişim belirteci oluşturuldu',
+      show_once_warning:
+        'Bu belirteci bir daha göremeyeceksiniz. Şimdi kopyalayın ve güvenli bir yerde saklayın.',
+      copied: 'Kişisel erişim belirteci kopyalandı.',
+      rename_modal_title: 'Kişisel erişim belirtecini yeniden adlandır',
+      rename_modal_description: 'Bu kişisel erişim belirteci için yeni bir ad girin.',
+      renamed: 'Kişisel erişim belirteci başarıyla yeniden adlandırıldı.',
+      revoke_confirmation_title: 'Kişisel erişim belirteci iptal edilsin mi?',
+      revoke_confirmation_description:
+        '"{{name}}" kullanan tüm uygulamalar veya betikler erişimi derhal kaybedecektir. Devam etmek istediğinizden emin misiniz?',
+      revoked: 'Kişisel erişim belirteci başarıyla iptal edildi.',
+    },
   },
   social: {
     linked: '{{connector}} başarıyla bağlandı.',
@@ -159,32 +175,10 @@ const account_center = {
     resend_countdown: 'Hâlâ gelmedi mi? {{seconds}} sn sonra tekrar gönder.',
   },
   email_verification: {
-    title: 'E-postanı doğrula',
-    prepare_description:
-      'Hesap güvenliğini korumak için kimliğini doğrula. Doğrulama kodunu e-postana gönder.',
     email_label: 'E-posta adresi',
-    send: 'Doğrulama kodu gönder',
-    description: 'Doğrulama kodu {{email}} adresine gönderildi. Devam etmek için kodu gir.',
-    resend: 'Hâlâ gelmedi mi? <a>Doğrulama kodunu yeniden gönder</a>',
-    not_received: 'Hâlâ gelmedi mi?',
-    resend_action: 'Doğrulama kodunu yeniden gönder',
-    resend_countdown: 'Hâlâ gelmedi mi? {{seconds}} sn sonra tekrar gönder.',
-    error_send_failed: 'Doğrulama kodu gönderilemedi. Lütfen daha sonra tekrar dene.',
-    error_verify_failed: 'Doğrulama başarısız. Lütfen kodu tekrar gir.',
-    error_invalid_code: 'Doğrulama kodu geçersiz veya süresi dolmuş.',
   },
   phone_verification: {
-    title: 'Telefonunu doğrula',
-    prepare_description:
-      'Hesap güvenliğinizi korumak için siz olduğunuzu doğrulayın. Doğrulama kodunu telefonuna gönder.',
     phone_label: 'Telefon numarası',
-    send: 'Doğrulama kodu gönder',
-    description: 'Doğrulama kodu telefonuna {{phone}} gönderildi. Devam etmek için kodu gir.',
-    resend: 'Hâlâ gelmedi mi? <a>Doğrulama kodunu yeniden gönder</a>',
-    resend_countdown: 'Hâlâ gelmedi mi? {{seconds}} sn sonra tekrar gönder.',
-    error_send_failed: 'Doğrulama kodu gönderilemedi. Lütfen daha sonra tekrar dene.',
-    error_verify_failed: 'Doğrulama başarısız. Lütfen kodu tekrar gir.',
-    error_invalid_code: 'Doğrulama kodu geçersiz veya süresi dolmuş.',
   },
   mfa: {
     totp_already_added:
@@ -303,4 +297,3 @@ const account_center = {
 };
 
 export default Object.freeze(account_center);
-/* eslint-enable max-lines */

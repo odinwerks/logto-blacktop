@@ -8,9 +8,11 @@ import { useNavigate } from 'react-router-dom';
 import PageContext from '@ac/Providers/PageContextProvider/PageContext';
 import { type BackupCodeItem, getBackupCodesList } from '@ac/apis/mfa';
 import ErrorPage from '@ac/components/ErrorPage';
-import VerificationMethodList from '@ac/components/VerificationMethodList';
+import GlobalLoading from '@ac/components/GlobalLoading';
+import StepUpEntryFallback from '@ac/components/StepUpEntryFallback';
 import { backupCodesRegenerateRoute } from '@ac/constants/routes';
 import useApi from '@ac/hooks/use-api';
+import useStepUp, { useStepUpEntry } from '@ac/hooks/use-step-up';
 import SecondaryPageLayout from '@ac/layouts/SecondaryPageLayout';
 
 import styles from './index.module.scss';
@@ -20,22 +22,33 @@ const isBackupCodeEnabled = (mfa?: Mfa) => mfa?.factors.includes(MfaFactor.Backu
 const BackupCodeView = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { accountCenterSettings, experienceSettings, verificationId, setToast } =
-    useContext(PageContext);
+  const { accountCenterSettings, experienceSettings, setToast } = useContext(PageContext);
   const getBackupCodesRequest = useApi(getBackupCodesList);
+  const { requestStepUp } = useStepUp();
 
   const [codes, setCodes] = useState<BackupCodeItem[]>();
   const [hasError, setHasError] = useState(false);
+  const isPageEnabled =
+    Boolean(accountCenterSettings?.enabled) &&
+    accountCenterSettings?.fields.mfa === AccountCenterControlValue.Edit &&
+    isBackupCodeEnabled(experienceSettings?.mfa);
+  const { isReady, hasFailed, isResumed } = useStepUpEntry({
+    enabled: isPageEnabled,
+  });
 
-  // Fetch backup codes on mount
+  // Fetch backup codes when the entry guard is ready
   useEffect(() => {
-    if (!verificationId) {
+    if (!isReady) {
       return;
     }
 
     const fetchData = async () => {
-      const [codesError, codesResult] = await getBackupCodesRequest(verificationId);
+      const [codesError, codesResult] = await getBackupCodesRequest();
       if (codesError || !codesResult) {
+        if (await requestStepUp(codesError, { type: 'enter-subpage' }, { isResumed })) {
+          return;
+        }
+
         setHasError(true);
         return;
       }
@@ -43,7 +56,7 @@ const BackupCodeView = () => {
     };
 
     void fetchData();
-  }, [getBackupCodesRequest, verificationId]);
+  }, [getBackupCodesRequest, isReady, isResumed, requestStepUp]);
 
   const copyText = useCallback(
     async (text: string, successMessage: string) => {
@@ -81,8 +94,8 @@ const BackupCodeView = () => {
     );
   }
 
-  if (!verificationId) {
-    return <VerificationMethodList />;
+  if (!isReady) {
+    return <StepUpEntryFallback hasFailed={hasFailed} />;
   }
 
   if (hasError) {
@@ -90,7 +103,7 @@ const BackupCodeView = () => {
   }
 
   if (!codes) {
-    return null;
+    return <GlobalLoading />;
   }
 
   const backupCodeTextContent = codes

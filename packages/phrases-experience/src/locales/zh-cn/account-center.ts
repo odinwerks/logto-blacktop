@@ -17,35 +17,10 @@ const account_center = {
     sign_out: '退出登录',
   },
   verification: {
-    title: '安全验证',
-    description: '为保护账户安全，请确认是您本人。请选择验证身份的方法。',
     error_send_failed: '验证码发送失败，请稍后再试。',
     error_invalid_code: '验证码无效或已过期。',
     error_verify_failed: '验证失败，请重新输入验证码。',
-    verification_required: '验证已失效，请重新验证身份。',
-    try_another_method: '尝试其他验证方式',
-    no_available_methods_title: '没有可用的验证方式',
-    no_available_methods_description:
-      '你尚未设置任何验证方式。请先为你的账户添加密码、邮箱或手机号。',
-  },
-  password_verification: {
-    title: '验证密码',
-    description: '为保护账户安全，请输入您的密码完成验证。',
-    error_failed: '密码错误，请重新输入。',
-  },
-  verification_method: {
-    password: {
-      name: '密码',
-      description: '验证您的密码',
-    },
-    email: {
-      name: '邮箱验证码',
-      description: '发送验证码到您的邮箱',
-    },
-    phone: {
-      name: '手机验证码',
-      description: '发送验证码到您的手机号码',
-    },
+    step_up_not_completed: '身份验证未完成，你的账户未做任何更改。',
   },
   email: {
     title: '关联邮箱',
@@ -53,7 +28,6 @@ const account_center = {
     verification_title: '输入邮箱验证码',
     verification_description: '验证码已发送到你的邮箱 {{email_address}}。',
     success: '已成功关联主要邮箱。',
-    verification_required: '验证已失效，请重新验证身份。',
   },
   phone: {
     title: '关联手机号',
@@ -61,7 +35,6 @@ const account_center = {
     verification_title: '输入短信验证码',
     verification_description: '验证码已发送到你的手机 {{phone_number}}。',
     success: '已成功关联主要手机号。',
-    verification_required: '验证已失效，请重新验证身份。',
   },
   username: {
     title: '设置用户名',
@@ -95,12 +68,16 @@ const account_center = {
     view: '查看',
     manage: '管理',
     turn_on_2_step_verification_description: '增加一层额外的安全保护。登录时将要求进行第二步验证。',
+    two_step_verification_incomplete_description: '两步验证已开启，但尚未生效。',
+    two_step_verification_off_description:
+      '你的两步验证偏好已关闭。安全策略仍可能要求进行额外验证。',
     turn_off_2_step_verification: '关闭两步验证',
     turn_off_2_step_verification_description:
       '关闭两步验证将移除登录时账户的额外保护层。确定要继续吗？',
     disable_2_step_verification: '关闭',
-    no_verification_method_warning:
-      '你尚未添加第二种验证方式。请至少添加一种以在登录时启用两步验证。',
+    no_verification_method_warning: '设置未完成。请在下方添加一种验证方式，以完成两步验证的设置。',
+    two_step_verification_load_failed: '无法加载两步验证设置，请重试。',
+    two_step_verification_retry: '重试',
     passkey_sign_in_prompt: '提示设置通行密钥',
     passkey_sign_in_prompt_description:
       '开启后，系统会提示你设置通行密钥，以实现更快速、更安全的登录。',
@@ -131,6 +108,41 @@ const account_center = {
       remove_confirmation_description:
         '下次在此设备上登录时，你需要再次完成 MFA。当前会话将保持有效。',
     },
+    personal_access_tokens: {
+      title: '个人访问令牌',
+      description:
+        '使用个人访问令牌代表你向 API 进行身份验证。即使你退出登录或更改密码，它们仍会保持有效，直到过期或被你撤销。',
+      create: '创建新令牌',
+      created_at: '创建于 {{date}}',
+      expires_on: '于 {{date}} 到期',
+      expired_on: '已于 {{date}} 过期',
+      expired: '已过期',
+      never_expires: '永不过期',
+      never_expires_warning:
+        '此令牌没有过期时间。为了更高的安全性，建议创建一个带有过期时间的新令牌并吊销此令牌。',
+      rename: '重命名',
+      revoke: '吊销',
+      loading: '加载中...',
+      empty: '暂无个人访问令牌。',
+      load_failed: '个人访问令牌加载失败，请重试。',
+      retry: '重试',
+      create_modal_title: '创建个人访问令牌',
+      create_modal_description: '为你的令牌设置一个描述性名称并选择有效期。',
+      token_name: '令牌名称',
+      token_name_placeholder: '我的令牌',
+      expiration: '有效期',
+      expiration_days: '{{count}} 天',
+      created_modal_title: '个人访问令牌已创建',
+      show_once_warning: '你将无法再次查看此令牌。请立即复制并妥善保存在安全的地方。',
+      copied: '个人访问令牌已复制。',
+      rename_modal_title: '重命名个人访问令牌',
+      rename_modal_description: '为此个人访问令牌输入新名称。',
+      renamed: '个人访问令牌已成功重命名。',
+      revoke_confirmation_title: '吊销个人访问令牌？',
+      revoke_confirmation_description:
+        '任何使用“{{name}}”的应用或脚本都将立即失去访问权限。确定要继续吗？',
+      revoked: '个人访问令牌已成功吊销。',
+    },
   },
   social: {
     linked: '已成功关联 {{connector}}。',
@@ -151,30 +163,10 @@ const account_center = {
     resend_countdown: '还没有收到？{{seconds}} 秒后可重新发送',
   },
   email_verification: {
-    title: '验证您的邮箱',
-    prepare_description: '为保护账户安全，请确认是您本人。发送验证码到您的邮箱。',
     email_label: '邮箱地址',
-    send: '发送验证码',
-    description: '验证码已发送至您的邮箱 {{email}}。请输入验证码以继续。',
-    resend: '还没有收到？<a>重新发送验证码</a>',
-    not_received: '还没有收到？',
-    resend_action: '重新发送验证码',
-    resend_countdown: '还没有收到？{{seconds}} 秒后可重新发送',
-    error_send_failed: '验证码发送失败，请稍后再试。',
-    error_verify_failed: '验证失败，请重新输入验证码。',
-    error_invalid_code: '验证码无效或已过期。',
   },
   phone_verification: {
-    title: '验证您的手机',
-    prepare_description: '为保护账户安全，请确认是您本人。发送验证码到您的手机。',
     phone_label: '手机号码',
-    send: '发送验证码',
-    description: '验证码已发送至您的手机 {{phone}}。请输入验证码以继续。',
-    resend: '还没有收到？<a>重新发送验证码</a>',
-    resend_countdown: '还没有收到？{{seconds}} 秒后可重新发送',
-    error_send_failed: '验证码发送失败，请稍后再试。',
-    error_verify_failed: '验证失败，请重新输入验证码。',
-    error_invalid_code: '验证码无效或已过期。',
   },
   mfa: {
     totp_already_added: '你已添加过身份验证器应用，请先移除现有的。',

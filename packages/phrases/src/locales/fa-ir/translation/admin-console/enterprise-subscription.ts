@@ -33,6 +33,37 @@ const enterprise_subscription = {
     private_region_title: 'نمونه ابر خصوصی ({{regionName}})',
     shared_cross_tenants: 'در بین مستأجران',
   },
+  user_subscriptions: {
+    description:
+      'اشتراک‌های شخصی و پوشش قراردادی Enterprise خود را مستقل از مستأجر انتخاب‌شده مشاهده کنید.',
+    personal_title: 'اشتراک‌های شخصی',
+    personal_description:
+      'اشتراک‌های فعالی که به حساب شما صورتحساب می‌شوند. اشتراک‌های گذشته در تاریخچه صورت‌حساب باقی می‌مانند.',
+    price: 'قیمت',
+    next_charge: 'پرداخت بعدی',
+    ends_on: 'پایان در {{date}}',
+    overdue_note:
+      'پرداخت معوق است. اگر پرداخت نشود، ممکن است اشتراک متوقف شود و ویژگی‌های پولی آن حذف شوند.',
+    other_product: 'اشتراک دیگر',
+    enterprise_invoices_description:
+      'صورت‌حساب‌های قرارداد Enterprise شما. یک صورت‌حساب را انتخاب کنید تا آن را ببینید و صورت‌حساب یا رسید را دانلود کنید.',
+    personal_invoices_description:
+      'صورت‌حساب‌های اشتراک‌هایی که به حساب شما صادر می‌شوند، از جمله اشتراک‌های گذشته. یک صورت‌حساب را انتخاب کنید تا آن را ببینید و صورت‌حساب یا رسید را دانلود کنید.',
+    credit_note:
+      'اعتبارهای ناشی از حذف یا محاسبه تناسبی از صورت‌حساب‌های بعدی کسر می‌شوند و لزوماً بلافاصله به روش پرداخت شما بازگردانده نمی‌شوند.',
+    invoice_link_unavailable:
+      'صفحه این صورت‌حساب در دسترس نیست. اگر به نسخه‌ای نیاز دارید با ما تماس بگیرید.',
+    status: {
+      active: 'فعال',
+      trialing: 'آزمایشی',
+      past_due: 'معوق',
+      unpaid: 'پرداخت‌نشده',
+      canceled: 'لغوشده',
+      incomplete: 'ناقص',
+      incomplete_expired: 'منقضی‌شده',
+      paused: 'متوقف‌شده',
+    },
+  },
 };
 
 export default Object.freeze(enterprise_subscription);

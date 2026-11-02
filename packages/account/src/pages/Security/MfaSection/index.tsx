@@ -7,18 +7,18 @@ import { useNavigate } from 'react-router-dom';
 import PageContext from '@ac/Providers/PageContextProvider/PageContext';
 import ConfirmModal from '@ac/components/ConfirmModal';
 import ToggleSwitch from '@ac/components/ToggleSwitch';
-import { verifiedActionRoute } from '@ac/constants/routes';
 import { getPendingReturn, setPendingReturn } from '@ac/utils/account-center-route';
 import {
   hasConfiguredSecondFactor,
   hasEnabledSecondFactor,
   hasVisibleMfaSection,
 } from '@ac/utils/security-page';
-import { sessionStorage } from '@ac/utils/session-storage';
+import { consumePendingStepUpAction } from '@ac/utils/step-up';
 
 import { getMfaSettings, updateMfaSettings } from '../../../apis/mfa';
 import useApi from '../../../hooks/use-api';
 import useErrorHandler from '../../../hooks/use-error-handler';
+import useStepUp, { useIdentityProof } from '../../../hooks/use-step-up';
 import { useMfaVerifications } from '../MfaVerificationsProvider';
 import SecurityRow from '../components/SecurityRow';
 import SecuritySection from '../components/SecuritySection';
@@ -35,20 +35,52 @@ const mandatoryMfaPolicies = new Set<MfaPolicy>([
   MfaPolicy.PromptOnlyAtSignInMandatory,
 ]);
 
+type TwoStepVerificationState = 'off' | 'incomplete' | 'on' | 'unknown';
+
 type MfaContentProps = {
   readonly isLoading: boolean;
   readonly hasToggle: boolean;
-  readonly isTwoStepEnabled: boolean;
+  readonly twoStepState: TwoStepVerificationState;
   readonly rows: ReturnType<typeof useMfaRows>;
   readonly onToggleChange: (checked: boolean) => Promise<void>;
+  readonly onRetry: () => Promise<void>;
+};
+
+const getTwoStepState = (
+  isPreferred: boolean,
+  hasConfiguredFactor: boolean
+): TwoStepVerificationState => {
+  if (!isPreferred) {
+    return 'off';
+  }
+
+  return hasConfiguredFactor ? 'on' : 'incomplete';
+};
+
+const getTwoStepDescription = (state: TwoStepVerificationState) => {
+  switch (state) {
+    case 'on': {
+      return 'account_center.security.turn_on_2_step_verification_description';
+    }
+    case 'incomplete': {
+      return 'account_center.security.two_step_verification_incomplete_description';
+    }
+    case 'off': {
+      return 'account_center.security.two_step_verification_off_description';
+    }
+    case 'unknown': {
+      return 'account_center.security.two_step_verification_load_failed';
+    }
+  }
 };
 
 const MfaContent = ({
   isLoading,
   hasToggle,
-  isTwoStepEnabled,
+  twoStepState,
   rows,
   onToggleChange,
+  onRetry,
 }: MfaContentProps) => {
   const { t } = useTranslation();
 
@@ -60,6 +92,23 @@ const MfaContent = ({
     );
   }
 
+  if (twoStepState === 'unknown') {
+    return (
+      <div className={styles.errorState}>
+        <span>{t('account_center.security.two_step_verification_load_failed')}</span>
+        <button
+          type="button"
+          className={styles.retryButton}
+          onClick={() => {
+            void onRetry();
+          }}
+        >
+          {t('account_center.security.two_step_verification_retry')}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <>
       {hasToggle && (
@@ -68,12 +117,10 @@ const MfaContent = ({
             <div className={styles.toggleTitle}>
               {t('account_center.security.two_step_verification')}
             </div>
-            <div className={styles.toggleDescription}>
-              {t('account_center.security.turn_on_2_step_verification_description')}
-            </div>
+            <div className={styles.toggleDescription}>{t(getTwoStepDescription(twoStepState))}</div>
           </div>
           <ToggleSwitch
-            isChecked={isTwoStepEnabled}
+            isChecked={twoStepState !== 'off'}
             onChange={(checked) => {
               void onToggleChange(checked);
             }}
@@ -91,16 +138,21 @@ const MfaContent = ({
 const MfaSection = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { accountCenterSettings, experienceSettings, verificationId, setVerificationId, setToast } =
-    useContext(PageContext);
+  const { accountCenterSettings, experienceSettings, userInfo } = useContext(PageContext);
+  const { checkIdentityProof } = useIdentityProof();
+  const { requestStepUp, startStepUp } = useStepUp();
   const {
     mfaVerifications,
     isLoading: isLoadingMfaVerifications,
     hasLoaded: hasLoadedMfaVerifications,
+    hasError: hasMfaVerificationsError,
+    retry: retryMfaVerifications,
   } = useMfaVerifications();
   const [skipMfaOnSignIn, setSkipMfaOnSignIn] = useState<boolean>();
+  const [isMfaEnabled, setIsMfaEnabled] = useState<boolean>();
   const [hasLoadedMfaSettings, setHasLoadedMfaSettings] = useState(false);
   const [isLoadingMfaSettings, setIsLoadingMfaSettings] = useState(false);
+  const [hasMfaSettingsError, setHasMfaSettingsError] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const handleError = useErrorHandler();
 
@@ -117,8 +169,19 @@ const MfaSection = () => {
     !mandatoryMfaPolicies.has(mfaPolicy) &&
     hasEnabledSecondFactor(experienceSettings);
 
-  const isTwoStepEnabled = skipMfaOnSignIn === false;
-  const hasConfiguredMfa = hasConfiguredSecondFactor(mfaVerifications, experienceSettings);
+  const hasConfiguredMfa = hasConfiguredSecondFactor(
+    mfaVerifications,
+    experienceSettings,
+    userInfo
+  );
+  // `enabled` is the persisted MFA enablement flag. `undefined` predates the flag, so mirror the
+  // backend: the preference only takes effect when the user has a usable factor. An explicit
+  // `false` disables MFA verification regardless of `skipMfaOnSignIn`.
+  const isTwoStepPreferred = skipMfaOnSignIn === false && (isMfaEnabled ?? hasConfiguredMfa);
+  const hasMfaLoadError = hasMfaVerificationsError || (showToggle && hasMfaSettingsError);
+  const twoStepState: TwoStepVerificationState = hasMfaLoadError
+    ? 'unknown'
+    : getTwoStepState(isTwoStepPreferred, hasConfiguredMfa);
   const isMfaSectionLoading =
     (isMfaSectionVisible && (!hasLoadedMfaVerifications || isLoadingMfaVerifications)) ||
     (showToggle && (!hasLoadedMfaSettings || isLoadingMfaSettings));
@@ -128,8 +191,10 @@ const MfaSection = () => {
   const fetchMfaSettings = useCallback(async () => {
     setIsLoadingMfaSettings(true);
     const [error, result] = await getMfaSettingsRequest();
+    setHasMfaSettingsError(Boolean(error));
     if (!error && result) {
       setSkipMfaOnSignIn(result.skipMfaOnSignIn);
+      setIsMfaEnabled(result.enabled);
     }
     setHasLoadedMfaSettings(true);
     setIsLoadingMfaSettings(false);
@@ -140,6 +205,13 @@ const MfaSection = () => {
       void fetchMfaSettings();
     }
   }, [showToggle, fetchMfaSettings]);
+
+  const retryMfa = useCallback(async () => {
+    await Promise.all([
+      retryMfaVerifications(),
+      showToggle ? fetchMfaSettings() : Promise.resolve(),
+    ]);
+  }, [fetchMfaSettings, retryMfaVerifications, showToggle]);
 
   const navigateTo = useCallback(
     (route: string) => {
@@ -153,22 +225,32 @@ const MfaSection = () => {
   const shouldShowMfaCard = showToggle || rows.length > 0;
 
   const updateSkipMfaOnSignIn = useCallback(
-    async (verifiedId: string, skipMfaOnSignIn: boolean) => {
-      const [error] = await updateMfaSettingsApi(verifiedId, { skipMfaOnSignIn });
+    async (skipMfaOnSignIn: boolean, isResumed = false) => {
+      const [error] = await updateMfaSettingsApi({
+        skipMfaOnSignIn,
+        // Turning verification on must also clear an explicit MFA disablement; otherwise the
+        // backend keeps skipping MFA even though the switch is on.
+        ...(skipMfaOnSignIn ? {} : { enabled: true }),
+      });
 
       if (error) {
-        await handleError(error, {
-          'verification_record.permission_denied': async () => {
-            setVerificationId(undefined);
-            setToast(t('account_center.verification.verification_required'));
-          },
-        });
+        const action = skipMfaOnSignIn ? 'disable-mfa' : 'enable-mfa';
+
+        if (await requestStepUp(error, { type: action }, { isResumed })) {
+          return;
+        }
+
+        await handleError(error);
         return;
       }
 
       setSkipMfaOnSignIn(skipMfaOnSignIn);
+
+      if (!skipMfaOnSignIn) {
+        setIsMfaEnabled(true);
+      }
     },
-    [handleError, setToast, setVerificationId, t, updateMfaSettingsApi]
+    [handleError, requestStepUp, updateMfaSettingsApi]
   );
 
   const handleToggleChange = useCallback(
@@ -180,43 +262,34 @@ const MfaSection = () => {
         return;
       }
 
-      if (verificationId) {
-        await updateSkipMfaOnSignIn(verificationId, skipMfa);
+      if (await checkIdentityProof()) {
+        await updateSkipMfaOnSignIn(skipMfa);
         return;
       }
 
-      sessionStorage.setPendingVerifiedAction('enable-mfa');
-      navigateTo(verifiedActionRoute);
+      await startStepUp({ type: 'enable-mfa' });
     },
-    [navigateTo, updateSkipMfaOnSignIn, verificationId]
+    [checkIdentityProof, startStepUp, updateSkipMfaOnSignIn]
   );
 
   const handleConfirmDisable = useCallback(async () => {
     setIsConfirmModalOpen(false);
 
-    if (verificationId) {
-      await updateSkipMfaOnSignIn(verificationId, true);
+    if (await checkIdentityProof()) {
+      await updateSkipMfaOnSignIn(true);
       return;
     }
 
-    sessionStorage.setPendingVerifiedAction('disable-mfa');
-    navigateTo(verifiedActionRoute);
-  }, [navigateTo, updateSkipMfaOnSignIn, verificationId]);
+    await startStepUp({ type: 'disable-mfa' });
+  }, [checkIdentityProof, startStepUp, updateSkipMfaOnSignIn]);
 
   useEffect(() => {
-    if (!verificationId) {
-      return;
+    const action = consumePendingStepUpAction(['enable-mfa', 'disable-mfa']);
+
+    if (action) {
+      void updateSkipMfaOnSignIn(action.type === 'disable-mfa', true);
     }
-
-    const pendingAction = sessionStorage.getPendingVerifiedAction();
-
-    if (pendingAction !== 'enable-mfa' && pendingAction !== 'disable-mfa') {
-      return;
-    }
-
-    sessionStorage.clearPendingVerifiedAction();
-    void updateSkipMfaOnSignIn(verificationId, pendingAction === 'disable-mfa');
-  }, [updateSkipMfaOnSignIn, verificationId]);
+  }, [updateSkipMfaOnSignIn]);
 
   if (!shouldShowMfaCard) {
     return null;
@@ -227,7 +300,7 @@ const MfaSection = () => {
       <SecuritySection
         title={t('account_center.security.two_step_verification')}
         notification={
-          !isMfaSectionLoading && showToggle && isTwoStepEnabled && !hasConfiguredMfa ? (
+          !isMfaSectionLoading && showToggle && twoStepState === 'incomplete' ? (
             <InlineNotification
               message="account_center.security.no_verification_method_warning"
               className={styles.notification}
@@ -238,9 +311,10 @@ const MfaSection = () => {
         <MfaContent
           isLoading={isMfaSectionLoading}
           hasToggle={showToggle}
-          isTwoStepEnabled={isTwoStepEnabled}
+          twoStepState={twoStepState}
           rows={rows}
           onToggleChange={handleToggleChange}
+          onRetry={retryMfa}
         />
       </SecuritySection>
       <ConfirmModal

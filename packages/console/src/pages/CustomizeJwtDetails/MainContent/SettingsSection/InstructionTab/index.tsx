@@ -263,6 +263,11 @@ function InstructionTab({ isActive, section, action }: Props) {
       {isDataSourceSection && (
         <div className={tabContentStyles.description}>{t('jwt_claims.jwt_claims_description')}</div>
       )}
+      {isDataSourceSection && tokenType === LogtoJwtTokenKeyType.AccessToken && (
+        <div className={tabContentStyles.description}>
+          {t('jwt_claims.reserved_claims_description')}
+        </div>
+      )}
     </div>
   );
 }

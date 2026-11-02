@@ -1,5 +1,5 @@
 import { MfaFactor, type SignInExperience, type UserMfaVerificationResponse } from '@logto/schemas';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useOutletContext } from 'react-router-dom';
 import useSWR from 'swr';
@@ -8,9 +8,11 @@ import useSWRImmutable from 'swr/immutable';
 import MfaFactorName from '@/components/MfaFactorName';
 import MfaFactorTitle from '@/components/MfaFactorTitle';
 import Button from '@/ds-components/Button';
+import Switch from '@/ds-components/Switch';
 import Table from '@/ds-components/Table';
 import useApi, { type RequestError } from '@/hooks/use-api';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
+import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
 import { type UserMfaVerification } from '@/types/mfa';
 
 import { type UserDetailsOutletContext } from '../../types';
@@ -19,6 +21,12 @@ import styles from './index.module.scss';
 
 type Props = {
   readonly userId: string;
+};
+
+type UserLogtoConfigResponse = {
+  mfa: {
+    required: boolean;
+  };
 };
 
 function UserMfaVerifications({ userId }: Props) {
@@ -31,12 +39,21 @@ function UserMfaVerifications({ userId }: Props) {
     mutate,
   } = useSWR<UserMfaVerificationResponse, RequestError>(`api/users/${userId}/mfa-verifications`);
 
+  const { data: logtoConfig, mutate: mutateLogtoConfig } = useSWR<
+    UserLogtoConfigResponse,
+    RequestError
+  >(`api/users/${userId}/logto-configs`);
+
   const { data: signInExperience } = useSWRImmutable<SignInExperience, RequestError>(
     'api/sign-in-exp'
   );
 
   const api = useApi();
   const { show: showConfirm } = useConfirmModal();
+  const {
+    access: { isReadOnly },
+  } = useCurrentTenantScopes();
+  const [isUpdatingMfaRequirement, setIsUpdatingMfaRequirement] = useState(false);
 
   // Create Email and Phone MFA entries when conditions are met
   const emailPhoneMfaVerifications = useMemo(() => {
@@ -120,8 +137,37 @@ function UserMfaVerifications({ userId }: Props) {
     [api, mfaVerifications, mutate, showConfirm, t, userId]
   );
 
+  const handleMfaRequirementChange = useCallback(
+    async (required: boolean) => {
+      setIsUpdatingMfaRequirement(true);
+
+      try {
+        await api.patch(`api/users/${userId}/logto-configs`, { json: { mfa: { required } } });
+        await mutateLogtoConfig();
+      } finally {
+        setIsUpdatingMfaRequirement(false);
+      }
+    },
+    [api, mutateLogtoConfig, userId]
+  );
+
   return (
     <>
+      <div className={styles.mfaRequirement}>
+        <Switch
+          checked={logtoConfig?.mfa.required ?? false}
+          disabled={isReadOnly || !logtoConfig || isUpdatingMfaRequirement}
+          label={
+            <>
+              <div className={styles.mfaRequirementTitle}>{t('require_mfa')}</div>
+              <div className={styles.mfaRequirementDescription}>{t('require_mfa_description')}</div>
+            </>
+          }
+          onChange={({ currentTarget: { checked } }) => {
+            void handleMfaRequirementChange(checked);
+          }}
+        />
+      </div>
       {!isLoading && !error && (
         <div className={styles.fieldDescription}>
           {t(allMfaVerifications.length > 0 ? 'field_description' : 'field_description_empty')}
@@ -148,6 +194,7 @@ function UserMfaVerifications({ userId }: Props) {
               colSpan: 3,
               render: (mfaVerification) => {
                 if (
+                  isReadOnly ||
                   mfaVerification.id === 'email-factor' ||
                   mfaVerification.id === 'phone-factor' ||
                   (mfaVerification.type === MfaFactor.WebAuthn &&

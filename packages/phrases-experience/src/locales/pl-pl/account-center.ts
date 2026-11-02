@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Nie znaleziono strony',
@@ -19,36 +18,11 @@ const account_center = {
     sign_out: 'Wyloguj się',
   },
   verification: {
-    title: 'Weryfikacja bezpieczeństwa',
-    description:
-      'Potwierdź, że to Ty, aby chronić bezpieczeństwo konta. Wybierz metodę weryfikacji tożsamości.',
     error_send_failed: 'Nie udało się wysłać kodu weryfikacyjnego. Spróbuj ponownie później.',
     error_invalid_code: 'Kod weryfikacyjny jest nieprawidłowy lub wygasł.',
     error_verify_failed: 'Weryfikacja nie powiodła się. Wprowadź kod ponownie.',
-    verification_required: 'Weryfikacja wygasła. Zweryfikuj swoją tożsamość ponownie.',
-    try_another_method: 'Wypróbuj inny sposób weryfikacji',
-    no_available_methods_title: 'Brak dostępnych metod weryfikacji',
-    no_available_methods_description:
-      'Nie masz skonfigurowanych żadnych metod weryfikacji. Najpierw dodaj do swojego konta hasło, adres e-mail lub numer telefonu.',
-  },
-  password_verification: {
-    title: 'Zweryfikuj hasło',
-    description: 'Aby chronić konto, wprowadź hasło, aby potwierdzić swoją tożsamość.',
-    error_failed: 'Nieprawidłowe hasło. Sprawdź wprowadzone dane.',
-  },
-  verification_method: {
-    password: {
-      name: 'Hasło',
-      description: 'Zweryfikuj swoje hasło',
-    },
-    email: {
-      name: 'Kod weryfikacyjny e-mail',
-      description: 'Wyślij kod weryfikacyjny na swój e-mail',
-    },
-    phone: {
-      name: 'Kod weryfikacyjny telefoniczny',
-      description: 'Wyślij kod weryfikacyjny na swój numer telefonu',
-    },
+    step_up_not_completed:
+      'Weryfikacja tożsamości nie została ukończona. Na Twoim koncie nie wprowadzono żadnych zmian.',
   },
   email: {
     title: 'Połącz e-mail',
@@ -56,7 +30,6 @@ const account_center = {
     verification_title: 'Wprowadź kod weryfikacyjny e-mail',
     verification_description: 'Kod weryfikacyjny został wysłany na Twój e-mail {{email_address}}.',
     success: 'Główny e-mail połączono pomyślnie.',
-    verification_required: 'Weryfikacja wygasła. Zweryfikuj swoją tożsamość ponownie.',
   },
   phone: {
     title: 'Połącz numer telefonu',
@@ -64,7 +37,6 @@ const account_center = {
     verification_title: 'Wprowadź kod weryfikacyjny SMS',
     verification_description: 'Kod weryfikacyjny został wysłany na Twój telefon {{phone_number}}.',
     success: 'Główny telefon połączono pomyślnie.',
-    verification_required: 'Weryfikacja wygasła. Zweryfikuj swoją tożsamość ponownie.',
   },
   username: {
     title: 'Ustaw nazwę użytkownika',
@@ -99,12 +71,19 @@ const account_center = {
     manage: 'Zarządzaj',
     turn_on_2_step_verification_description:
       'Dodaj dodatkową warstwę bezpieczeństwa. Podczas logowania zostaniesz poproszony o drugi krok weryfikacji.',
+    two_step_verification_incomplete_description:
+      'Weryfikacja dwuetapowa jest włączona, ale jeszcze nie działa.',
+    two_step_verification_off_description:
+      'Preferencja weryfikacji dwuetapowej jest wyłączona. Zasady bezpieczeństwa mogą nadal wymagać dodatkowej weryfikacji.',
     turn_off_2_step_verification: 'Wyłącz weryfikację dwuetapową',
     turn_off_2_step_verification_description:
       'Wyłączenie weryfikacji dwuetapowej usunie dodatkową warstwę ochrony z Twojego konta podczas logowania. Czy na pewno chcesz kontynuować?',
     disable_2_step_verification: 'Wyłącz',
     no_verification_method_warning:
-      'Nie dodałeś drugiej metody weryfikacji. Dodaj co najmniej jedną, aby włączyć weryfikację dwuetapową podczas logowania.',
+      'Konfiguracja nie została ukończona. Dodaj poniżej metodę weryfikacji, aby dokończyć konfigurację weryfikacji dwuetapowej.',
+    two_step_verification_load_failed:
+      'Nie udało się załadować ustawień weryfikacji dwuetapowej. Spróbuj ponownie.',
+    two_step_verification_retry: 'Spróbuj ponownie',
     passkey_sign_in_prompt: 'Monituj o skonfigurowanie passkey',
     passkey_sign_in_prompt_description:
       'Gdy włączone, zostaniesz poproszony o skonfigurowanie passkey w celu szybszego i bezpieczniejszego logowania.',
@@ -138,6 +117,42 @@ const account_center = {
       remove_confirmation_description:
         'Przy następnym logowaniu na tym urządzeniu konieczne będzie ponowne wykonanie MFA. Bieżąca sesja pozostanie aktywna.',
     },
+    personal_access_tokens: {
+      title: 'Osobiste tokeny dostępu',
+      description:
+        'Używaj osobistych tokenów dostępu do uwierzytelniania się w interfejsach API w swoim imieniu. Pozostają aktywne do momentu wygaśnięcia lub unieważnienia, nawet po wylogowaniu się lub zmianie hasła.',
+      create: 'Utwórz nowy token',
+      created_at: 'Utworzono {{date}}',
+      expires_on: 'Wygasa {{date}}',
+      expired_on: 'Wygasł {{date}}',
+      expired: 'Wygasł',
+      never_expires: 'Nigdy nie wygasa',
+      never_expires_warning:
+        'Ten token nie ma daty wygaśnięcia. Dla większego bezpieczeństwa utwórz nowy token z datą wygaśnięcia i unieważnij ten.',
+      rename: 'Zmień nazwę',
+      revoke: 'Unieważnij',
+      loading: 'Ładowanie...',
+      empty: 'Brak osobistych tokenów dostępu.',
+      load_failed: 'Nie udało się załadować osobistych tokenów dostępu. Spróbuj ponownie.',
+      retry: 'Spróbuj ponownie',
+      create_modal_title: 'Utwórz osobisty token dostępu',
+      create_modal_description: 'Nadaj tokenowi opisową nazwę i wybierz okres ważności.',
+      token_name: 'Nazwa tokenu',
+      token_name_placeholder: 'Mój token',
+      expiration: 'Wygaśnięcie',
+      expiration_days: '{{count}} dni',
+      created_modal_title: 'Utworzono osobisty token dostępu',
+      show_once_warning:
+        'Nie będziesz mógł ponownie zobaczyć tego tokenu. Skopiuj go teraz i przechowuj w bezpiecznym miejscu.',
+      copied: 'Skopiowano osobisty token dostępu.',
+      rename_modal_title: 'Zmień nazwę osobistego tokenu dostępu',
+      rename_modal_description: 'Wprowadź nową nazwę dla tego osobistego tokenu dostępu.',
+      renamed: 'Pomyślnie zmieniono nazwę osobistego tokenu dostępu.',
+      revoke_confirmation_title: 'Unieważnić osobisty token dostępu?',
+      revoke_confirmation_description:
+        'Wszystkie aplikacje lub skrypty używające „{{name}}” natychmiast utracą dostęp. Czy na pewno chcesz kontynuować?',
+      revoked: 'Pomyślnie unieważniono osobisty token dostępu.',
+    },
   },
   social: {
     linked: '{{connector}} połączono pomyślnie.',
@@ -159,34 +174,10 @@ const account_center = {
     resend_countdown: 'Nie otrzymałeś? Wyślij ponownie po {{seconds}} s.',
   },
   email_verification: {
-    title: 'Zweryfikuj swój e-mail',
-    prepare_description:
-      'Potwierdź swoją tożsamość, aby chronić bezpieczeństwo konta. Wyślij kod weryfikacyjny na swój e-mail.',
     email_label: 'Adres e-mail',
-    send: 'Wyślij kod weryfikacyjny',
-    description:
-      'Kod weryfikacyjny został wysłany na adres {{email}}. Wprowadź kod, aby kontynuować.',
-    resend: 'Nie otrzymałeś? <a>Wyślij kod weryfikacyjny ponownie</a>',
-    not_received: 'Nie otrzymałeś?',
-    resend_action: 'Wyślij kod weryfikacyjny ponownie',
-    resend_countdown: 'Nie otrzymałeś? Wyślij ponownie po {{seconds}} s.',
-    error_send_failed: 'Nie udało się wysłać kodu weryfikacyjnego. Spróbuj ponownie później.',
-    error_verify_failed: 'Weryfikacja nie powiodła się. Wprowadź kod ponownie.',
-    error_invalid_code: 'Kod weryfikacyjny jest nieprawidłowy lub wygasł.',
   },
   phone_verification: {
-    title: 'Zweryfikuj swój telefon',
-    prepare_description:
-      'Potwierdź, że to Ty, aby chronić bezpieczeństwo konta. Wyślij kod weryfikacyjny na swój telefon.',
     phone_label: 'Numer telefonu',
-    send: 'Wyślij kod weryfikacyjny',
-    description:
-      'Kod weryfikacyjny został wysłany na Twój telefon {{phone}}. Wprowadź kod, aby kontynuować.',
-    resend: 'Nie otrzymałeś? <a>Wyślij kod weryfikacyjny ponownie</a>',
-    resend_countdown: 'Nie otrzymałeś? Wyślij ponownie po {{seconds}} s.',
-    error_send_failed: 'Nie udało się wysłać kodu weryfikacyjnego. Spróbuj ponownie później.',
-    error_verify_failed: 'Weryfikacja nie powiodła się. Wprowadź kod ponownie.',
-    error_invalid_code: 'Kod weryfikacyjny jest nieprawidłowy lub wygasł.',
   },
   mfa: {
     totp_already_added: 'Już dodano aplikację uwierzytelniającą. Najpierw usuń istniejącą.',
@@ -306,4 +297,3 @@ const account_center = {
 };
 
 export default Object.freeze(account_center);
-/* eslint-enable max-lines */

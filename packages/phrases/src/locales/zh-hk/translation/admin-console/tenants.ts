@@ -14,14 +14,14 @@ const tenants = {
   license: {
     purchase_title: '自託管計劃',
     purchase_description:
-      '自託管專業計劃與企業計劃可在你自己的實例上解鎖付費功能，例如隱藏 Logto 品牌標誌、使用自訂 UI、由 IdP 發起的 SSO、控制台多人協作以及不限數量的 SAML 應用。購買計劃即可取得授權金鑰。',
+      '自託管專業計劃與企業計劃可在你自己的實例上解鎖付費功能，例如隱藏 Logto 品牌標誌、使用自訂 UI、控制台多人協作以及不限數量的 SAML 應用。購買計劃即可取得授權金鑰。',
     purchase_button: '查看自託管計劃',
     install_title: '安裝授權',
     install_description: '貼上你購買自託管計劃後取得的授權金鑰。',
     install_button: '安裝授權',
     key_field: '授權金鑰',
     key_field_description:
-      '金鑰會在你的實例上驗證，不會離開實例。如果現有金鑰已過期，請到 Logto 帳戶取得新的金鑰。',
+      '金鑰會在你的實例上驗證，並在授權更新時傳送給 Logto。如果現有金鑰已過期，請聯絡 Logto 取得新的金鑰。',
     key_placeholder: '在此貼上你的授權金鑰',
     installed_toast: '授權安裝成功。',
     details_title: '授權',
@@ -44,9 +44,15 @@ const tenants = {
     refusal_reason_revoked: '撤銷',
     refusal_reason_unknown: '不可用',
     grace_expired_description:
-      '授權寬限期已於 {{graceEndsAt}} 結束。此實例已恢復為 OSS 預設值。請從 Logto Cloud 取得新的授權金鑰並重新安裝。',
+      '授權寬限期已於 {{graceEndsAt}} 結束。此實例已恢復為 OSS 預設值。請聯絡 Logto 取得新的授權金鑰並重新安裝。',
     get_fresh_key_button: '取得新的授權金鑰',
     replace_button: '更換授權',
+    usage_banner_description: '此實例的用量已超出其自託管計劃的用量限制：',
+    usage_banner_metric: '{{metric}}：{{value}}（上限 {{limit}}）',
+    usage_banner_action: '請在 30 天內聯絡我們升級計劃或減少用量。',
+    usage_metric_mau: '月活躍用戶',
+    usage_metric_access_tokens: '每月存取權杖',
+    usage_metric_production_deployments: '生產實例',
   },
   members: {
     card_title: '透過 Logto Cloud 更安全地管理租戶',
@@ -91,6 +97,11 @@ const tenants = {
   full_env_tag: {
     development: '開發',
     production: '生產',
+  },
+  view_only: {
+    tag: '僅檢視',
+    notification: '你對此租戶只有檢視權限。如需更改，請聯絡租戶管理員。',
+    hidden: '對檢視者隱藏',
   },
   deletion_card: {
     title: '刪除',

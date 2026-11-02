@@ -22,6 +22,7 @@ import SignInExperienceTabWrapper from '../components/SignInExperienceTabWrapper
 import AccountCenterField from './AccountCenterField';
 import DeleteAccountUrlField from './DeleteAccountUrlField';
 import IntegratePrebuiltUi from './IntegratePrebuiltUi';
+import RecentAuthenticationFormCard from './RecentAuthenticationFormCard';
 import SecretVaultSection from './SecretVaultSection';
 import WebauthnRelatedOriginsField from './WebauthnRelatedOriginsField';
 import { accountCenterSections } from './constants';
@@ -34,6 +35,8 @@ type Props = {
 
 function AccountCenter({ isActive, data }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
+  const securityVerificationDescriptionKey =
+    'sign_in_exp.account_center.sections.account_security.security_verification.description_step_up';
   const {
     watch,
     setValue,
@@ -172,9 +175,7 @@ function AccountCenter({ isActive, data }: Props) {
                       ),
                     }}
                   >
-                    {t(
-                      'sign_in_exp.account_center.sections.account_security.security_verification.description'
-                    )}
+                    {t(securityVerificationDescriptionKey)}
                   </Trans>
                 </InlineNotification>
               </FormField>
@@ -206,6 +207,7 @@ function AccountCenter({ isActive, data }: Props) {
           </div>
         </FormCard>
       ))}
+      <RecentAuthenticationFormCard isAccountApiEnabled={isAccountApiEnabled} />
       <SecretVaultSection isAccountApiEnabled={isAccountApiEnabled} />
       <FormCard
         title="sign_in_exp.account_center.custom_css.title"

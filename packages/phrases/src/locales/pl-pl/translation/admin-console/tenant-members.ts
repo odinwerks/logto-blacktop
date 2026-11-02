@@ -6,12 +6,15 @@ const tenant_members = {
   roles: 'Role',
   admin: 'Administrator',
   collaborator: 'Współpracownik',
+  viewer: 'Przeglądający',
   invitation_status: 'Status zaproszenia',
   inviter: 'Zapraszający',
   expiration_date: 'Data wygaśnięcia',
   invite_modal: {
     title: '',
     subtitle: 'Aby zaprosić członków do organizacji, muszą zaakceptować zaproszenie.',
+    subtitle_oss:
+      'Zaproszeni członkowie otrzymują pełne uprawnienia administratora w tej instancji Logto.',
     to: 'Do',
     added_as: 'Dodany jako role',
     email_input_placeholder: 'janekkowalski@przykład.com',
@@ -40,8 +43,6 @@ const tenant_members = {
   delete_user_confirm: 'Czy na pewno chcesz usunąć tego użytkownika z tej dzierżawy?',
   assign_admin_confirm:
     'Czy na pewno chcesz uczynić wybranego użytkownika/ów administratorem? Przyznanie uprawnień administratora spowoduje nadanie użytkownikowi/om następujących uprawnień.<ul><li>Zmiana planu rozliczeniowego dzierżawy</li><li>Dodawanie lub usuwanie współpracowników</li><li>Usunięcie dzierżawy</li></ul>',
-  assign_admin_confirm_oss:
-    'Czy na pewno chcesz uczynić wybranego użytkownika/ów administratorem? Przyznanie uprawnień administratora spowoduje nadanie użytkownikowi/om następujących uprawnień.<ul><li>Zapraszanie lub usuwanie członków</li><li>Zmiana ról członków</li><li>Wymaganie MFA od wszystkich członków</li></ul>',
   revoke_invitation_confirm: 'Czy na pewno chcesz anulować to zaproszenie?',
   delete_invitation_confirm: 'Czy na pewno chcesz usunąć ten rekord zaproszenia?',
   messages: {

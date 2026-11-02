@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Page not found',
@@ -18,36 +17,11 @@ const account_center = {
     sign_out: 'Sign out',
   },
   verification: {
-    title: 'Security verification',
-    description:
-      "Verify it's you to protect your account security. Please select the method to verify your identity.",
     error_send_failed: 'Failed to send verification code. Please try again later.',
     error_invalid_code: 'The verification code is invalid or has expired.',
     error_verify_failed: 'Verification failed. Please enter the code again.',
-    verification_required: 'Verification expired. Please verify your identity again.',
-    try_another_method: 'Try another method to verify',
-    no_available_methods_title: 'No verification methods available',
-    no_available_methods_description:
-      "You don't have any verification methods set up. Please add a password, email, or phone number to your account first.",
-  },
-  password_verification: {
-    title: 'Verify password',
-    description: "Verify it's you to protect your account security. Enter your password.",
-    error_failed: 'Incorrect password. Please check your input.',
-  },
-  verification_method: {
-    password: {
-      name: 'Password',
-      description: 'Verify your password',
-    },
-    email: {
-      name: 'Email verification code',
-      description: 'Send verification code to your email',
-    },
-    phone: {
-      name: 'Phone verification code',
-      description: 'Send verification code to your phone number',
-    },
+    step_up_not_completed:
+      'Identity verification was not completed. No changes were made to your account.',
   },
   email: {
     title: 'Link email',
@@ -56,7 +30,6 @@ const account_center = {
     verification_description:
       'The verification code has been sent to your email {{email_address}}.',
     success: 'Primary email linked successfully.',
-    verification_required: 'Verification expired. Please verify your identity again.',
   },
   phone: {
     title: 'Link phone number',
@@ -64,7 +37,6 @@ const account_center = {
     verification_title: 'Enter SMS verification code',
     verification_description: 'The verification code has been sent to your phone {{phone_number}}.',
     success: 'Primary phone linked successfully.',
-    verification_required: 'Verification expired. Please verify your identity again.',
   },
   username: {
     title: 'Set username',
@@ -99,12 +71,18 @@ const account_center = {
     manage: 'Manage',
     turn_on_2_step_verification_description:
       "Add an extra layer of security. You'll be prompted for a second verification step at sign-in.",
+    two_step_verification_incomplete_description: '2-step verification is on, but not active yet.',
+    two_step_verification_off_description:
+      'Your preference for 2-step verification is off. Additional verification may still be required by security policies.',
     turn_off_2_step_verification: 'Turn off 2-step verification',
     turn_off_2_step_verification_description:
       'Disabling 2-step verification will remove the extra layer of protection from your account at sign-in. Are you sure you want to continue?',
     disable_2_step_verification: 'Disable',
     no_verification_method_warning:
-      "You haven't added a second verification method. Add at least one to enable 2-step verification at sign-in.",
+      'Setup incomplete. Add a verification method below to finish setting up 2-step verification.',
+    two_step_verification_load_failed:
+      'Failed to load 2-step verification settings. Please try again.',
+    two_step_verification_retry: 'Try again',
     passkey_sign_in_prompt: 'Prompt to set up a passkey',
     passkey_sign_in_prompt_description:
       "When on, you'll be asked to set up a passkey for faster, more secure sign-in.",
@@ -138,6 +116,43 @@ const account_center = {
       remove_confirmation_description:
         "You'll need to complete MFA again on this device the next time you sign in. Your current session will stay active.",
     },
+    personal_access_tokens: {
+      title: 'Personal access tokens',
+      description:
+        'Use personal access tokens to authenticate with APIs on your behalf. They remain active until they expire or you revoke them, even if you sign out or change your password.',
+      create: 'Create new token',
+      created_at: 'Created {{date}}',
+      expires_on: 'Expires on {{date}}',
+      expired_on: 'Expired on {{date}}',
+      expired: 'Expired',
+      never_expires: 'Never expires',
+      never_expires_warning:
+        'This token has no expiration date. For better security, create a new token with an expiration date and revoke this one.',
+      rename: 'Rename',
+      revoke: 'Revoke',
+      loading: 'Loading...',
+      empty: 'No personal access tokens.',
+      load_failed: 'Failed to load personal access tokens. Please try again.',
+      retry: 'Try again',
+      create_modal_title: 'Create personal access token',
+      create_modal_description:
+        'Give your token a descriptive name and choose an expiration period.',
+      token_name: 'Token name',
+      token_name_placeholder: 'My token',
+      expiration: 'Expiration',
+      expiration_days: '{{count}} days',
+      created_modal_title: 'Personal access token created',
+      show_once_warning:
+        "You won't be able to see this token again. Copy it now and store it in a safe place.",
+      copied: 'Personal access token copied.',
+      rename_modal_title: 'Rename personal access token',
+      rename_modal_description: 'Enter a new name for this personal access token.',
+      renamed: 'Personal access token renamed successfully.',
+      revoke_confirmation_title: 'Revoke personal access token?',
+      revoke_confirmation_description:
+        'Any applications or scripts using "{{name}}" will immediately lose access. Are you sure you want to continue?',
+      revoked: 'Personal access token revoked successfully.',
+    },
   },
   social: {
     linked: '{{connector}} linked successfully.',
@@ -161,34 +176,10 @@ const account_center = {
   },
 
   email_verification: {
-    title: 'Verify your email',
-    prepare_description:
-      "Verify it's you to protect your account security. Send the verification code to your email.",
     email_label: 'Email address',
-    send: 'Send verification code',
-    description:
-      'The verification code has been sent to your email {{email}}. Enter the code to continue.',
-    resend: 'Not received yet? <a>Resend verification code</a>',
-    not_received: 'Not received yet?',
-    resend_action: 'Resend verification code',
-    resend_countdown: 'Not received yet? Resend after {{seconds}}s',
-    error_send_failed: 'Failed to send verification code. Please try again later.',
-    error_verify_failed: 'Verification failed. Please enter the code again.',
-    error_invalid_code: 'The verification code is invalid or has expired.',
   },
   phone_verification: {
-    title: 'Verify your phone',
-    prepare_description:
-      "Verify it's you to protect your account security. Send the verification code to your phone.",
     phone_label: 'Phone number',
-    send: 'Send verification code',
-    description:
-      'The verification code has been sent to your phone {{phone}}. Enter the code to continue.',
-    resend: 'Not received yet? <a>Resend verification code</a>',
-    resend_countdown: 'Not received yet? Resend after {{seconds}}s',
-    error_send_failed: 'Failed to send verification code. Please try again later.',
-    error_verify_failed: 'Verification failed. Please enter the code again.',
-    error_invalid_code: 'The verification code is invalid or has expired.',
   },
   mfa: {
     totp_already_added:
@@ -306,4 +297,3 @@ const account_center = {
 };
 
 export default Object.freeze(account_center);
-/* eslint-enable max-lines */

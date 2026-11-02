@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'Página não encontrada',
@@ -19,36 +18,11 @@ const account_center = {
     sign_out: 'Sair',
   },
   verification: {
-    title: 'Verificação de segurança',
-    description:
-      'Confirme que é você para proteger a segurança da sua conta. Selecione o método para verificar sua identidade.',
     error_send_failed: 'Falha ao enviar o código de verificação. Tente novamente mais tarde.',
     error_invalid_code: 'O código de verificação é inválido ou expirou.',
     error_verify_failed: 'Falha na verificação. Digite o código novamente.',
-    verification_required: 'A verificação expirou. Confirme sua identidade novamente.',
-    try_another_method: 'Tente outro método para verificar',
-    no_available_methods_title: 'Nenhum método de verificação disponível',
-    no_available_methods_description:
-      'Você não tem nenhum método de verificação configurado. Adicione uma senha, e-mail ou número de telefone à sua conta primeiro.',
-  },
-  password_verification: {
-    title: 'Verificar senha',
-    description: 'Para proteger sua conta, insira sua senha para confirmar sua identidade.',
-    error_failed: 'Senha incorreta. Verifique sua entrada.',
-  },
-  verification_method: {
-    password: {
-      name: 'Senha',
-      description: 'Verifique sua senha',
-    },
-    email: {
-      name: 'Código de verificação por e-mail',
-      description: 'Enviar código de verificação para seu e-mail',
-    },
-    phone: {
-      name: 'Código de verificação por telefone',
-      description: 'Enviar código de verificação para seu número de telefone',
-    },
+    step_up_not_completed:
+      'A verificação de identidade não foi concluída. Nenhuma alteração foi feita na sua conta.',
   },
   email: {
     title: 'Vincular e-mail',
@@ -57,7 +31,6 @@ const account_center = {
     verification_description:
       'O código de verificação foi enviado para seu e-mail {{email_address}}.',
     success: 'E-mail principal vinculado com sucesso.',
-    verification_required: 'A verificação expirou. Confirme sua identidade novamente.',
   },
   phone: {
     title: 'Vincular número de telefone',
@@ -66,7 +39,6 @@ const account_center = {
     verification_description:
       'O código de verificação foi enviado para o seu telefone {{phone_number}}.',
     success: 'Telefone principal vinculado com sucesso.',
-    verification_required: 'A verificação expirou. Confirme sua identidade novamente.',
   },
   username: {
     title: 'Definir nome de usuário',
@@ -101,12 +73,19 @@ const account_center = {
     manage: 'Gerenciar',
     turn_on_2_step_verification_description:
       'Adicione uma camada extra de segurança. Você será solicitado a realizar uma segunda etapa de verificação ao fazer login.',
+    two_step_verification_incomplete_description:
+      'A verificação em duas etapas está ativada, mas ainda não está em funcionamento.',
+    two_step_verification_off_description:
+      'Sua preferência de verificação em duas etapas está desativada. Uma verificação adicional ainda pode ser exigida pelas políticas de segurança.',
     turn_off_2_step_verification: 'Desativar verificação em duas etapas',
     turn_off_2_step_verification_description:
       'Desativar a verificação em duas etapas removerá a camada extra de proteção da sua conta ao fazer login. Tem certeza de que deseja continuar?',
     disable_2_step_verification: 'Desativar',
     no_verification_method_warning:
-      'Você não adicionou um segundo método de verificação. Adicione pelo menos um para ativar a verificação em duas etapas ao fazer login.',
+      'Configuração incompleta. Adicione um método de verificação abaixo para concluir a configuração da verificação em duas etapas.',
+    two_step_verification_load_failed:
+      'Não foi possível carregar as configurações de verificação em duas etapas. Tente novamente.',
+    two_step_verification_retry: 'Tentar novamente',
     passkey_sign_in_prompt: 'Solicitar a configuração de uma passkey',
     passkey_sign_in_prompt_description:
       'Quando ativado, será solicitado que você configure uma passkey para um login mais rápido e seguro.',
@@ -140,6 +119,43 @@ const account_center = {
       remove_confirmation_description:
         'Você precisará concluir a MFA novamente neste dispositivo na próxima vez que entrar. Sua sessão atual permanecerá ativa.',
     },
+    personal_access_tokens: {
+      title: 'Tokens de acesso pessoal',
+      description:
+        'Use tokens de acesso pessoal para se autenticar em APIs em seu nome. Eles permanecem ativos até expirarem ou serem revogados, mesmo que você saia da conta ou altere sua senha.',
+      create: 'Criar novo token',
+      created_at: 'Criado em {{date}}',
+      expires_on: 'Expira em {{date}}',
+      expired_on: 'Expirou em {{date}}',
+      expired: 'Expirado',
+      never_expires: 'Nunca expira',
+      never_expires_warning:
+        'Este token não tem data de expiração. Para maior segurança, crie um novo token com data de expiração e revogue este.',
+      rename: 'Renomear',
+      revoke: 'Revogar',
+      loading: 'Carregando...',
+      empty: 'Nenhum token de acesso pessoal.',
+      load_failed: 'Falha ao carregar os tokens de acesso pessoal. Tente novamente.',
+      retry: 'Tentar novamente',
+      create_modal_title: 'Criar token de acesso pessoal',
+      create_modal_description:
+        'Dê ao seu token um nome descritivo e escolha um período de expiração.',
+      token_name: 'Nome do token',
+      token_name_placeholder: 'Meu token',
+      expiration: 'Expiração',
+      expiration_days: '{{count}} dias',
+      created_modal_title: 'Token de acesso pessoal criado',
+      show_once_warning:
+        'Você não poderá ver este token novamente. Copie-o agora e guarde-o em um local seguro.',
+      copied: 'Token de acesso pessoal copiado.',
+      rename_modal_title: 'Renomear token de acesso pessoal',
+      rename_modal_description: 'Digite um novo nome para este token de acesso pessoal.',
+      renamed: 'Token de acesso pessoal renomeado com sucesso.',
+      revoke_confirmation_title: 'Revogar token de acesso pessoal?',
+      revoke_confirmation_description:
+        'Quaisquer aplicativos ou scripts que usem "{{name}}" perderão o acesso imediatamente. Tem certeza de que deseja continuar?',
+      revoked: 'Token de acesso pessoal revogado com sucesso.',
+    },
   },
   social: {
     linked: '{{connector}} vinculado com sucesso.',
@@ -161,34 +177,10 @@ const account_center = {
     resend_countdown: 'Ainda não recebeu? Reenvie após {{seconds}} s.',
   },
   email_verification: {
-    title: 'Verifique seu e-mail',
-    prepare_description:
-      'Confirme que é você para proteger a segurança da sua conta. Envie o código de verificação para seu e-mail.',
     email_label: 'Endereço de e-mail',
-    send: 'Enviar código de verificação',
-    description:
-      'O código de verificação foi enviado para o e-mail {{email}}. Digite o código para continuar.',
-    resend: 'Ainda não recebeu? <a>Reenviar código de verificação</a>',
-    not_received: 'Ainda não recebeu?',
-    resend_action: 'Reenviar código de verificação',
-    resend_countdown: 'Ainda não recebeu? Reenvie após {{seconds}} s.',
-    error_send_failed: 'Falha ao enviar o código de verificação. Tente novamente mais tarde.',
-    error_verify_failed: 'Falha na verificação. Digite o código novamente.',
-    error_invalid_code: 'O código de verificação é inválido ou expirou.',
   },
   phone_verification: {
-    title: 'Verifique seu telefone',
-    prepare_description:
-      'Confirme que é você para proteger a segurança da sua conta. Envie o código de verificação para seu telefone.',
     phone_label: 'Número de telefone',
-    send: 'Enviar código de verificação',
-    description:
-      'O código de verificação foi enviado para o seu telefone {{phone}}. Digite o código para continuar.',
-    resend: 'Ainda não recebeu? <a>Reenviar código de verificação</a>',
-    resend_countdown: 'Ainda não recebeu? Reenvie após {{seconds}} s.',
-    error_send_failed: 'Falha ao enviar o código de verificação. Tente novamente mais tarde.',
-    error_verify_failed: 'Falha na verificação. Digite o código novamente.',
-    error_invalid_code: 'O código de verificação é inválido ou expirou.',
   },
   mfa: {
     totp_already_added:
@@ -307,4 +299,3 @@ const account_center = {
 };
 
 export default Object.freeze(account_center);
-/* eslint-enable max-lines */

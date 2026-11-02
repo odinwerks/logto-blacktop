@@ -6,12 +6,15 @@ const tenant_members = {
   roles: 'Ruoli',
   admin: 'Amministratore',
   collaborator: 'Collaboratore',
+  viewer: 'Visualizzatore',
   invitation_status: 'Stato invito',
   inviter: 'Chi ha invitato',
   expiration_date: 'Data di scadenza',
   invite_modal: {
     title: 'Invita persone',
     subtitle: "Per invitare membri a un'organizzazione, devono accettare l'invito.",
+    subtitle_oss:
+      'I membri invitati ricevono accesso completo come amministratori a questa istanza di Logto.',
     to: 'A',
     added_as: 'Aggiunti come ruoli',
     email_input_placeholder: 'johndoe@example.com',
@@ -40,8 +43,6 @@ const tenant_members = {
   delete_user_confirm: 'Sei sicuro di voler rimuovere questo utente da questo inquilino?',
   assign_admin_confirm:
     "Sei sicuro di voler rendere amministratore i(e) ​​utente(i)​​ selezionato(i)​​? Concedere l'accesso da amministratore fornirà al(i)​​ utente(i)​​ le seguenti autorizzazioni.<ul><li>Cambiare piano di fatturazione dell'inquilino</li><li>Aggiungere o rimuovere collaboratori</li><li>Eliminare l'inquilino</li></ul>",
-  assign_admin_confirm_oss:
-    "Sei sicuro di voler rendere amministratore i(e) ​​utente(i)​​ selezionato(i)​​? Concedere l'accesso da amministratore fornirà al(i)​​ utente(i)​​ le seguenti autorizzazioni.<ul><li>Invitare o rimuovere membri</li><li>Modificare i ruoli dei membri</li><li>Richiedere l'MFA a tutti i membri</li></ul>",
   revoke_invitation_confirm: 'Sei sicuro di voler revocare questo invito?',
   delete_invitation_confirm: 'Sei sicuro di voler eliminare questo record di invito?',
   messages: {

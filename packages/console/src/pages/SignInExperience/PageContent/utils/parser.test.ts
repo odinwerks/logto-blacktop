@@ -1,6 +1,7 @@
 import {
   AgreeToTermsPolicy,
   AlternativeSignUpIdentifier,
+  CrossOriginOpenerPolicy,
   MfaFactor,
   MfaPolicy,
   SignInIdentifier,
@@ -52,6 +53,7 @@ const mockSignInExperience: SignInExperience = {
   agreeToTermsPolicy: AgreeToTermsPolicy.Automatic,
   customUiAssets: null,
   customUiCsp: {},
+  crossOriginOpenerPolicy: CrossOriginOpenerPolicy.UnsafeNone,
   passwordPolicy: {},
   passwordExpiration: {
     enabled: false,
@@ -66,6 +68,7 @@ const mockSignInExperience: SignInExperience = {
   },
   trustedDevice: {},
   singleSignOnEnabled: false,
+  ssoBrandingBeforeEmailMatch: true,
   socialSignIn: {},
   supportEmail: null,
   supportWebsiteUrl: null,
@@ -157,6 +160,39 @@ describe('sign-in experience parser', () => {
         { isCustomUiCspEnabled: true }
       ).customUiCsp
     ).toEqual(customUiCsp);
+  });
+
+  it('omits the Cross-Origin-Opener-Policy when Bring your UI is not enabled', () => {
+    const signInExperience = {
+      ...mockSignInExperience,
+      crossOriginOpenerPolicy: CrossOriginOpenerPolicy.SameOrigin,
+    };
+    const formData = sieFormDataParser.fromSignInExperience(signInExperience);
+
+    expect(sieFormDataParser.toSignInExperience(formData)).not.toHaveProperty(
+      'crossOriginOpenerPolicy'
+    );
+    expect(signInExperienceToUpdatedDataParser(signInExperience)).not.toHaveProperty(
+      'crossOriginOpenerPolicy'
+    );
+  });
+
+  it('round-trips the Cross-Origin-Opener-Policy when Bring your UI is enabled', () => {
+    const signInExperience = {
+      ...mockSignInExperience,
+      crossOriginOpenerPolicy: CrossOriginOpenerPolicy.SameOriginAllowPopups,
+    };
+    const formData = sieFormDataParser.fromSignInExperience(signInExperience);
+
+    expect(formData.crossOriginOpenerPolicy).toBe(CrossOriginOpenerPolicy.SameOriginAllowPopups);
+    expect(
+      sieFormDataParser.toSignInExperience(formData, { isCustomUiCspEnabled: true })
+        .crossOriginOpenerPolicy
+    ).toBe(CrossOriginOpenerPolicy.SameOriginAllowPopups);
+    expect(
+      signInExperienceToUpdatedDataParser(signInExperience, { isCustomUiCspEnabled: true })
+        .crossOriginOpenerPolicy
+    ).toBe(CrossOriginOpenerPolicy.SameOriginAllowPopups);
   });
 
   it('should omit adaptive mfa from sign-up and sign-in page data', () => {

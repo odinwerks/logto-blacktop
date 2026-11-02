@@ -5,11 +5,15 @@ import { useContext } from 'react';
 import AddLanguageSelector from '@/components/LocalizationEditor/AddLanguageSelector';
 import LanguageItem from '@/components/LocalizationEditor/LanguageItem';
 import { LocalizationEditorContext } from '@/components/LocalizationEditor/use-localization-editor-context';
+import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
 import useUiLanguages from '@/hooks/use-ui-languages';
 
 import style from './LanguageNav.module.scss';
 
 function LanguageNav() {
+  const {
+    access: { isReadOnly },
+  } = useCurrentTenantScopes();
   const { languages, addLanguage } = useUiLanguages();
 
   const {
@@ -51,7 +55,7 @@ function LanguageNav() {
 
   return (
     <div className={style.languageNav}>
-      <AddLanguageSelector options={languageOptions} onSelect={onAddLanguage} />
+      {!isReadOnly && <AddLanguageSelector options={languageOptions} onSelect={onAddLanguage} />}
       <div className={style.languageItemList}>
         {languages.map((languageTag) => (
           <LanguageItem

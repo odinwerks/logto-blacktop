@@ -47,7 +47,6 @@ import {
   socialSuccessRoute,
   socialCallbackRoutePrefix,
   socialRoutePrefix,
-  verifiedActionRoute,
 } from './constants/routes';
 import initI18n from './i18n/init';
 import BackupCodeBinding from './pages/BackupCodeBinding';
@@ -63,18 +62,25 @@ import Security from './pages/Security';
 import Sessions from './pages/Sessions';
 import SocialCallback from './pages/SocialCallback';
 import SocialFlow from './pages/SocialFlow';
+import StepUpFailure from './pages/StepUpFailure';
 import TotpBinding from './pages/TotpBinding';
 import UpdateSuccess from './pages/UpdateSuccess';
 import Username from './pages/Username';
-import VerifiedAction from './pages/VerifiedAction';
 import { useAuthRedirect } from './use-auth-redirect';
 import { accountCenterBasePath, handleAccountCenterRoute } from './utils/account-center-route';
 import { getAccountTabSettings } from './utils/account-tabs';
+import {
+  discardPendingStepUpOnBackForwardRestore,
+  handlePendingStepUpOnPageLoad,
+} from './utils/step-up';
 import '@experience/shared/scss/normalized.scss';
 import './scss/normalized.scss';
 
+// Runs before the route restoration, which rewrites the callback URL it inspects.
+const stepUpFailure = handlePendingStepUpOnPageLoad(window.location);
 handleAccountCenterRoute();
 void initI18n();
+discardPendingStepUpOnBackForwardRestore();
 
 export const Main = () => {
   const params = new URLSearchParams(window.location.search);
@@ -192,7 +198,6 @@ export const Main = () => {
       <Route path={backupCodesManageRoute} element={<BackupCodeView />} />
       <Route path={passkeyAddRoute} element={<PasskeyBinding />} />
       <Route path={passkeyManageRoute} element={<PasskeyView />} />
-      <Route path={verifiedActionRoute} element={<VerifiedAction />} />
       <Route path={`${socialRoutePrefix}/:connectorId`} element={<SocialFlow mode="add" />} />
       <Route
         path={`${socialRoutePrefix}/:connectorId/change`}
@@ -261,7 +266,7 @@ const Layout = () => {
             >
               <ErrorBoundary>
                 <LogtoErrorBoundary>
-                  <Main />
+                  {stepUpFailure ? <StepUpFailure failure={stepUpFailure} /> : <Main />}
                 </LogtoErrorBoundary>
               </ErrorBoundary>
               {!isFullPage && !hideLogtoBranding && (
@@ -295,6 +300,7 @@ const App = () => (
           UserScope.CustomData,
           UserScope.Sessions,
           UserScope.TrustedDevices,
+          UserScope.PersonalAccessTokens,
         ],
       }}
     >

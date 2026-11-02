@@ -65,6 +65,18 @@ export const accountCenterSections: AccountCenterFieldSection[] = [
           },
         ],
       },
+      {
+        key: 'developerSettings',
+        title:
+          'sign_in_exp.account_center.sections.account_security.groups.developer_settings.title',
+        items: [
+          {
+            key: 'personalAccessToken',
+            title: 'sign_in_exp.account_center.fields.personal_access_tokens',
+            description: 'sign_in_exp.account_center.fields.personal_access_tokens_description',
+          },
+        ],
+      },
     ],
   },
   {

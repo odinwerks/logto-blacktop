@@ -15,14 +15,14 @@ const tenants = {
   license: {
     purchase_title: 'SELF-HOSTED PLANS',
     purchase_description:
-      'Self-hosted Pro and Enterprise unlock paid features on your own instance, such as hiding the Logto branding, bringing your own UI, IdP-initiated SSO, Console collaboration, and unlimited SAML applications. Buy a plan to get your license key.',
+      'Self-hosted Pro and Enterprise unlock paid features on your own instance, such as hiding the Logto branding, bringing your own UI, Console collaboration, and unlimited SAML applications. Buy a plan to get your license key.',
     purchase_button: 'View self-hosted plans',
     install_title: 'INSTALL LICENSE',
     install_description: 'Paste the license key you got after purchasing a self-hosted plan.',
     install_button: 'Install license',
     key_field: 'License key',
     key_field_description:
-      'The key is verified on your instance and never leaves it. Get a fresh key from your Logto account if the one you have has expired.',
+      'The key is verified on your instance and sent to Logto when the license refreshes. Contact Logto for a fresh key if the one you have has expired.',
     key_placeholder: 'Paste your license key here',
     installed_toast: 'License installed successfully.',
     details_title: 'LICENSE',
@@ -45,9 +45,15 @@ const tenants = {
     refusal_reason_revoked: 'revoked',
     refusal_reason_unknown: 'not available',
     grace_expired_description:
-      'The license grace period ended on {{graceEndsAt}}. This deployment has reverted to OSS defaults. Get a fresh license key from Logto Cloud and install it again.',
+      'The license grace period ended on {{graceEndsAt}}. This deployment has reverted to OSS defaults. Contact Logto for a fresh license key and install it again.',
     get_fresh_key_button: 'Get a fresh license key',
     replace_button: 'Replace license',
+    usage_banner_description: 'This deployment is above the usage limits of its self-hosted plan:',
+    usage_banner_metric: '{{metric}}: {{value}} (limit {{limit}})',
+    usage_banner_action: 'Contact us within 30 days to upgrade your plan or reduce your usage.',
+    usage_metric_mau: 'Monthly active users',
+    usage_metric_access_tokens: 'Monthly access tokens',
+    usage_metric_production_deployments: 'Production deployments',
   },
   members: {
     card_title: 'Manage tenants more securely with Logto Cloud',
@@ -99,6 +105,12 @@ const tenants = {
   full_env_tag: {
     development: 'Development',
     production: 'Production',
+  },
+  view_only: {
+    tag: 'View only',
+    notification:
+      'You have view-only access to this tenant. Ask a tenant admin if you need to make changes.',
+    hidden: 'Hidden for viewers',
   },
   deletion_card: {
     title: 'DELETE',

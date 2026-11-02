@@ -17,35 +17,10 @@ const account_center = {
     sign_out: '登出',
   },
   verification: {
-    title: '安全驗證',
-    description: '為保護帳戶安全，請確認是您本人。請選擇用於驗證身分的方法。',
     error_send_failed: '驗證碼傳送失敗，請稍後再試。',
     error_invalid_code: '驗證碼無效或已過期。',
     error_verify_failed: '驗證失敗，請重新輸入驗證碼。',
-    verification_required: '驗證已失效，請再次驗證您的身分。',
-    try_another_method: '嘗試其他驗證方式',
-    no_available_methods_title: '沒有可用的驗證方式',
-    no_available_methods_description:
-      '您尚未設定任何驗證方式。請先在您的帳戶中新增密碼、電子郵件或電話號碼。',
-  },
-  password_verification: {
-    title: '驗證密碼',
-    description: '為保護帳戶安全，請輸入您的密碼完成驗證。',
-    error_failed: '密碼錯誤，請重新輸入。',
-  },
-  verification_method: {
-    password: {
-      name: '密碼',
-      description: '驗證您的密碼',
-    },
-    email: {
-      name: '電子郵件驗證碼',
-      description: '傳送驗證碼到您的電子郵件',
-    },
-    phone: {
-      name: '電話驗證碼',
-      description: '傳送驗證碼到您的電話號碼',
-    },
+    step_up_not_completed: '身分驗證未完成，您的帳戶未做任何變更。',
   },
   email: {
     title: '連結電子郵件',
@@ -53,7 +28,6 @@ const account_center = {
     verification_title: '輸入電子郵件驗證碼',
     verification_description: '驗證碼已傳送至你的電子郵件 {{email_address}}。',
     success: '已成功連結主要電子郵件。',
-    verification_required: '驗證已失效，請再次驗證您的身分。',
   },
   phone: {
     title: '連結電話號碼',
@@ -61,7 +35,6 @@ const account_center = {
     verification_title: '輸入簡訊驗證碼',
     verification_description: '驗證碼已傳送至你的電話 {{phone_number}}。',
     success: '已成功連結主要電話。',
-    verification_required: '驗證已失效，請再次驗證您的身分。',
   },
   username: {
     title: '設定使用者名稱',
@@ -95,12 +68,17 @@ const account_center = {
     view: '檢視',
     manage: '管理',
     turn_on_2_step_verification_description: '增加額外的安全保護。登入時將要求進行第二步驟驗證。',
+    two_step_verification_incomplete_description: '兩步驟驗證已開啟，但尚未生效。',
+    two_step_verification_off_description:
+      '你的兩步驟驗證偏好已關閉。安全策略仍可能要求進行額外驗證。',
     turn_off_2_step_verification: '關閉兩步驟驗證',
     turn_off_2_step_verification_description:
       '關閉兩步驟驗證將移除登入時帳戶的額外保護層。確定要繼續嗎？',
     disable_2_step_verification: '關閉',
     no_verification_method_warning:
-      '你尚未新增第二種驗證方式。請至少新增一種以在登入時啟用兩步驟驗證。',
+      '設定未完成。請在下方新增一種驗證方式，以完成兩步驟驗證的設定。',
+    two_step_verification_load_failed: '無法載入兩步驟驗證設定，請重試。',
+    two_step_verification_retry: '重試',
     passkey_sign_in_prompt: '提示設定通行密鑰',
     passkey_sign_in_prompt_description:
       '開啟後，系統會提示你設定通行密鑰，以實現更快速、更安全的登入。',
@@ -133,6 +111,41 @@ const account_center = {
       remove_confirmation_description:
         '下次在此裝置登入時，你需要再次完成 MFA。目前的工作階段將保持有效。',
     },
+    personal_access_tokens: {
+      title: '個人存取權杖',
+      description:
+        '使用個人存取權杖代表你向 API 進行身分驗證。即使你登出或更改密碼，它們仍會保持有效，直到過期或被你撤銷。',
+      create: '建立新權杖',
+      created_at: '建立於 {{date}}',
+      expires_on: '於 {{date}} 到期',
+      expired_on: '已於 {{date}} 過期',
+      expired: '已過期',
+      never_expires: '永不過期',
+      never_expires_warning:
+        '此權杖沒有到期日。為了提升安全性，建議建立一個設有到期日的新權杖並撤銷此權杖。',
+      rename: '重新命名',
+      revoke: '撤銷',
+      loading: '載入中...',
+      empty: '沒有個人存取權杖。',
+      load_failed: '無法載入個人存取權杖，請再試一次。',
+      retry: '再試一次',
+      create_modal_title: '建立個人存取權杖',
+      create_modal_description: '為你的權杖提供描述性名稱並選擇有效期。',
+      token_name: '權杖名稱',
+      token_name_placeholder: '我的權杖',
+      expiration: '有效期',
+      expiration_days: '{{count}} 天',
+      created_modal_title: '個人存取權杖已建立',
+      show_once_warning: '你將無法再次查看此權杖。請立即複製並保存在安全的地方。',
+      copied: '個人存取權杖已複製。',
+      rename_modal_title: '重新命名個人存取權杖',
+      rename_modal_description: '為此個人存取權杖輸入新名稱。',
+      renamed: '個人存取權杖已成功重新命名。',
+      revoke_confirmation_title: '撤銷個人存取權杖？',
+      revoke_confirmation_description:
+        '任何使用「{{name}}」的應用程式或指令碼都將立即失去存取權限。確定要繼續嗎？',
+      revoked: '個人存取權杖已成功撤銷。',
+    },
   },
   social: {
     linked: '已成功連結 {{connector}}。',
@@ -153,30 +166,10 @@ const account_center = {
     resend_countdown: '尚未收到？{{seconds}} 秒後可重新傳送。',
   },
   email_verification: {
-    title: '驗證您的電子郵件',
-    prepare_description: '為保護帳戶安全，請確認是您本人。傳送驗證碼到您的電子郵件。',
     email_label: '電子郵件地址',
-    send: '傳送驗證碼',
-    description: '驗證碼已傳送至您的電子郵件 {{email}}。請輸入驗證碼以繼續。',
-    resend: '尚未收到？<a>重新傳送驗證碼</a>',
-    not_received: '尚未收到？',
-    resend_action: '重新傳送驗證碼',
-    resend_countdown: '尚未收到？{{seconds}} 秒後可重新傳送。',
-    error_send_failed: '驗證碼傳送失敗，請稍後再試。',
-    error_verify_failed: '驗證失敗，請重新輸入驗證碼。',
-    error_invalid_code: '驗證碼無效或已過期。',
   },
   phone_verification: {
-    title: '驗證您的電話',
-    prepare_description: '為保護帳戶安全，請確認是您本人。傳送驗證碼到您的電話。',
     phone_label: '電話號碼',
-    send: '傳送驗證碼',
-    description: '驗證碼已傳送至您的電話 {{phone}}。請輸入驗證碼以繼續。',
-    resend: '尚未收到？<a>重新傳送驗證碼</a>',
-    resend_countdown: '尚未收到？{{seconds}} 秒後可重新傳送。',
-    error_send_failed: '驗證碼傳送失敗，請稍後再試。',
-    error_verify_failed: '驗證失敗，請重新輸入驗證碼。',
-    error_invalid_code: '驗證碼無效或已過期。',
   },
   mfa: {
     totp_already_added: '您已新增過身份驗證器應用程式，請先移除現有的。',

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- Locale catalog mirrors the complete Account Center phrase schema. */
 const account_center = {
   home: {
     title: 'ページが見つかりません',
@@ -18,36 +17,10 @@ const account_center = {
     sign_out: 'サインアウト',
   },
   verification: {
-    title: 'セキュリティ確認',
-    description:
-      'アカウントの安全を守るため、ご本人であることを確認します。本人確認の方法を選択してください。',
     error_send_failed: '認証コードの送信に失敗しました。しばらくしてからもう一度お試しください。',
     error_invalid_code: '認証コードが無効か、有効期限が切れています。',
     error_verify_failed: '認証に失敗しました。もう一度コードを入力してください。',
-    verification_required: '認証の有効期限が切れました。もう一度本人確認を行ってください。',
-    try_another_method: '別の方法で確認する',
-    no_available_methods_title: '利用可能な認証方法がありません',
-    no_available_methods_description:
-      '認証方法が設定されていません。まずアカウントにパスワード、メールアドレス、または電話番号を追加してください。',
-  },
-  password_verification: {
-    title: 'パスワードを確認',
-    description: 'アカウントを保護するため、パスワードを入力して本人確認してください。',
-    error_failed: 'パスワードが正しくありません。入力内容を確認してください。',
-  },
-  verification_method: {
-    password: {
-      name: 'パスワード',
-      description: 'パスワードを確認してください',
-    },
-    email: {
-      name: 'メール認証コード',
-      description: '認証コードをメールに送信',
-    },
-    phone: {
-      name: '電話認証コード',
-      description: '認証コードを電話番号に送信',
-    },
+    step_up_not_completed: '本人確認が完了しませんでした。アカウントは変更されていません。',
   },
   email: {
     title: 'メールをリンク',
@@ -55,7 +28,6 @@ const account_center = {
     verification_title: 'メール認証コードを入力',
     verification_description: '認証コードをメールアドレス {{email_address}} に送信しました。',
     success: 'メインのメールアドレスをリンクしました。',
-    verification_required: '認証の有効期限が切れました。もう一度本人確認を行ってください。',
   },
   phone: {
     title: '電話番号をリンク',
@@ -63,7 +35,6 @@ const account_center = {
     verification_title: 'SMS認証コードを入力',
     verification_description: '認証コードを電話番号 {{phone_number}} に送信しました。',
     success: 'メインの電話番号をリンクしました。',
-    verification_required: '認証の有効期限が切れました。もう一度本人確認を行ってください。',
   },
   username: {
     title: 'ユーザー名を設定',
@@ -98,12 +69,19 @@ const account_center = {
     manage: '管理',
     turn_on_2_step_verification_description:
       'セキュリティを強化します。サインイン時に2段階目の認証が求められます。',
+    two_step_verification_incomplete_description:
+      '2段階認証はオンですが、まだ有効になっていません。',
+    two_step_verification_off_description:
+      '2段階認証の設定はオフです。セキュリティポリシーにより、追加の認証が求められる場合があります。',
     turn_off_2_step_verification: '2段階認証を無効にする',
     turn_off_2_step_verification_description:
       '2段階認証を無効にすると、サインイン時の追加の保護レイヤーが削除されます。続行してもよろしいですか？',
     disable_2_step_verification: '無効にする',
     no_verification_method_warning:
-      '2つ目の認証方法が追加されていません。サインイン時の2段階認証を有効にするには、少なくとも1つ追加してください。',
+      '設定が完了していません。下の認証方法を追加して、2段階認証の設定を完了してください。',
+    two_step_verification_load_failed:
+      '2段階認証の設定を読み込めませんでした。もう一度お試しください。',
+    two_step_verification_retry: '再試行',
     passkey_sign_in_prompt: 'パスキーの設定を促す',
     passkey_sign_in_prompt_description:
       'オンにすると、より速く安全なサインインのためにパスキーの設定を求められます。',
@@ -137,6 +115,42 @@ const account_center = {
       remove_confirmation_description:
         '次回このデバイスでサインインするときは、MFA をもう一度完了する必要があります。現在のセッションは引き続き有効です。',
     },
+    personal_access_tokens: {
+      title: 'パーソナルアクセストークン',
+      description:
+        '個人用アクセストークンを使用して、あなたに代わって API で認証できます。サインアウトやパスワード変更を行っても、有効期限が切れるか失効させるまで有効なままになります。',
+      create: '新しいトークンを作成',
+      created_at: '{{date}} に作成',
+      expires_on: '{{date}} に期限切れ',
+      expired_on: '{{date}} に期限切れ',
+      expired: '期限切れ',
+      never_expires: '無期限',
+      never_expires_warning:
+        'このトークンには有効期限がありません。セキュリティ向上のため、有効期限付きの新しいトークンを作成してこのトークンを失効させてください。',
+      rename: '名前を変更',
+      revoke: '失効',
+      loading: '読み込み中...',
+      empty: 'パーソナルアクセストークンはありません。',
+      load_failed: 'パーソナルアクセストークンを読み込めませんでした。もう一度お試しください。',
+      retry: '再試行',
+      create_modal_title: 'パーソナルアクセストークンを作成',
+      create_modal_description: 'トークンにわかりやすい名前を付け、有効期限を選択してください。',
+      token_name: 'トークン名',
+      token_name_placeholder: 'マイトークン',
+      expiration: '有効期限',
+      expiration_days: '{{count}} 日',
+      created_modal_title: 'パーソナルアクセストークンを作成しました',
+      show_once_warning:
+        'このトークンは二度と表示されません。今すぐコピーして安全な場所に保管してください。',
+      copied: 'パーソナルアクセストークンをコピーしました。',
+      rename_modal_title: 'パーソナルアクセストークンの名前を変更',
+      rename_modal_description: 'このパーソナルアクセストークンの新しい名前を入力してください。',
+      renamed: 'パーソナルアクセストークンの名前を変更しました。',
+      revoke_confirmation_title: 'パーソナルアクセストークンを失効させますか？',
+      revoke_confirmation_description:
+        '「{{name}}」を使用しているアプリケーションやスクリプトは直ちにアクセスできなくなります。続行してもよろしいですか？',
+      revoked: 'パーソナルアクセストークンを失効させました。',
+    },
   },
   social: {
     linked: '{{connector}}の連携に成功しました。',
@@ -158,33 +172,10 @@ const account_center = {
     resend_countdown: 'まだ届きませんか？ {{seconds}} 秒後に再送できます',
   },
   email_verification: {
-    title: 'メールアドレスを確認',
-    prepare_description:
-      'アカウントの安全を守るため、ご本人であることを確認します。認証コードをメールに送信します。',
     email_label: 'メールアドレス',
-    send: '認証コードを送信',
-    description:
-      '認証コードをメールアドレス {{email}} に送信しました。コードを入力して続行してください。',
-    resend: 'まだ届きませんか？ <a>認証コードを再送</a>',
-    not_received: 'まだ届きませんか？',
-    resend_action: '認証コードを再送',
-    resend_countdown: 'まだ届きませんか？ {{seconds}} 秒後に再送できます',
-    error_send_failed: '認証コードの送信に失敗しました。しばらくしてからもう一度お試しください。',
-    error_verify_failed: '認証に失敗しました。もう一度コードを入力してください。',
-    error_invalid_code: '認証コードが無効か、有効期限が切れています。',
   },
   phone_verification: {
-    title: '電話番号を確認',
-    prepare_description:
-      'アカウントの安全を守るため、ご本人であることを確認します。認証コードを電話に送信します。',
     phone_label: '電話番号',
-    send: '認証コードを送信',
-    description: '認証コードを電話 {{phone}} に送信しました。コードを入力して続行してください。',
-    resend: 'まだ届きませんか？ <a>認証コードを再送</a>',
-    resend_countdown: 'まだ届きませんか？ {{seconds}} 秒後に再送できます',
-    error_send_failed: '認証コードの送信に失敗しました。しばらくしてからもう一度お試しください。',
-    error_verify_failed: '認証に失敗しました。もう一度コードを入力してください。',
-    error_invalid_code: '認証コードが無効か、有効期限が切れています。',
   },
   mfa: {
     totp_already_added: '認証アプリはすでに追加されています。まず既存のものを削除してください。',
@@ -301,4 +292,3 @@ const account_center = {
 };
 
 export default Object.freeze(account_center);
-/* eslint-enable max-lines */

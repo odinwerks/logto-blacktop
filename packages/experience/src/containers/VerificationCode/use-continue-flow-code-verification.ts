@@ -18,7 +18,7 @@ import useMfaFlowState from '@/hooks/use-mfa-factors-state';
 import useNavigateWithPreservedSearchParams from '@/hooks/use-navigate-with-preserved-search-params';
 import { useSieMethods } from '@/hooks/use-sie';
 import useSubmitInteractionErrorHandler from '@/hooks/use-submit-interaction-error-handler';
-import { SearchParameters } from '@/types';
+import { SearchParameters, UserMfaFlow } from '@/types';
 
 import useGeneralVerificationCodeErrorHandler from './use-general-verification-code-error-handler';
 import useIdentifierErrorAlert, { IdentifierErrorType } from './use-identifier-error-alert';
@@ -35,7 +35,7 @@ const useContinueFlowCodeVerification = (
   const navigate = useNavigateWithPreservedSearchParams();
 
   const { state } = useLocation();
-  const mfaFlowState = useMfaFlowState();
+  const mfaFlowState = useMfaFlowState(UserMfaFlow.MfaBinding);
   const { verificationIdsMap } = useContext(UserInteractionContext);
   const { isVerificationCodeEnabledForSignIn } = useSieMethods();
 

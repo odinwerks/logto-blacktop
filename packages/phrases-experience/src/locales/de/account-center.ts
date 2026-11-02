@@ -19,38 +19,12 @@ const account_center = {
     sign_out: 'Abmelden',
   },
   verification: {
-    title: 'Sicherheitsüberprüfung',
-    description:
-      'Bestätige deine Identität, um die Sicherheit deines Kontos zu schützen. Bitte wähle eine Methode zur Verifizierung deiner Identität.',
     error_send_failed:
       'Bestätigungscode konnte nicht gesendet werden. Bitte versuche es später noch einmal.',
     error_invalid_code: 'Der Bestätigungscode ist ungültig oder abgelaufen.',
     error_verify_failed: 'Verifizierung fehlgeschlagen. Bitte gib den Code erneut ein.',
-    verification_required: 'Verifizierung abgelaufen. Bitte bestätige deine Identität erneut.',
-    try_another_method: 'Versuche eine andere Verifizierungsmethode',
-    no_available_methods_title: 'Keine Verifizierungsmethoden verfügbar',
-    no_available_methods_description:
-      'Du hast noch keine Verifizierungsmethoden eingerichtet. Bitte füge zuerst ein Passwort, eine E-Mail-Adresse oder eine Telefonnummer zu deinem Konto hinzu.',
-  },
-  password_verification: {
-    title: 'Passwort bestätigen',
-    description:
-      'Zum Schutz deines Kontos gib dein Passwort ein, um deine Identität zu bestätigen.',
-    error_failed: 'Falsches Passwort. Bitte überprüfe deine Eingabe.',
-  },
-  verification_method: {
-    password: {
-      name: 'Passwort',
-      description: 'Bestätige dein Passwort',
-    },
-    email: {
-      name: 'E-Mail-Bestätigungscode',
-      description: 'Bestätigungscode an deine E-Mail senden',
-    },
-    phone: {
-      name: 'Telefon-Bestätigungscode',
-      description: 'Bestätigungscode an deine Telefonnummer senden',
-    },
+    step_up_not_completed:
+      'Die Identitätsverifizierung wurde nicht abgeschlossen. An deinem Konto wurden keine Änderungen vorgenommen.',
   },
   email: {
     title: 'E-Mail verknüpfen',
@@ -60,7 +34,6 @@ const account_center = {
     verification_description:
       'Der Bestätigungscode wurde an deine E-Mail {{email_address}} gesendet.',
     success: 'Primäre E-Mail wurde erfolgreich verknüpft.',
-    verification_required: 'Verifizierung abgelaufen. Bitte bestätige deine Identität erneut.',
   },
   phone: {
     title: 'Telefonnummer verknüpfen',
@@ -70,7 +43,6 @@ const account_center = {
     verification_description:
       'Der Bestätigungscode wurde an dein Telefon {{phone_number}} gesendet.',
     success: 'Primäre Telefonnummer wurde erfolgreich verknüpft.',
-    verification_required: 'Verifizierung abgelaufen. Bitte bestätige deine Identität erneut.',
   },
   username: {
     title: 'Benutzernamen festlegen',
@@ -105,12 +77,19 @@ const account_center = {
     manage: 'Verwalten',
     turn_on_2_step_verification_description:
       'Fügen Sie eine zusätzliche Sicherheitsebene hinzu. Sie werden bei der Anmeldung zu einem zweiten Verifizierungsschritt aufgefordert.',
+    two_step_verification_incomplete_description:
+      'Die 2-Faktor-Verifizierung ist aktiviert, aber noch nicht wirksam.',
+    two_step_verification_off_description:
+      'Ihre Präferenz für die 2-Faktor-Verifizierung ist deaktiviert. Zusätzliche Verifizierung kann durch Sicherheitsrichtlinien weiterhin erforderlich sein.',
     turn_off_2_step_verification: '2-Faktor-Verifizierung deaktivieren',
     turn_off_2_step_verification_description:
       'Das Deaktivieren der 2-Faktor-Verifizierung entfernt die zusätzliche Schutzebene für Ihr Konto bei der Anmeldung. Möchten Sie wirklich fortfahren?',
     disable_2_step_verification: 'Deaktivieren',
     no_verification_method_warning:
-      'Sie haben keine zweite Verifizierungsmethode hinzugefügt. Fügen Sie mindestens eine hinzu, um die 2-Faktor-Verifizierung bei der Anmeldung zu aktivieren.',
+      'Einrichtung unvollständig. Fügen Sie unten eine Verifizierungsmethode hinzu, um die Einrichtung der 2-Faktor-Verifizierung abzuschließen.',
+    two_step_verification_load_failed:
+      'Die Einstellungen für die 2-Faktor-Verifizierung konnten nicht geladen werden. Bitte versuchen Sie es erneut.',
+    two_step_verification_retry: 'Erneut versuchen',
     passkey_sign_in_prompt: 'Zur Einrichtung eines Passkeys auffordern',
     passkey_sign_in_prompt_description:
       'Wenn aktiviert, werden Sie aufgefordert, einen Passkey für eine schnellere und sicherere Anmeldung einzurichten.',
@@ -145,6 +124,45 @@ const account_center = {
       remove_confirmation_description:
         'Bei deiner nächsten Anmeldung auf diesem Gerät musst du MFA erneut abschließen. Deine aktuelle Sitzung bleibt aktiv.',
     },
+    personal_access_tokens: {
+      title: 'Persönliche Zugriffstoken',
+      description:
+        'Verwenden Sie persönliche Zugriffstoken, um sich in Ihrem Namen bei APIs zu authentifizieren. Sie bleiben aktiv, bis sie ablaufen oder von Ihnen widerrufen werden, selbst wenn Sie sich abmelden oder Ihr Passwort ändern.',
+      create: 'Neues Token erstellen',
+      created_at: 'Erstellt am {{date}}',
+      expires_on: 'Läuft ab am {{date}}',
+      expired_on: 'Abgelaufen am {{date}}',
+      expired: 'Abgelaufen',
+      never_expires: 'Läuft nie ab',
+      never_expires_warning:
+        'Dieses Token hat kein Ablaufdatum. Erstellen Sie für mehr Sicherheit ein neues Token mit Ablaufdatum und widerrufen Sie dieses.',
+      rename: 'Umbenennen',
+      revoke: 'Widerrufen',
+      loading: 'Wird geladen...',
+      empty: 'Keine persönlichen Zugriffstoken.',
+      load_failed:
+        'Persönliche Zugriffstoken konnten nicht geladen werden. Bitte versuchen Sie es erneut.',
+      retry: 'Erneut versuchen',
+      create_modal_title: 'Persönliches Zugriffstoken erstellen',
+      create_modal_description:
+        'Geben Sie Ihrem Token einen aussagekräftigen Namen und wählen Sie einen Ablaufzeitraum.',
+      token_name: 'Token-Name',
+      token_name_placeholder: 'Mein Token',
+      expiration: 'Ablauf',
+      expiration_days: '{{count}} Tage',
+      created_modal_title: 'Persönliches Zugriffstoken erstellt',
+      show_once_warning:
+        'Sie können dieses Token nicht noch einmal einsehen. Kopieren Sie es jetzt und bewahren Sie es sicher auf.',
+      copied: 'Persönliches Zugriffstoken kopiert.',
+      rename_modal_title: 'Persönliches Zugriffstoken umbenennen',
+      rename_modal_description:
+        'Geben Sie einen neuen Namen für dieses persönliche Zugriffstoken ein.',
+      renamed: 'Persönliches Zugriffstoken erfolgreich umbenannt.',
+      revoke_confirmation_title: 'Persönliches Zugriffstoken widerrufen?',
+      revoke_confirmation_description:
+        'Alle Anwendungen oder Skripte, die „{{name}}“ verwenden, verlieren sofort den Zugriff. Möchten Sie wirklich fortfahren?',
+      revoked: 'Persönliches Zugriffstoken erfolgreich widerrufen.',
+    },
   },
   social: {
     linked: '{{connector}} wurde erfolgreich verknüpft.',
@@ -166,36 +184,10 @@ const account_center = {
     resend_countdown: 'Noch nichts erhalten? Erneut senden nach {{seconds}} s.',
   },
   email_verification: {
-    title: 'Bestätige deine E-Mail',
-    prepare_description:
-      'Bestätige deine Identität, um die Sicherheit deines Kontos zu schützen. Sende den Bestätigungscode an deine E-Mail.',
     email_label: 'E-Mail-Adresse',
-    send: 'Bestätigungscode senden',
-    description:
-      'Der Bestätigungscode wurde an deine E-Mail {{email}} gesendet. Gib den Code ein, um fortzufahren.',
-    resend: 'Noch nichts erhalten? <a>Bestätigungscode erneut senden</a>',
-    not_received: 'Noch nichts erhalten?',
-    resend_action: 'Bestätigungscode erneut senden',
-    resend_countdown: 'Noch nichts erhalten? Erneut senden nach {{seconds}} s.',
-    error_send_failed:
-      'Bestätigungscode konnte nicht gesendet werden. Bitte versuche es später noch einmal.',
-    error_verify_failed: 'Verifizierung fehlgeschlagen. Bitte gib den Code erneut ein.',
-    error_invalid_code: 'Der Bestätigungscode ist ungültig oder abgelaufen.',
   },
   phone_verification: {
-    title: 'Bestätige dein Telefon',
-    prepare_description:
-      'Bestätige deine Identität, um die Sicherheit deines Kontos zu schützen. Sende den Bestätigungscode an dein Telefon.',
     phone_label: 'Telefonnummer',
-    send: 'Bestätigungscode senden',
-    description:
-      'Der Bestätigungscode wurde an dein Telefon {{phone}} gesendet. Gib den Code ein, um fortzufahren.',
-    resend: 'Noch nichts erhalten? <a>Bestätigungscode erneut senden</a>',
-    resend_countdown: 'Noch nichts erhalten? Erneut senden nach {{seconds}} s.',
-    error_send_failed:
-      'Bestätigungscode konnte nicht gesendet werden. Bitte versuche es später noch einmal.',
-    error_verify_failed: 'Verifizierung fehlgeschlagen. Bitte gib den Code erneut ein.',
-    error_invalid_code: 'Der Bestätigungscode ist ungültig oder abgelaufen.',
   },
   mfa: {
     totp_already_added:

@@ -21,6 +21,7 @@ import { LinkButton } from '@/ds-components/Button';
 import Card from '@/ds-components/Card';
 import Spacer from '@/ds-components/Spacer';
 import TextLink from '@/ds-components/TextLink';
+import useCurrentTenantScopes from '@/hooks/use-current-tenant-scopes';
 import useTenantPathname from '@/hooks/use-tenant-pathname';
 import useTheme from '@/hooks/use-theme';
 import useWindowResize from '@/hooks/use-window-resize';
@@ -36,6 +37,9 @@ const icons = {
 };
 
 function GetStarted() {
+  const {
+    access: { isReadOnly },
+  } = useCurrentTenantScopes();
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console' });
   const { navigate } = useTenantPathname();
   const { tenantEndpoint } = useContext(AppDataContext);
@@ -134,7 +138,9 @@ function GetStarted() {
           />
         )}
         <div className={styles.developActions}>
-          <TextLink to="/applications/create">{t('get_started.view_all')}</TextLink>
+          {!isReadOnly && (
+            <TextLink to="/applications/create">{t('get_started.view_all')}</TextLink>
+          )}
         </div>
       </Card>
       <Card className={styles.card}>
@@ -173,10 +179,12 @@ function GetStarted() {
             </div>
           </div>
           <Spacer />
-          <LinkButton
-            title="get_started.customize.add_more"
-            href={`/connectors/${ConnectorsTabs.Social}`}
-          />
+          {!isReadOnly && (
+            <LinkButton
+              title="get_started.customize.add_more"
+              href={`/connectors/${ConnectorsTabs.Social}`}
+            />
+          )}
         </div>
       </Card>
       <Card className={styles.card}>
@@ -189,7 +197,7 @@ function GetStarted() {
           onClickGuide={onClickApiGuide}
         />
         {showCreateApiForm && <CreateApiForm onClose={onCloseCreateApiForm} />}
-        <TextLink to="/api-resources/create">{t('get_started.view_all')}</TextLink>
+        {!isReadOnly && <TextLink to="/api-resources/create">{t('get_started.view_all')}</TextLink>}
       </Card>
       <Card className={styles.card}>
         <div className={styles.title}>{t('get_started.manage.title')}</div>
@@ -204,7 +212,7 @@ function GetStarted() {
             </div>
           </div>
           <Spacer />
-          <LinkButton title="get_started.manage.create_roles" href="/roles" />
+          {!isReadOnly && <LinkButton title="get_started.manage.create_roles" href="/roles" />}
         </div>
       </Card>
     </div>

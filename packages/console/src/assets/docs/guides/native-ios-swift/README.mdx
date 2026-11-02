@@ -84,7 +84,7 @@ You can initialize `LogtoClient` in a proper place of your app that can be acces
     {`import Logto
 import LogtoClient
 
-let config = try? LogtoConfig(
+let config = try! LogtoConfig(
   endpoint: "${props.endpoint}",
   appId: "${props.app.id}"
 )
@@ -99,7 +99,7 @@ By default, we store credentials like ID Token and Refresh Token in Keychain. Th
 To turn off this behavior, set `usingPersistStorage` to `false`:
 
 ```swift
-let config = try? LogtoConfig(
+let config = try! LogtoConfig(
   // ...
   usingPersistStorage: false
 )
@@ -108,7 +108,7 @@ let config = try? LogtoConfig(
 In v2, the system browser session is shared by default. To request an isolated browser session, set `prefersEphemeralWebBrowserSession` to `true`:
 
 ```swift
-let config = try? LogtoConfig(
+let config = try! LogtoConfig(
   // ...
   prefersEphemeralWebBrowserSession: true
 )
@@ -181,7 +181,7 @@ On iOS 17.4 and newer, the SDK uses `ASWebAuthenticationSession`'s HTTPS callbac
 
 <Step title="Implement sign-in and sign-out">
 
-After the redirect URI is configured, use `client.signInWithBrowser(redirectUri:)` to sign in the user. Sign-out differs by SDK version.
+After the redirect URI is configured, use `logtoClient.signInWithBrowser(redirectUri:)` to sign in the user. Sign-out differs by SDK version.
 
 For example, in a SwiftUI app:
 
@@ -189,7 +189,7 @@ For example, in a SwiftUI app:
 
 <TabItem value="v2" label="v2">
 
-In v2, `client.signOut(postLogoutRedirectUri:)` performs a complete sign-out: it clears the local credentials, revokes the refresh token, and ends the Logto session by opening the end session endpoint in the browser. The browser then navigates back to your app through the post sign-out redirect URI. If the post sign-out redirect URI uses a custom scheme, register that scheme in `Info.plist` as well. Let's configure it first:
+In v2, `logtoClient.signOut(postLogoutRedirectUri:)` performs a complete sign-out: it clears the local credentials, revokes the refresh token, and ends the Logto session by opening the end session endpoint in the browser. The browser then navigates back to your app through the post sign-out redirect URI. If the post sign-out redirect URI uses a custom scheme, register that scheme in `Info.plist` as well. Let's configure it first:
 
 <UriInputField name="postLogoutRedirectUris" />
 
@@ -198,7 +198,7 @@ In v2, `client.signOut(postLogoutRedirectUri:)` performs a complete sign-out: it
   @State var isAuthenticated: Bool
 
   init() {
-    isAuthenticated = client.isAuthenticated
+    isAuthenticated = logtoClient.isAuthenticated
   }
 
   var body: some View {
@@ -206,7 +206,7 @@ In v2, `client.signOut(postLogoutRedirectUri:)` performs a complete sign-out: it
       if isAuthenticated {
         Button("Sign Out") {
           Task { [self] in
-            let error = await client.signOut(
+            let error = await logtoClient.signOut(
               postLogoutRedirectUri: "${props.postLogoutRedirectUris[0] ?? '<your-post-sign-out-redirect-uri>'}"
             )
 
@@ -215,14 +215,14 @@ In v2, `client.signOut(postLogoutRedirectUri:)` performs a complete sign-out: it
               print(error)
             }
 
-            isAuthenticated = client.isAuthenticated
+            isAuthenticated = logtoClient.isAuthenticated
           }
         }
       } else {
         Button("Sign In") {
           Task { [self] in
             do {
-              try await client.signInWithBrowser(redirectUri: "${
+              try await logtoClient.signInWithBrowser(redirectUri: "${
                 props.redirectUris[0] ?? defaultRedirectUri
               }")
               isAuthenticated = true
@@ -241,7 +241,7 @@ In v2, `client.signOut(postLogoutRedirectUri:)` performs a complete sign-out: it
 
 <InlineNotification>
 
-You can also call `client.signOut()` without a post sign-out redirect URI. No configuration is needed in this case: the browser shows the Logto sign-out page, and the user returns to the app by dismissing it manually. If no UI context is available, call `client.clearCredentials()` to clear the local credentials and revoke the refresh token. Note that this keeps the Logto session in the browser, so the next `signInWithBrowser` may silently sign the user back in through that session.
+You can also call `logtoClient.signOut()` without a post sign-out redirect URI. No configuration is needed in this case: the browser shows the Logto sign-out page, and the user returns to the app by dismissing it manually. If no UI context is available, call `logtoClient.clearCredentials()` to clear the local credentials and revoke the refresh token. Note that this keeps the Logto session in the browser, so the next `signInWithBrowser` may silently sign the user back in through that session.
 
 </InlineNotification>
 
@@ -254,7 +254,7 @@ You can also call `client.signOut()` without a post sign-out redirect URI. No co
   @State var isAuthenticated: Bool
 
   init() {
-    isAuthenticated = client.isAuthenticated
+    isAuthenticated = logtoClient.isAuthenticated
   }
 
   var body: some View {
@@ -262,15 +262,15 @@ You can also call `client.signOut()` without a post sign-out redirect URI. No co
       if isAuthenticated {
         Button("Sign Out") {
           Task { [self] in
-            await client.signOut()
-            isAuthenticated = client.isAuthenticated
+            await logtoClient.signOut()
+            isAuthenticated = logtoClient.isAuthenticated
           }
         }
       } else {
         Button("Sign In") {
           Task { [self] in
             do {
-              try await client.signInWithBrowser(redirectUri: "${
+              try await logtoClient.signInWithBrowser(redirectUri: "${
                 props.redirectUris[0] ?? defaultRedirectUri
               }")
               isAuthenticated = true
@@ -301,7 +301,7 @@ You can also call `client.signOut()` without a post sign-out redirect URI. No co
 
 <Step title="Display user information">
 
-To display the user's information, you can use the `client.getIdTokenClaims()` method. For example, in a SwiftUI app:
+To display the user's information, you can use the `logtoClient.getIdTokenClaims()` method. For example, in a SwiftUI app:
 
 <Code title="ContentView.swift" className="language-swift">
     {`struct ContentView: View {
@@ -309,14 +309,14 @@ To display the user's information, you can use the `client.getIdTokenClaims()` m
   @State var name: String?
 
   init() {
-    isAuthenticated = client.isAuthenticated
-    name = try? client.getIdTokenClaims().name
+    isAuthenticated = logtoClient.isAuthenticated
+    name = try? logtoClient.getIdTokenClaims().name
   }
 
   var body: some View {
     VStack {
       if isAuthenticated {
-        Text("Welcome, \(name)")
+        Text("Welcome, \\(name ?? "")")
       } else {
         Text("Please sign in")
       }

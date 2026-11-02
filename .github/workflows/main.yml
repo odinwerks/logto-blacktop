@@ -32,7 +32,7 @@ jobs:
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
         with:
           pnpm-version: 12.10.1
-          node-version: ^22.14.0
+          node-version: ^26.0.0
 
       - name: Sync connector presets
         run: pnpm run pnpm:devPreinstall
@@ -61,7 +61,7 @@ jobs:
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
         with:
           pnpm-version: 12.10.1
-          node-version: ^22.14.0
+          node-version: ^26.0.0
 
       - name: Build
         run: pnpm ci:build
@@ -80,7 +80,7 @@ jobs:
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
         with:
           pnpm-version: 12.10.1
-          node-version: ^22.14.0
+          node-version: ^26.0.0
 
       - name: Prepack
         run: pnpm prepack
@@ -102,7 +102,7 @@ jobs:
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
         with:
           pnpm-version: 12.10.1
-          node-version: ^22.14.0
+          node-version: ^26.0.0
 
       - name: Prepack
         run: pnpm prepack
@@ -114,7 +114,10 @@ jobs:
         run: pnpm ci:stylelint
 
   main-test:
-    runs-on: ubuntu-latest
+    # Playwright has no browser build for the `ubuntu-26.04` image that `ubuntu-latest` now
+    # resolves to, so `playwright install --with-deps` fails before any test runs. Pin the image
+    # until Playwright ships support, as `integration-test.yml` already does for Puppeteer.
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
@@ -127,14 +130,17 @@ jobs:
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
         with:
           pnpm-version: 12.10.1
-          node-version: ^22.14.0
+          node-version: ^26.0.0
 
       - name: Build for test
         run: pnpm -r build:test
 
+      # Playwright 1.56's browser installer hangs on Node.js 26; the root `pnpm.overrides` pins
+      # 1.64.1 so this step and the element tests use a version that works.
       - name: Install playwright for element tests
         working-directory: ./packages/elements
-        run: pnpm exec playwright install --with-deps
+        timeout-minutes: 20
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Test
         run: pnpm ci:test
@@ -203,7 +209,7 @@ jobs:
         uses: silverhand-io/actions-node-pnpm-run-steps@v5
         with:
           pnpm-version: 12.10.1
-          node-version: ^22.14.0
+          node-version: ^26.0.0
           run-install: false
 
       # ** Prepack packages **

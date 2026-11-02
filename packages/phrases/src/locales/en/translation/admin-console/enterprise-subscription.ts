@@ -32,6 +32,36 @@ const enterprise_subscription = {
     private_region_title: 'Private cloud instance ({{regionName}})',
     shared_cross_tenants: 'Across tenants',
   },
+  user_subscriptions: {
+    description:
+      'View your personal subscriptions and contracted Enterprise coverage, independently of your selected tenant.',
+    personal_title: 'Personal subscriptions',
+    personal_description:
+      'Active subscriptions billed to your account. Past subscriptions stay in Billing history.',
+    price: 'Price',
+    next_charge: 'Next charge',
+    ends_on: 'Ends {{date}}',
+    overdue_note:
+      'Payment is overdue. If it remains unpaid, the subscription may be paused and its paid features removed.',
+    other_product: 'Other subscription',
+    enterprise_invoices_description:
+      'Invoices for your Enterprise contract. Select an invoice to view it and download the invoice or receipt.',
+    personal_invoices_description:
+      'Invoices for subscriptions billed to your account, including past subscriptions. Select an invoice to view it and download the invoice or receipt.',
+    credit_note:
+      'Credits from removals or prorations reduce later invoices and are not necessarily refunded to your payment method right away.',
+    invoice_link_unavailable: 'This invoice page is unavailable. Contact us if you need a copy.',
+    status: {
+      active: 'Active',
+      trialing: 'Trialing',
+      past_due: 'Past due',
+      unpaid: 'Unpaid',
+      canceled: 'Canceled',
+      incomplete: 'Incomplete',
+      incomplete_expired: 'Expired',
+      paused: 'Paused',
+    },
+  },
 };
 
 export default Object.freeze(enterprise_subscription);

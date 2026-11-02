@@ -10,11 +10,14 @@ import SettingsProvider from '@/__mocks__/RenderWithPageContext/SettingsProvider
 import { mockSignInExperienceSettings } from '@/__mocks__/logto';
 import { socialConnectors } from '@/__mocks__/social-connectors';
 import {
+  abortInteraction,
+  getDirectSignIn,
   identifyAndSubmitInteraction,
   registerWithVerifiedIdentifier,
   verifySocialVerification,
 } from '@/apis/experience';
 import useSessionStorage, { StorageKeys } from '@/hooks/use-session-storages';
+import useToast from '@/hooks/use-toast';
 import { generateState, storeState } from '@/utils/social-connectors';
 import { storeRedirectContext } from '@/utils/social-redirect-fallback-context';
 
@@ -36,6 +39,8 @@ jest.mock('@/apis/experience', () => ({
   identifyAndSubmitInteraction: jest.fn().mockResolvedValue({ redirectTo: `/sign-in` }),
   registerWithVerifiedIdentifier: jest.fn().mockResolvedValue({ redirectTo: `/sign-in` }),
   signInWithSso: jest.fn().mockResolvedValue({ redirectTo: `/sign-in` }),
+  getDirectSignIn: jest.fn().mockResolvedValue({}),
+  abortInteraction: jest.fn().mockResolvedValue({ redirectTo: '/client-callback' }),
 }));
 
 jest.mock('@/hooks/use-global-redirect-to', () => ({
@@ -60,11 +65,15 @@ const mockedIdentifyAndSubmitInteraction = identifyAndSubmitInteraction as jest.
 const mockedRegisterWithVerifiedIdentifier = registerWithVerifiedIdentifier as jest.MockedFunction<
   typeof registerWithVerifiedIdentifier
 >;
+const mockedGetDirectSignIn = getDirectSignIn as jest.MockedFunction<typeof getDirectSignIn>;
+const mockedAbortInteraction = abortInteraction as jest.MockedFunction<typeof abortInteraction>;
 
 const verificationIdsMap = {
   [VerificationType.Social]: 'foo',
   [VerificationType.EnterpriseSso]: 'bar',
 };
+
+const ToastProbe = () => <div>{useToast().toast}</div>;
 
 const createRequestError = (body: RequestErrorBody) => {
   const response = {
@@ -89,6 +98,8 @@ describe('SocialCallbackPage — social sign-in', () => {
     mockedVerifySocialVerification.mockResolvedValue({ verificationId: 'foo' });
     mockedIdentifyAndSubmitInteraction.mockResolvedValue({ redirectTo: `/sign-in` });
     mockedRegisterWithVerifiedIdentifier.mockResolvedValue({ redirectTo: `/sign-in` });
+    mockedGetDirectSignIn.mockResolvedValue({});
+    mockedAbortInteraction.mockResolvedValue({ redirectTo: '/client-callback' });
   });
 
   describe('fallback', () => {
@@ -135,6 +146,26 @@ describe('SocialCallbackPage — social sign-in', () => {
 
       await waitFor(() => {
         expect(verifySocialVerification).toBeCalled();
+      });
+    });
+
+    it('continues with an already verified wallet identity without re-verifying', async () => {
+      mockUseSearchParameters.mockReturnValue([new URLSearchParams('siwe_callback=1'), jest.fn()]);
+
+      renderWithPageContext(
+        <SettingsProvider>
+          <UserInteractionContextProvider>
+            <Routes>
+              <Route path="/callback/social/:connectorId" element={<SocialCallback />} />
+            </Routes>
+          </UserInteractionContextProvider>
+        </SettingsProvider>,
+        { initialEntries: [`/callback/social/${connectorId}`] }
+      );
+
+      await waitFor(() => {
+        expect(verifySocialVerification).not.toBeCalled();
+        expect(identifyAndSubmitInteraction).toBeCalledWith({ verificationId: 'foo' });
       });
     });
 
@@ -212,6 +243,60 @@ describe('SocialCallbackPage — social sign-in', () => {
       await waitFor(() => {
         expect(getByText('Sign in page')).not.toBeNull();
       });
+    });
+  });
+
+  describe('direct sign-in abort', () => {
+    const connectorId = socialConnectors[0]!.id;
+
+    const renderFailedCallback = () => {
+      const state = generateState();
+      storeState(state, connectorId);
+      mockedVerifySocialVerification.mockRejectedValueOnce(
+        createRequestError({
+          code: 'connector.general',
+          message: 'Connector error.',
+          data: undefined,
+        })
+      );
+
+      mockUseSearchParameters.mockReturnValue([
+        new URLSearchParams(`state=${state}&code=foo`),
+        jest.fn(),
+      ]);
+
+      return renderWithPageContext(
+        <SettingsProvider>
+          <UserInteractionContextProvider>
+            <ToastProbe />
+            <Routes>
+              <Route path="/callback/social/:connectorId" element={<SocialCallback />} />
+              <Route path="/sign-in" element={<div>Sign in page</div>} />
+            </Routes>
+          </UserInteractionContextProvider>
+        </SettingsProvider>,
+        { initialEntries: [`/callback/social/${connectorId}`] }
+      );
+    };
+
+    it('should abort back to the client without a toast when the social callback fails', async () => {
+      mockedGetDirectSignIn.mockResolvedValueOnce({ directSignIn: 'social:mock-social' });
+
+      const { queryByText } = renderFailedCallback();
+
+      await waitFor(() => {
+        expect(mockedAbortInteraction).toHaveBeenCalledWith('connector.general');
+        expect(mockRedirectTo).toHaveBeenCalledWith('/client-callback');
+      });
+      expect(queryByText('Connector error.')).toBeNull();
+    });
+
+    it('should show the toast on the hosted sign-in page when not a direct sign-in', async () => {
+      const { findByText } = renderFailedCallback();
+
+      expect(await findByText('Sign in page')).not.toBeNull();
+      expect(await findByText('Connector error.')).not.toBeNull();
+      expect(mockedAbortInteraction).not.toHaveBeenCalled();
     });
   });
 

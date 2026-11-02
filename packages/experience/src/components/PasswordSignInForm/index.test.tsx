@@ -31,6 +31,7 @@ jest.mock('i18next', () => ({
 }));
 
 jest.mock('@/apis/experience', () => ({
+  initInteraction: jest.fn(),
   signInWithPasswordIdentifier: jest.fn(async () => ({ verificationId: 'verification-id' })),
   continueSignInWithPasswordIdentifier: jest.fn(async () => ({ redirectTo: '/' })),
   getSsoAuthorizationUrl: (connectorId: string) => getSingleSignOnUrlMock(connectorId),

@@ -46,9 +46,10 @@ export type GetAuthorizationUri = (
 // Copied from https://github.com/colinhacks/zod#json-type
 const literalSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
-export const jsonGuard: z.ZodType<Json> = z.lazy(() =>
-  z.union([literalSchema, z.array(jsonGuard), z.record(jsonGuard)])
-);
+export const jsonGuard: z.ZodType<Json> = z.lazy(() => jsonUnionGuard);
+
+// Built once, since `z.lazy` calls its getter for every value it parses.
+const jsonUnionGuard = z.union([literalSchema, z.array(jsonGuard), z.record(jsonGuard)]);
 
 export const jsonObjectGuard = z.record(jsonGuard);
 
@@ -112,12 +113,22 @@ export type TokenResponse = {
   token_type?: string;
 };
 
+/**
+ * Guard for the `scope` field of a token endpoint response. RFC 6749 defines it as a
+ * space-delimited string, but some providers (e.g. Twitch) return an array of scopes instead.
+ * A string array is normalized to the space-delimited form so consumers always get a string.
+ */
+export const tokenResponseScopeGuard = z.union([
+  z.string(),
+  z.array(z.string()).transform((scopes) => scopes.join(' ')),
+]);
+
 export const tokenResponseGuard = z.object({
   id_token: z.string().optional(),
   access_token: z.string().optional(),
   refresh_token: z.string().optional(),
   expires_in: z.number().or(z.string()).optional(),
-  scope: z.string().optional(),
+  scope: tokenResponseScopeGuard.optional(),
   token_type: z.string().optional(),
 }) satisfies ToZodObject<TokenResponse>;
 

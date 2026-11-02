@@ -110,8 +110,22 @@ const sign_in_exp = {
     csp_source_invalid_error:
       'Saisissez une expression de source valide. Utilisez des URL https:// ; connect-src prend également en charge wss://. Les mots-clés CSP et les points-virgules ne sont pas pris en charge.',
     csp_source_duplicate_error: 'Cette expression de source figure déjà dans la liste.',
+    coop_tip:
+      'Isolez votre interface de connexion personnalisée des fenêtres d’autres origines. Appliqué uniquement lorsque les ressources UI personnalisées sont servies.',
+    coop_unsafe_none: 'Non défini (par défaut)',
+    coop_same_origin_allow_popups: 'same-origin-allow-popups (recommandé)',
+    coop_warning:
+      'Les applications qui ouvrent la page de connexion dans une fenêtre contextuelle d’une autre origine et utilisent window.opener cesseront de fonctionner. same-origin coupe aussi les fenêtres contextuelles que votre interface personnalisée ouvre elle-même, comme les fenêtres de connexion sociale.',
   },
   account_center: {
+    recent_authentication: {
+      title: 'Authentification récente',
+      description:
+        "Les opérations sensibles sur le compte, comme changer le mot de passe ou désactiver la vérification en deux étapes, exigent une connexion récente, que ce soit dans Account Center ou dans une application qui appelle l'Account API. Cette fenêtre définit le degré de récence exigé pour cette connexion.",
+      maximum_authentication_age_in_minutes: "Âge maximal d'authentification en minutes",
+      maximum_authentication_age_in_minutes_tip:
+        'Durée pendant laquelle une connexion reste suffisamment récente pour les opérations sensibles. Un client peut toujours demander une fenêtre plus courte avec le paramètre `max_age`.',
+    },
     title: 'CENTRE DE COMPTE',
     description: 'Personnalisez les parcours de votre centre de compte à l’aide des API Logto.',
     enable_account_api: 'Activer le centre de compte et l’API Account',
@@ -133,6 +147,8 @@ const sign_in_exp = {
           title: 'Vérification de sécurité',
           description:
             "Avant de modifier les paramètres de sécurité, les utilisateurs doivent vérifier leur identité pour obtenir un identifiant d'enregistrement de vérification valable 10 minutes. Pour activer une méthode de vérification (e-mail, téléphone, mot de passe), définissez l'autorisation de l'API Account ci-dessous sur <strong>Lecture seule</strong> (minimum) ou <strong>Modifier</strong> afin que le système puisse détecter si l'utilisateur l'a configurée. <a>En savoir plus</a>",
+          description_step_up:
+            "Avant de modifier les paramètres de sécurité, l'Account Center intégré exige une connexion récente. Si la connexion actuelle est plus ancienne que la fenêtre d'authentification récente configurée, Account Center lance un OIDC step-up et invite l'utilisateur à vérifier son identité. Pour permettre aux utilisateurs d'afficher ou de gérer une méthode de vérification (e-mail, téléphone ou mot de passe) dans Account Center, définissez l'autorisation Account API correspondante ci-dessous sur <strong>Lecture seule</strong> ou <strong>Modifier</strong>. Pour ces opérations sensibles, les applications qui appellent directement l'Account API peuvent toujours utiliser un identifiant d'enregistrement de vérification à la place. <a>En savoir plus</a>",
         },
         groups: {
           identifiers: {
@@ -143,6 +159,9 @@ const sign_in_exp = {
           },
           session_management: {
             title: 'Gestion des sessions',
+          },
+          developer_settings: {
+            title: 'Paramètres développeur',
           },
         },
       },
@@ -189,6 +208,9 @@ const sign_in_exp = {
         'Contrôlez l’accès aux données JSON personnalisées stockées sur l’utilisateur.',
       sessions: 'Sessions',
       trusted_devices: 'Appareils de confiance',
+      personal_access_tokens: "Jetons d'accès personnels",
+      personal_access_tokens_description:
+        "Activer cette option permet aux utilisateurs de créer des jetons d'accès personnels de longue durée qui restent actifs après une déconnexion ou une réinitialisation de mot de passe, et qui peuvent être échangés contre des jetons d'accès par toute application interne ayant activé l'échange de jetons.",
     },
     profile_fields: {
       title: 'Champs de profil pour le centre de compte prédéfini',
@@ -227,9 +249,9 @@ const sign_in_exp = {
       flows_title: "Intégrer des flux de paramètres de sécurité prêts à l'emploi",
       single_task_flows_title: "Intégrer un flux de tâche unique prêt à l'emploi",
       flows_description:
-        'Combinez votre domaine avec le chemin pour former votre URL de paramètres de compte (par exemple, https://auth.foo.com/account/email). Ajoutez éventuellement `redirect=` pour renvoyer les utilisateurs à votre application après une mise à jour réussie, `show_success=true` pour garder la page de succès visible, `ui_locales=` pour remplacer la langue par défaut, ou `identifier=` pour pré-remplir le champ de saisie de l’identifiant.',
+        'Combinez votre domaine avec le chemin pour former votre URL de paramètres de compte (par exemple, https://auth.foo.com/account/email). Ajoutez éventuellement `redirect=` pour renvoyer les utilisateurs à votre application après une mise à jour réussie, `show_success=true` pour garder la page de succès visible, `ui_locales=` pour remplacer la langue par défaut, ou `identifier=` pour pré-remplir la nouvelle valeur sur la route d’e-mail, de téléphone ou de nom d’utilisateur.',
       single_task_flows_description:
-        "Dirigez les utilisateurs directement vers un flux spécifique (par exemple, la liaison d'email). Vous pouvez éventuellement ajouter `redirect=` pour renvoyer les utilisateurs à votre application après une mise à jour réussie, `show_success=true` pour garder la page de succès visible, `ui_locales=` pour remplacer la langue par défaut, ou `identifier=` pour pré-remplir le champ de saisie de l'identifiant.",
+        "Dirigez les utilisateurs directement vers un flux spécifique (par exemple, la liaison d'email). Vous pouvez éventuellement ajouter `redirect=` pour renvoyer les utilisateurs à votre application après une mise à jour réussie, `show_success=true` pour garder la page de succès visible, `ui_locales=` pour remplacer la langue par défaut, ou `identifier=` pour pré-remplir la nouvelle valeur sur la route d'e-mail, de téléphone ou de nom d'utilisateur.",
       tooltips: {
         email: 'Mettre à jour votre adresse e-mail principale',
         phone: 'Mettre à jour votre numéro de téléphone principal',

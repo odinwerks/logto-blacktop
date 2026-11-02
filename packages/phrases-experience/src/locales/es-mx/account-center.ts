@@ -18,36 +18,11 @@ const account_center = {
     sign_out: 'Cerrar sesión',
   },
   verification: {
-    title: 'Verificación de seguridad',
-    description:
-      'Confirma que eres tú para proteger la seguridad de tu cuenta. Selecciona el método para verificar tu identidad.',
     error_send_failed: 'No se pudo enviar el código de verificación. Inténtalo de nuevo más tarde.',
     error_invalid_code: 'El código de verificación no es válido o ha expirado.',
     error_verify_failed: 'La verificación falló. Ingresa el código nuevamente.',
-    verification_required: 'La verificación expiró. Vuelve a comprobar tu identidad.',
-    try_another_method: 'Prueba otro método de verificación',
-    no_available_methods_title: 'No hay métodos de verificación disponibles',
-    no_available_methods_description:
-      'No tienes ningún método de verificación configurado. Primero agrega una contraseña, un correo electrónico o un número de teléfono a tu cuenta.',
-  },
-  password_verification: {
-    title: 'Verifica la contraseña',
-    description: 'Para proteger tu cuenta, ingresa tu contraseña para confirmar tu identidad.',
-    error_failed: 'Contraseña incorrecta. Verifica tu entrada.',
-  },
-  verification_method: {
-    password: {
-      name: 'Contraseña',
-      description: 'Verifica tu contraseña',
-    },
-    email: {
-      name: 'Código de verificación por correo',
-      description: 'Enviar código de verificación a tu correo electrónico',
-    },
-    phone: {
-      name: 'Código de verificación por teléfono',
-      description: 'Enviar código de verificación a tu número de teléfono',
-    },
+    step_up_not_completed:
+      'La verificación de identidad no se completó. No se realizaron cambios en tu cuenta.',
   },
   email: {
     title: 'Vincular correo electrónico',
@@ -57,7 +32,6 @@ const account_center = {
     verification_description:
       'El código de verificación se ha enviado a tu correo {{email_address}}.',
     success: 'Correo principal vinculado correctamente.',
-    verification_required: 'La verificación expiró. Vuelve a comprobar tu identidad.',
   },
   phone: {
     title: 'Vincular número de teléfono',
@@ -67,7 +41,6 @@ const account_center = {
     verification_description:
       'El código de verificación se ha enviado a tu teléfono {{phone_number}}.',
     success: 'Teléfono principal vinculado correctamente.',
-    verification_required: 'La verificación expiró. Vuelve a comprobar tu identidad.',
   },
   username: {
     title: 'Establecer nombre de usuario',
@@ -102,12 +75,19 @@ const account_center = {
     manage: 'Gestionar',
     turn_on_2_step_verification_description:
       'Añade una capa extra de seguridad. Se te pedirá un segundo paso de verificación al iniciar sesión.',
+    two_step_verification_incomplete_description:
+      'La verificación en dos pasos está activada, pero todavía no se aplica.',
+    two_step_verification_off_description:
+      'Tu preferencia de verificación en dos pasos está desactivada. Es posible que las políticas de seguridad sigan exigiendo una verificación adicional.',
     turn_off_2_step_verification: 'Desactivar verificación en dos pasos',
     turn_off_2_step_verification_description:
       'Desactivar la verificación en dos pasos eliminará la capa extra de protección de tu cuenta al iniciar sesión. ¿Estás seguro de que quieres continuar?',
     disable_2_step_verification: 'Desactivar',
     no_verification_method_warning:
-      'No has añadido un segundo método de verificación. Añade al menos uno para activar la verificación en dos pasos al iniciar sesión.',
+      'Configuración incompleta. Añade un método de verificación a continuación para terminar de configurar la verificación en dos pasos.',
+    two_step_verification_load_failed:
+      'No se pudo cargar la configuración de la verificación en dos pasos. Inténtalo de nuevo.',
+    two_step_verification_retry: 'Reintentar',
     passkey_sign_in_prompt: 'Solicitar la configuración de un passkey',
     passkey_sign_in_prompt_description:
       'Cuando está activado, se te pedirá que configures un passkey para iniciar sesión de forma más rápida y segura.',
@@ -141,6 +121,43 @@ const account_center = {
       remove_confirmation_description:
         'Tendrás que completar la MFA de nuevo en este dispositivo la próxima vez que inicies sesión. Tu sesión actual seguirá activa.',
     },
+    personal_access_tokens: {
+      title: 'Tokens de acceso personal',
+      description:
+        'Usa tokens de acceso personal para autenticarte ante las API en tu nombre. Permanecen activos hasta que expiran o los revocas, incluso si cierras sesión o cambias tu contraseña.',
+      create: 'Crear nuevo token',
+      created_at: 'Creado el {{date}}',
+      expires_on: 'Vence el {{date}}',
+      expired_on: 'Venció el {{date}}',
+      expired: 'Vencido',
+      never_expires: 'Nunca vence',
+      never_expires_warning:
+        'Este token no tiene fecha de vencimiento. Para mayor seguridad, crea un nuevo token con fecha de vencimiento y revoca este.',
+      rename: 'Renombrar',
+      revoke: 'Revocar',
+      loading: 'Cargando...',
+      empty: 'No hay tokens de acceso personal.',
+      load_failed: 'Error al cargar los tokens de acceso personal. Inténtalo de nuevo.',
+      retry: 'Intentar de nuevo',
+      create_modal_title: 'Crear token de acceso personal',
+      create_modal_description:
+        'Asigna a tu token un nombre descriptivo y elige un período de vencimiento.',
+      token_name: 'Nombre del token',
+      token_name_placeholder: 'Mi token',
+      expiration: 'Vencimiento',
+      expiration_days: '{{count}} días',
+      created_modal_title: 'Token de acceso personal creado',
+      show_once_warning:
+        'No podrás volver a ver este token. Cópialo ahora y guárdalo en un lugar seguro.',
+      copied: 'Token de acceso personal copiado.',
+      rename_modal_title: 'Renombrar token de acceso personal',
+      rename_modal_description: 'Ingresa un nuevo nombre para este token de acceso personal.',
+      renamed: 'Token de acceso personal renombrado correctamente.',
+      revoke_confirmation_title: '¿Revocar token de acceso personal?',
+      revoke_confirmation_description:
+        'Cualquier aplicación o script que use "{{name}}" perderá el acceso inmediatamente. ¿Estás seguro de que deseas continuar?',
+      revoked: 'Token de acceso personal revocado correctamente.',
+    },
   },
   social: {
     linked: 'Se vinculó {{connector}} correctamente.',
@@ -162,34 +179,10 @@ const account_center = {
     resend_countdown: '¿Aún no lo recibes? Reenvía después de {{seconds}} s.',
   },
   email_verification: {
-    title: 'Verifica tu correo electrónico',
-    prepare_description:
-      'Confirma que eres tú para proteger la seguridad de tu cuenta. Envía el código de verificación a tu correo electrónico.',
     email_label: 'Dirección de correo electrónico',
-    send: 'Enviar código de verificación',
-    description:
-      'El código de verificación se ha enviado a tu correo {{email}}. Ingresa el código para continuar.',
-    resend: '¿Aún no lo recibes? <a>Reenviar código de verificación</a>',
-    not_received: '¿Aún no lo recibes?',
-    resend_action: 'Reenviar código de verificación',
-    resend_countdown: '¿Aún no lo recibes? Reenvía después de {{seconds}} s.',
-    error_send_failed: 'No se pudo enviar el código de verificación. Inténtalo de nuevo más tarde.',
-    error_verify_failed: 'La verificación falló. Ingresa el código nuevamente.',
-    error_invalid_code: 'El código de verificación no es válido o ha expirado.',
   },
   phone_verification: {
-    title: 'Verifica tu teléfono',
-    prepare_description:
-      'Confirma que eres tú para proteger la seguridad de tu cuenta. Envía el código de verificación a tu teléfono.',
     phone_label: 'Número de teléfono',
-    send: 'Enviar código de verificación',
-    description:
-      'El código de verificación se ha enviado a tu teléfono {{phone}}. Ingresa el código para continuar.',
-    resend: '¿Aún no lo recibes? <a>Reenviar código de verificación</a>',
-    resend_countdown: '¿Aún no lo recibes? Reenvía después de {{seconds}} s.',
-    error_send_failed: 'No se pudo enviar el código de verificación. Inténtalo de nuevo más tarde.',
-    error_verify_failed: 'La verificación falló. Ingresa el código nuevamente.',
-    error_invalid_code: 'El código de verificación no es válido o ha expirado.',
   },
   mfa: {
     totp_already_added:

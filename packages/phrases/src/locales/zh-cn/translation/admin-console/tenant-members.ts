@@ -6,12 +6,14 @@ const tenant_members = {
   roles: '角色',
   admin: '管理员',
   collaborator: '合作者',
+  viewer: '查看者',
   invitation_status: '邀请状态',
   inviter: '邀请者',
   expiration_date: '到期日期',
   invite_modal: {
     title: '',
     subtitle: '要邀请成员加入组织，他们必须接受邀请。',
+    subtitle_oss: '受邀成员将获得此 Logto 实例的完整管理员权限。',
     to: '至',
     added_as: '作为角色添加',
     email_input_placeholder: 'johndoe@example.com',
@@ -39,8 +41,6 @@ const tenant_members = {
   delete_user_confirm: '您确定要从此租户中删除此用户吗？',
   assign_admin_confirm:
     '您确定要将所选用户设为管理员吗？授予管理员访问权限将为用户提供以下权限。<ul><li>更改租户计费计划</li><li>添加或删除合作者</li><li>删除租户</li></ul>',
-  assign_admin_confirm_oss:
-    '您确定要将所选用户设为管理员吗？授予管理员访问权限将为用户提供以下权限。<ul><li>邀请或移除成员</li><li>更改成员角色</li><li>要求所有成员启用 MFA</li></ul>',
   revoke_invitation_confirm: '您确定要撤销此邀请吗？',
   delete_invitation_confirm: '您确定要删除此邀请记录吗？',
   messages: {

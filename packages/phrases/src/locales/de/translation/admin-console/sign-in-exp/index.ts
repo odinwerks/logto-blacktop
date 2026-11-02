@@ -109,8 +109,22 @@ const sign_in_exp = {
     csp_source_invalid_error:
       'Geben Sie einen gültigen Quellausdruck ein. Verwenden Sie https://-URLs; connect-src unterstützt auch wss://. CSP-Schlüsselwörter und Semikolons werden nicht unterstützt.',
     csp_source_duplicate_error: 'Dieser Quellausdruck ist bereits aufgeführt.',
+    coop_tip:
+      'Isolieren Sie Ihre benutzerdefinierte Anmeldeoberfläche von ursprungsübergreifenden Fenstern. Wird nur angewendet, wenn benutzerdefinierte UI-Assets bereitgestellt werden.',
+    coop_unsafe_none: 'Nicht festgelegt (Standard)',
+    coop_same_origin_allow_popups: 'same-origin-allow-popups (empfohlen)',
+    coop_warning:
+      'Apps, die die Anmeldeseite in einem ursprungsübergreifenden Popup öffnen und window.opener verwenden, funktionieren nicht mehr. same-origin trennt außerdem Popups, die Ihre benutzerdefinierte Oberfläche selbst öffnet, etwa Fenster für die Social-Anmeldung.',
   },
   account_center: {
+    recent_authentication: {
+      title: 'Kürzliche Authentifizierung',
+      description:
+        'Sensible Konto-Vorgänge wie das Ändern eines Passworts oder das Deaktivieren der Zwei-Schritt-Verifizierung erfordern eine kürzliche Anmeldung, egal ob sie im Account Center oder in einer App erfolgen, die die Account API aufruft. Dieses Zeitfenster legt fest, wie aktuell diese Anmeldung sein muss.',
+      maximum_authentication_age_in_minutes: 'Maximales Authentifizierungsalter in Minuten',
+      maximum_authentication_age_in_minutes_tip:
+        'Wie lange eine Anmeldung für sensible Vorgänge als aktuell gilt. Ein Client kann mit dem Parameter `max_age` weiterhin ein kürzeres Zeitfenster anfordern.',
+    },
     title: 'KONTOZENTRUM',
     description: 'Passen Sie Ihre Kontozentrums-Workflows mit den Logto-APIs an.',
     enable_account_api: 'Kontozentrum und Account-API aktivieren',
@@ -132,6 +146,8 @@ const sign_in_exp = {
           title: 'Sicherheitsüberprüfung',
           description:
             'Bevor Sicherheitseinstellungen geändert werden, müssen Benutzer ihre Identität verifizieren und eine 10 Minuten gültige Verifizierungs-ID erhalten. Um eine Verifizierungsmethode (E-Mail, Telefon, Passwort) zu aktivieren, setzen Sie die Account-API-Berechtigung unten auf <strong>Nur lesen</strong> (Minimum) oder <strong>Bearbeiten</strong>, damit das System erkennen kann, ob der Benutzer sie konfiguriert hat. <a>Mehr erfahren</a>',
+          description_step_up:
+            'Bevor Sicherheitseinstellungen geändert werden, erfordert das integrierte Account Center eine kürzliche Anmeldung. Ist die aktuelle Anmeldung älter als das konfigurierte Zeitfenster für kürzliche Authentifizierung, startet Account Center einen OIDC-Step-up und fordert den Benutzer auf, seine Identität zu bestätigen. Damit Benutzer eine Verifizierungsmethode (E-Mail, Telefon oder Passwort) im Account Center anzeigen oder verwalten können, setzen Sie die entsprechende Account-API-Berechtigung unten auf <strong>Nur lesen</strong> oder <strong>Bearbeiten</strong>. Für diese sensiblen Vorgänge können Apps, die die Account API direkt aufrufen, stattdessen weiterhin eine Verifizierungs-ID verwenden. <a>Mehr erfahren</a>',
         },
         groups: {
           identifiers: {
@@ -142,6 +158,9 @@ const sign_in_exp = {
           },
           session_management: {
             title: 'Sitzungsverwaltung',
+          },
+          developer_settings: {
+            title: 'Entwicklereinstellungen',
           },
         },
       },
@@ -187,6 +206,9 @@ const sign_in_exp = {
         'Steuern Sie den Zugriff auf benutzerdefinierte JSON-Daten, die beim Benutzer gespeichert sind.',
       sessions: 'Sitzungen',
       trusted_devices: 'Vertrauenswürdige Geräte',
+      personal_access_tokens: 'Persönliche Zugriffstoken',
+      personal_access_tokens_description:
+        'Wenn aktiviert, können Benutzer langlebige persönliche Zugriffstoken erstellen, die über Abmeldungen und Passwortzurücksetzungen hinweg aktiv bleiben und von jeder First-Party-Anwendung mit aktiviertem Token-Austausch gegen Zugriffstoken eingetauscht werden können.',
     },
     profile_fields: {
       title: 'Profilfelder für vorgefertigtes Konto-Center',
@@ -225,9 +247,9 @@ const sign_in_exp = {
       flows_title: 'Vorgefertigte Sicherheits-Einstellungen integrieren',
       single_task_flows_title: 'Vorgefertigten Einzelaufgaben-Ablauf integrieren',
       flows_description:
-        'Kombinieren Sie Ihre Domain mit der Route, um Ihre Konto-Einstellungs-URL zu bilden (z. B. https://auth.foo.com/account/email). Optional können Sie `redirect=` hinzufügen, um Benutzer nach erfolgreicher Aktualisierung zurück zu Ihrer App zu leiten, `show_success=true`, um die Erfolgsseite sichtbar zu halten, `ui_locales=`, um die Standardsprache zu überschreiben, oder `identifier=`, um das Eingabefeld für den Bezeichner vorab auszufüllen.',
+        'Kombinieren Sie Ihre Domain mit der Route, um Ihre Konto-Einstellungs-URL zu bilden (z. B. https://auth.foo.com/account/email). Optional können Sie `redirect=` hinzufügen, um Benutzer nach erfolgreicher Aktualisierung zurück zu Ihrer App zu leiten, `show_success=true`, um die Erfolgsseite sichtbar zu halten, `ui_locales=`, um die Standardsprache zu überschreiben, oder `identifier=`, um den neuen Wert auf der E-Mail-, Telefon- oder Benutzernamen-Route vorab auszufüllen.',
       single_task_flows_description:
-        'Leiten Sie Benutzer direkt in einen bestimmten Ablauf (z. B. E-Mail-Verknüpfung). Optional können Sie `redirect=` hinzufügen, um Benutzer nach erfolgreicher Aktualisierung zurück zu Ihrer App zu leiten, `show_success=true`, um die Erfolgsseite sichtbar zu halten, `ui_locales=`, um die Standardsprache zu überschreiben, oder `identifier=`, um das Eingabefeld für den Bezeichner vorab auszufüllen.',
+        'Leiten Sie Benutzer direkt in einen bestimmten Ablauf (z. B. E-Mail-Verknüpfung). Optional können Sie `redirect=` hinzufügen, um Benutzer nach erfolgreicher Aktualisierung zurück zu Ihrer App zu leiten, `show_success=true`, um die Erfolgsseite sichtbar zu halten, `ui_locales=`, um die Standardsprache zu überschreiben, oder `identifier=`, um den neuen Wert auf der E-Mail-, Telefon- oder Benutzernamen-Route vorab auszufüllen.',
       tooltips: {
         email: 'Aktualisieren Sie Ihre primäre E-Mail-Adresse',
         phone: 'Aktualisieren Sie Ihre primäre Telefonnummer',

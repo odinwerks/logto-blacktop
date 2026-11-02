@@ -109,8 +109,22 @@ const sign_in_exp = {
     csp_source_invalid_error:
       'Enter a valid source expression. Use https:// URLs; connect-src also supports wss://. CSP keywords and semicolons are not supported.',
     csp_source_duplicate_error: 'This source expression is already listed.',
+    coop_tip:
+      'Isolate your custom sign-in UI from cross-origin windows. Applied only when custom UI assets are served.',
+    coop_unsafe_none: 'Not set (default)',
+    coop_same_origin_allow_popups: 'same-origin-allow-popups (recommended)',
+    coop_warning:
+      'Apps that open the sign-in page in a cross-origin popup and rely on window.opener will stop working. same-origin also cuts off popups your custom UI opens itself, such as social sign-in windows.',
   },
   account_center: {
+    recent_authentication: {
+      title: 'Recent authentication',
+      description:
+        'Sensitive account operations, such as changing a password or turning off 2-step verification, require a recent sign-in, whether the user acts in Account Center or in an app calling the Account API. This window defines how recent that sign-in must be.',
+      maximum_authentication_age_in_minutes: 'Maximum authentication age in minutes',
+      maximum_authentication_age_in_minutes_tip:
+        'How long a sign-in stays recent enough for sensitive operations. A client can still request a shorter window with the `max_age` parameter.',
+    },
     title: 'ACCOUNT CENTER',
     description:
       'Implement your account center for end users to manage account security and profile information.',
@@ -133,6 +147,8 @@ const sign_in_exp = {
           title: 'Security verification',
           description:
             'Before changing security settings, users must verify their identity to get a 10-minute verification record ID. To enable a verification method (email, phone, password), set the Account API permission to <strong>Read only</strong> (minimum) or <strong>Edit</strong> below so the system can detect if the user has it configured. <a>Learn more</a>',
+          description_step_up:
+            'Before changing security settings, the built-in Account Center requires a recent sign-in. If the current sign-in is older than the configured recent authentication window, Account Center starts an OIDC step-up and prompts the user to verify their identity. To let users view or manage a verification method (email, phone, or password) in Account Center, set the corresponding Account API permission to <strong>Read only</strong> or <strong>Edit</strong> below. For these sensitive operations, apps that call the Account API directly can still use a verification record ID instead. <a>Learn more</a>',
         },
         groups: {
           identifiers: {
@@ -143,6 +159,9 @@ const sign_in_exp = {
           },
           session_management: {
             title: 'Session management',
+          },
+          developer_settings: {
+            title: 'Developer settings',
           },
         },
       },
@@ -187,6 +206,9 @@ const sign_in_exp = {
       custom_data_description: 'Control access to custom JSON data stored on the user.',
       sessions: 'Sessions',
       trusted_devices: 'Trusted devices',
+      personal_access_tokens: 'Personal access tokens',
+      personal_access_tokens_description:
+        'Enabling this lets users create long-lived personal access tokens that remain active across sign-outs and password resets, and can be exchanged for access tokens by any first-party application with token exchange enabled.',
     },
     profile_fields: {
       title: 'Profile fields for prebuilt account center',
@@ -225,9 +247,9 @@ const sign_in_exp = {
       flows_title: 'Integrate out-of-the-box security setting flows',
       single_task_flows_title: 'Integrate an out-of-the-box single task flow',
       flows_description:
-        'Combine your domain with the route to form your account setting URL (e.g., https://auth.foo.com/account/email). Optionally add `redirect=` to return users to your app after a successful update, `show_success=true` to keep the success page visible, `ui_locales=` to override the default language, or `identifier=` to pre-fill the identifier input field.',
+        'Combine your domain with the route to form your account setting URL (e.g., https://auth.foo.com/account/email). Optionally add `redirect=` to return users to your app after a successful update, `show_success=true` to keep the success page visible, `ui_locales=` to override the default language, or `identifier=` to pre-fill the new value on the email, phone, or username route.',
       single_task_flows_description:
-        'Route users straight into a specific flow (e.g., email linkage). Optionally add `redirect=` to return users to your app after a successful update, `show_success=true` to keep the success page visible, `ui_locales=` to override the default language, or `identifier=` to pre-fill the identifier input field.',
+        'Route users straight into a specific flow (e.g., email linkage). Optionally add `redirect=` to return users to your app after a successful update, `show_success=true` to keep the success page visible, `ui_locales=` to override the default language, or `identifier=` to pre-fill the new value on the email, phone, or username route.',
       tooltips: {
         email: 'Update your primary email address',
         phone: 'Update your primary phone number',

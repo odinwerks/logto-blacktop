@@ -17,9 +17,9 @@ import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { buildManagementApiContext } from '#src/libraries/hook/utils.js';
 import {
+  adminUserLogtoConfigResponseGuard,
+  buildAdminUserLogtoConfigResponse,
   buildUpdatedUserLogtoConfig,
-  buildUserLogtoConfigResponse,
-  userLogtoConfigResponseGuard,
 } from '#src/libraries/user-logto-config.js';
 import {
   buildUserPasswordPayload,
@@ -98,7 +98,7 @@ export default function adminUserBasicsRoutes<T extends ManagementApiRouter>(
         ssoIdentities: conditional(
           yes(includeSsoIdentities) && [...(await findUserSsoIdentities(userId))]
         ),
-        includePasswordHash: yes(includePasswordHash),
+        includePasswordHash: yes(includePasswordHash) && !ctx.auth.isReadOnly,
       });
 
       return next();
@@ -154,7 +154,7 @@ export default function adminUserBasicsRoutes<T extends ManagementApiRouter>(
     '/users/:userId/logto-configs',
     koaGuard({
       params: object({ userId: string() }),
-      response: userLogtoConfigResponseGuard,
+      response: adminUserLogtoConfigResponseGuard,
       status: [200, 404],
     }),
     async (ctx, next) => {
@@ -163,7 +163,7 @@ export default function adminUserBasicsRoutes<T extends ManagementApiRouter>(
       } = ctx.guard;
 
       const user = await findUserById(userId);
-      ctx.body = buildUserLogtoConfigResponse(user.logtoConfig);
+      ctx.body = buildAdminUserLogtoConfigResponse(user.logtoConfig);
 
       return next();
     }
@@ -177,14 +177,14 @@ export default function adminUserBasicsRoutes<T extends ManagementApiRouter>(
         mfa: userMfaDataGuard.optional(),
         passkeySignIn: userPasskeySignInDataGuard.optional(),
       }),
-      response: userLogtoConfigResponseGuard,
+      response: adminUserLogtoConfigResponseGuard,
       status: [200, 404],
     }),
     async (ctx, next) => {
       const {
         params: { userId },
         body: {
-          mfa: { enabled, skipped, skipMfaOnSignIn } = {},
+          mfa: { enabled, skipped, required, skipMfaOnSignIn } = {},
           passkeySignIn: { skipped: passkeySkipped } = {},
         },
       } = ctx.guard;
@@ -192,13 +192,13 @@ export default function adminUserBasicsRoutes<T extends ManagementApiRouter>(
       const user = await findUserById(userId);
       const updatedUser = await updateUserById(userId, {
         logtoConfig: buildUpdatedUserLogtoConfig(user, {
-          mfa: { enabled, skipped, skipMfaOnSignIn },
+          mfa: { enabled, skipped, required, skipMfaOnSignIn },
           passkeySignIn: { skipped: passkeySkipped },
         }),
       });
 
       ctx.appendDataHookContext('User.Data.Updated', { user: updatedUser });
-      ctx.body = buildUserLogtoConfigResponse(updatedUser.logtoConfig);
+      ctx.body = buildAdminUserLogtoConfigResponse(updatedUser.logtoConfig);
 
       return next();
     }
@@ -539,7 +539,10 @@ export default function adminUserBasicsRoutes<T extends ManagementApiRouter>(
         try {
           await removeUserAssets(buildStorage(storageProviderConfig), userId);
         } catch (error: unknown) {
-          getConsoleLogFromContext(ctx).error(`Failed to delete the assets of user ${userId}.`, error);
+          getConsoleLogFromContext(ctx).error(
+            `Failed to delete the assets of user ${userId}.`,
+            error
+          );
         }
       }
 

@@ -28,6 +28,13 @@ export const userMfaDataGuard = z.object({
    */
   skipped: z.boolean().optional(),
   /**
+   * Whether the user is required to set up MFA and cannot skip the binding flow
+   *
+   * This is an admin-managed requirement. It only affects MFA binding and does not force MFA
+   * verification on sign-in; use `skipMfaOnSignIn` for the latter.
+   */
+  required: z.boolean().optional(),
+  /**
    * Whether the user has skipped optional additional MFA binding suggestion
    */
   additionalBindingSuggestionSkipped: z.boolean().optional(),
@@ -56,9 +63,14 @@ export type UserPasskeySignInData = z.infer<typeof userPasskeySignInDataGuard>;
 
 /**
  * Schema for the MFA settings API response (GET/PATCH /api/my-account/mfa-settings)
+ *
+ * `enabled` is the persisted MFA enablement flag. It is optional because `undefined` indicates the
+ * user predates the flag, which the backend treats as enabled when the user has usable factors.
+ * An explicit `false` disables MFA verification regardless of `skipMfaOnSignIn`.
  */
 export const userMfaSettingsResponseGuard = z.object({
   skipMfaOnSignIn: z.boolean(),
+  enabled: z.boolean().optional(),
 });
 
 export type UserMfaSettingsResponse = z.infer<typeof userMfaSettingsResponseGuard>;

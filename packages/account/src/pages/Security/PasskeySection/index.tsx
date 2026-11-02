@@ -7,18 +7,19 @@ import { useNavigate } from 'react-router-dom';
 import PageContext from '@ac/Providers/PageContextProvider/PageContext';
 import WebAuthnIcon from '@ac/assets/icons/factor-webauthn.svg?react';
 import ToggleSwitch from '@ac/components/ToggleSwitch';
-import { passkeyAddRoute, passkeyManageRoute, verifiedActionRoute } from '@ac/constants/routes';
+import { passkeyAddRoute, passkeyManageRoute } from '@ac/constants/routes';
 import { getPendingReturn, setPendingReturn } from '@ac/utils/account-center-route';
 import {
   getPasskeyFieldControl,
   hasVisiblePasskeySection,
   isEditableField,
 } from '@ac/utils/security-page';
-import { sessionStorage } from '@ac/utils/session-storage';
+import { consumePendingStepUpAction } from '@ac/utils/step-up';
 
 import { getLogtoConfig, updateLogtoConfig } from '../../../apis/logto-config';
 import useApi from '../../../hooks/use-api';
 import useErrorHandler from '../../../hooks/use-error-handler';
+import useStepUp, { useIdentityProof } from '../../../hooks/use-step-up';
 import { useMfaVerifications } from '../MfaVerificationsProvider';
 import SecurityRow, { type SecurityRowData } from '../components/SecurityRow';
 import SecuritySection from '../components/SecuritySection';
@@ -29,8 +30,9 @@ import styles from './index.module.scss';
 const PasskeySection = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { accountCenterSettings, experienceSettings, verificationId, setVerificationId, setToast } =
-    useContext(PageContext);
+  const { accountCenterSettings, experienceSettings } = useContext(PageContext);
+  const { checkIdentityProof } = useIdentityProof();
+  const { requestStepUp, startStepUp } = useStepUp();
   const { mfaVerifications, isLoading, hasLoaded } = useMfaVerifications();
   const handleError = useErrorHandler();
 
@@ -78,55 +80,48 @@ const PasskeySection = () => {
   );
 
   const updatePasskeySignInSkipped = useCallback(
-    async (verifiedId: string, skipped: boolean) => {
-      const [error] = await updateLogtoConfigApi(verifiedId, { passkeySignIn: { skipped } });
+    async (skipped: boolean, isResumed = false) => {
+      const [error] = await updateLogtoConfigApi({ passkeySignIn: { skipped } });
 
       if (error) {
-        await handleError(error, {
-          'verification_record.permission_denied': async () => {
-            setVerificationId(undefined);
-            setToast(t('account_center.verification.verification_required'));
-          },
-        });
+        const action = skipped ? 'disable-passkey-prompt' : 'enable-passkey-prompt';
+
+        if (await requestStepUp(error, { type: action }, { isResumed })) {
+          return;
+        }
+
+        await handleError(error);
         return;
       }
 
       setPasskeySignInSkipped(skipped);
     },
-    [handleError, setToast, setVerificationId, t, updateLogtoConfigApi]
+    [handleError, requestStepUp, updateLogtoConfigApi]
   );
 
   const handleToggleChange = useCallback(
     async (checked: boolean) => {
       const skipped = !checked;
 
-      if (verificationId) {
-        await updatePasskeySignInSkipped(verificationId, skipped);
+      if (await checkIdentityProof()) {
+        await updatePasskeySignInSkipped(skipped);
         return;
       }
 
-      sessionStorage.setPendingVerifiedAction(
-        checked ? 'enable-passkey-prompt' : 'disable-passkey-prompt'
-      );
-      navigateTo(verifiedActionRoute);
+      const action = checked ? 'enable-passkey-prompt' : 'disable-passkey-prompt';
+
+      await startStepUp({ type: action });
     },
-    [navigateTo, updatePasskeySignInSkipped, verificationId]
+    [checkIdentityProof, startStepUp, updatePasskeySignInSkipped]
   );
 
   useEffect(() => {
-    if (!verificationId) {
-      return;
+    const action = consumePendingStepUpAction(['enable-passkey-prompt', 'disable-passkey-prompt']);
+
+    if (action) {
+      void updatePasskeySignInSkipped(action.type === 'disable-passkey-prompt', true);
     }
-
-    const pendingAction = sessionStorage.getPendingVerifiedAction();
-
-    if (pendingAction !== 'enable-passkey-prompt' && pendingAction !== 'disable-passkey-prompt') {
-      return;
-    }
-
-    sessionStorage.clearPendingVerifiedAction();
-    void updatePasskeySignInSkipped(verificationId, pendingAction === 'disable-passkey-prompt');
-  }, [updatePasskeySignInSkipped, verificationId]);
+  }, [updatePasskeySignInSkipped]);
 
   if (!isSectionVisible) {
     return null;

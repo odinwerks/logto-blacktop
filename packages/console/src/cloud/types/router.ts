@@ -2,8 +2,10 @@ import type router from '@logto/cloud/routes';
 import {
   type consoleSsoRouter,
   type emailLogsRouter,
+  type selfHostedLicensesRouter,
   type tenantAuthRouter,
   type userStripeCustomersRouter,
+  type userSubscriptionsRouter,
 } from '@logto/cloud/routes';
 import { type GuardedPayload, type GuardedResponse, type RouterRoutes } from '@withtyped/client';
 
@@ -13,6 +15,18 @@ type GetTenantAuthRoutes = RouterRoutes<typeof tenantAuthRouter>['get'];
 type GetEmailLogsRoutes = RouterRoutes<typeof emailLogsRouter>['get'];
 type GetUserStripeCustomersRoutes = RouterRoutes<typeof userStripeCustomersRouter>['get'];
 
+/** Billing facts for a user-owned subscription, independent of its service resources. */
+export type UserSubscription = GuardedResponse<
+  RouterRoutes<typeof userSubscriptionsRouter>['get']['/api/me/user-subscriptions']
+>['subscriptions'][number];
+
+/** A page of authorized invoices for the user's own subscriptions, newest first, without drafts. */
+export type UserSubscriptionInvoicesResponse = GuardedResponse<
+  RouterRoutes<typeof userSubscriptionsRouter>['get']['/api/me/user-subscriptions/invoices']
+>;
+
+export type UserSubscriptionInvoice = UserSubscriptionInvoicesResponse['invoices'][number];
+
 /** The paginated hosted-email log page returned by the cloud email-logs endpoint. */
 export type TenantEmailLogsResponse = GuardedResponse<
   GetEmailLogsRoutes['/api/tenants/:tenantId/email-logs']
@@ -21,6 +35,7 @@ export type TenantEmailLogsResponse = GuardedResponse<
 /** A single hosted-email log entry (redacted by the endpoint's response whitelist). */
 export type TenantEmailLog = TenantEmailLogsResponse['logs'][number];
 
+// eslint-disable-next-line import/no-unused-modules -- Blacktop: fork code uses the copy in `@/types/cloud-router`.
 export type GetArrayElementType<T> = T extends Array<infer U> ? U : never;
 
 export type Subscription = GuardedResponse<GetRoutes['/api/tenants/:tenantId/subscription']>;
@@ -135,4 +150,14 @@ export type ConsoleSsoDomain = GuardedResponse<
   RouterRoutes<
     typeof consoleSsoRouter
   >['post']['/api/me/console-sso/connectors/:connectorId/domains']
+>;
+
+/** Account-level license metadata, without signed keys. */
+export type SelfHostedLicenseSummary = GuardedResponse<
+  RouterRoutes<typeof selfHostedLicensesRouter>['get']['/api/me/self-hosted-licenses/:id']
+>;
+
+/** The production and non-production keys returned by explicit issuance. */
+export type SelfHostedLicenseKeys = GuardedResponse<
+  RouterRoutes<typeof selfHostedLicensesRouter>['post']['/api/me/self-hosted-licenses/:id/keys']
 >;

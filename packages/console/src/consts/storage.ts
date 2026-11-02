@@ -9,7 +9,10 @@ export type StorageType =
   | 'redirect_after_sign_in'
   | 'webhook_test_result'
   | 'is_dev_features_enabled'
-  | 'oss_sidebar_cloud_upsell_dismissed_until';
+  | 'oss_sidebar_cloud_upsell_dismissed_until'
+  | 'license_usage_banner_dismissed_until'
+  | 'manage_account_self_reconsent_attempted'
+  | 'subscription_cancel_feedback_submitted';
 
 export const getStorageKey = <T extends StorageType>(forType: T) =>
   `logto:admin_console:${forType}` as const;
@@ -25,4 +28,10 @@ export const storageKeys = Object.freeze({
   isDevFeaturesEnabled: getStorageKey('is_dev_features_enabled'),
   /** The local expiry timestamp for dismissing the OSS sidebar cloud upsell card. */
   ossSidebarCloudUpsellDismissedUntil: getStorageKey('oss_sidebar_cloud_upsell_dismissed_until'),
+  /** The local expiry timestamp for dismissing the self-hosted license usage banner. */
+  licenseUsageBannerDismissedUntil: getStorageKey('license_usage_banner_dismissed_until'),
+  /** Whether this tab session has already re-consented for `CloudScope.ManageAccountSelf`. */
+  manageAccountSelfReconsentAttempted: getStorageKey('manage_account_self_reconsent_attempted'),
+  /** Whether this tab session has submitted cancellation feedback for a tenant, suffixed with the tenant ID. */
+  subscriptionCancelFeedbackSubmitted: getStorageKey('subscription_cancel_feedback_submitted'),
 } satisfies Record<CamelCase<StorageType>, string>);

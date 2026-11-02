@@ -32,6 +32,36 @@ const enterprise_subscription = {
     private_region_title: 'مثيل سحابي خاص ({{regionName}})',
     shared_cross_tenants: 'عبر المستأجرين',
   },
+  user_subscriptions: {
+    description:
+      'اعرض اشتراكاتك الشخصية وتغطية Enterprise التعاقدية بصرف النظر عن المستأجر المحدد.',
+    personal_title: 'الاشتراكات الشخصية',
+    personal_description:
+      'الاشتراكات النشطة المفوترة لحسابك. تبقى الاشتراكات السابقة في تاريخ الفوترة.',
+    price: 'السعر',
+    next_charge: 'الدفعة التالية',
+    ends_on: 'ينتهي في {{date}}',
+    overdue_note:
+      'الدفع متأخر. إذا ظل دون سداد، فقد يتم إيقاف الاشتراك مؤقتًا وإزالة ميزاته المدفوعة.',
+    other_product: 'اشتراك آخر',
+    enterprise_invoices_description:
+      'فواتير عقد Enterprise الخاص بك. اختر فاتورة لعرضها وتنزيل الفاتورة أو الإيصال.',
+    personal_invoices_description:
+      'فواتير الاشتراكات المحتسبة على حسابك، بما في ذلك الاشتراكات السابقة. اختر فاتورة لعرضها وتنزيل الفاتورة أو الإيصال.',
+    credit_note:
+      'تُخصم الأرصدة الناتجة عن الإزالة أو التناسب من الفواتير اللاحقة، ولا تُسترد بالضرورة إلى وسيلة الدفع على الفور.',
+    invoice_link_unavailable: 'صفحة هذه الفاتورة غير متاحة. اتصل بنا إذا كنت بحاجة إلى نسخة.',
+    status: {
+      active: 'نشط',
+      trialing: 'تجريبي',
+      past_due: 'متأخر',
+      unpaid: 'غير مدفوع',
+      canceled: 'ملغى',
+      incomplete: 'غير مكتمل',
+      incomplete_expired: 'منتهي الصلاحية',
+      paused: 'معلّق',
+    },
+  },
 };
 
 export default Object.freeze(enterprise_subscription);

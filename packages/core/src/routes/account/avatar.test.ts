@@ -68,6 +68,7 @@ const mockedQueries = {
         webauthnRelatedOrigins: [],
         deleteAccountUrl: null,
         customCss: null,
+        maximumAuthenticationAgeInSeconds: 600,
         profileFields: null,
       })
     ),
@@ -185,6 +186,7 @@ describe('POST /my-account/avatar', () => {
       webauthnRelatedOrigins: [],
       deleteAccountUrl: null,
       customCss: null,
+      maximumAuthenticationAgeInSeconds: 600,
       profileFields: null,
     });
 

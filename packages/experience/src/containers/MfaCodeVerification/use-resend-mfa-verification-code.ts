@@ -1,4 +1,4 @@
-import { AuthenticationContextMode, type SignInIdentifier } from '@logto/schemas';
+import { type SignInIdentifier } from '@logto/schemas';
 import { t } from 'i18next';
 import { useCallback, useContext } from 'react';
 import { useTimer } from 'react-timer-hook';
@@ -7,8 +7,7 @@ import UserInteractionContext from '@/Providers/UserInteractionContextProvider/U
 import { sendMfaVerificationCode } from '@/apis/experience';
 import useApi from '@/hooks/use-api';
 import useErrorHandler from '@/hooks/use-error-handler';
-import useStepUpContext from '@/hooks/use-step-up-context';
-import useStepUpErrorHandler from '@/hooks/use-step-up-error-handler';
+import { usePureStepUpErrorHandler } from '@/hooks/use-step-up-error-handler';
 import useToast from '@/hooks/use-toast';
 import { codeVerificationTypeMap } from '@/utils/sign-in-experience';
 
@@ -25,9 +24,7 @@ const useResendMfaVerificationCode = (
 ) => {
   const { setToast } = useToast();
   const handleError = useErrorHandler();
-  const stepUpErrorHandlers = useStepUpErrorHandler();
-  const { authenticationContext } = useStepUpContext();
-  const isStepUp = authenticationContext?.mode === AuthenticationContextMode.StepUp;
+  const stepUpErrorHandlers = usePureStepUpErrorHandler();
   const resend = useApi(sendMfaVerificationCode);
   const { setVerificationId } = useContext(UserInteractionContext);
 
@@ -40,7 +37,7 @@ const useResendMfaVerificationCode = (
     const [error, result] = await resend(identifierType);
 
     if (error) {
-      await handleError(error, isStepUp ? stepUpErrorHandlers : undefined);
+      await handleError(error, stepUpErrorHandlers);
       return;
     }
 
@@ -54,7 +51,6 @@ const useResendMfaVerificationCode = (
   }, [
     handleError,
     identifierType,
-    isStepUp,
     resend,
     restart,
     setToast,

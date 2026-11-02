@@ -1,5 +1,6 @@
 import { yes } from '@silverhand/essentials';
 
+import { isDevFeaturesEnabled } from '@ac/constants/env';
 import {
   emailRoute,
   emailSuccessRoute,
@@ -22,7 +23,6 @@ import {
   profileRoute,
   securityRoute,
   sessionsRoute,
-  verifiedActionRoute,
   socialRoutePrefix,
 } from '@ac/constants/routes';
 
@@ -38,6 +38,7 @@ const redirectUrlParameter = 'redirect';
 const showSuccessParameter = 'show_success';
 const uiLocalesParameter = 'ui_locales';
 const identifierParameter = 'identifier';
+const loginHintParameter = 'login_hint';
 
 const knownRoutePrefixes: readonly string[] = [
   securityRoute,
@@ -59,7 +60,6 @@ const knownRoutePrefixes: readonly string[] = [
   passkeyAddRoute,
   passkeyManageRoute,
   passkeySuccessRoute,
-  verifiedActionRoute,
   sessionsRoute,
   socialRoutePrefix,
 ];
@@ -78,20 +78,35 @@ const taskFlowRoutes = new Set([
   passkeyManageRoute,
 ]);
 
-const isKnownRoute = (pathname?: string): pathname is string =>
-  pathname !== undefined &&
-  knownRoutePrefixes.some((prefix) =>
-    pathname.replace(accountCenterBasePath, '').startsWith(prefix)
-  );
+const getInternalPathname = (pathname: string): string | undefined => {
+  if (pathname === accountCenterBasePath) {
+    return '/';
+  }
 
-const getInternalPathname = (pathname: string) =>
-  pathname.replace(accountCenterBasePath, '') || '/';
+  return pathname.startsWith(`${accountCenterBasePath}/`)
+    ? pathname.slice(accountCenterBasePath.length)
+    : undefined;
+};
+
+const isKnownRoute = (pathname?: string): pathname is string => {
+  if (!pathname) {
+    return false;
+  }
+
+  const internalPathname = getInternalPathname(pathname);
+
+  return (
+    internalPathname !== undefined &&
+    knownRoutePrefixes.some((prefix) => internalPathname.startsWith(prefix))
+  );
+};
 
 const isTaskFlowRoute = (pathname: string): boolean => {
   const internalPathname = getInternalPathname(pathname);
 
   return (
-    taskFlowRoutes.has(internalPathname) || internalPathname.startsWith(`${socialRoutePrefix}/`)
+    internalPathname !== undefined &&
+    (taskFlowRoutes.has(internalPathname) || internalPathname.startsWith(`${socialRoutePrefix}/`))
   );
 };
 
@@ -117,6 +132,9 @@ export const {
   getIdentifier,
   setIdentifier,
   clearIdentifier,
+  getLoginHint,
+  setLoginHint,
+  clearLoginHint,
 } = sessionStorage;
 
 /**
@@ -165,6 +183,18 @@ const handleUiLocalesParameter = () => {
   clearUiLocales();
 };
 
+const handleLoginHintParameter = () => {
+  const parameters = new URLSearchParams(window.location.search);
+  const loginHint = parameters.get(loginHintParameter);
+
+  if (loginHint) {
+    setLoginHint(loginHint);
+    return;
+  }
+
+  clearLoginHint();
+};
+
 /**
  * Handle Account Center route restoration for sign in redirect.
  */
@@ -178,6 +208,11 @@ export const handleAccountCenterRoute = () => {
 
   handleUiLocalesParameter();
 
+  // DEV: Account Center sign-in hint
+  if (isDevFeaturesEnabled) {
+    handleLoginHintParameter();
+  }
+
   // Restore the stored route if the current path is the base path.
   if (window.location.pathname === accountCenterBasePath) {
     const storedRoute = parseStoredRoute(sessionStorage.getRouteRestore());
@@ -189,7 +224,17 @@ export const handleAccountCenterRoute = () => {
     }
 
     const { search, hash } = window.location;
-    window.history.replaceState({}, '', `${storedRoute}${search}${hash}`);
+    const restoredUrl = `${storedRoute}${search}${hash}`;
+
+    // A task flow's back button walks the browser history, whose previous entries are the sign-in
+    // experience pages this redirect came back from. Keep the base path entry below the restored
+    // flow, so going back leaves the flow for Account Center instead.
+    if (isTaskFlowRoute(storedRoute)) {
+      window.history.pushState({}, '', restoredUrl);
+      return;
+    }
+
+    window.history.replaceState({}, '', restoredUrl);
   }
 };
 
@@ -199,3 +244,9 @@ export const setRouteRestore = (pathname: string) => {
     sessionStorage.setRouteRestore(pathname);
   }
 };
+
+export const isAuthCallbackUrl = (
+  { pathname, search }: Pick<Location, 'pathname' | 'search'> = window.location
+): boolean =>
+  (pathname === accountCenterBasePath || pathname === `${accountCenterBasePath}/`) &&
+  Boolean(new URLSearchParams(search).get('code'));

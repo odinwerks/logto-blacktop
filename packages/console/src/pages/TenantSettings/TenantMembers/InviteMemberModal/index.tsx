@@ -1,6 +1,6 @@
 import { TenantRole } from '@logto/schemas';
 import { conditional } from '@silverhand/essentials';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { Trans, useTranslation } from 'react-i18next';
@@ -13,7 +13,7 @@ import { latestProPlanId, tenantMembersAddOnUnitPrice } from '@/consts/subscript
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import FormField from '@/ds-components/FormField';
 import ModalLayout from '@/ds-components/ModalLayout';
-import Select, { type Option } from '@/ds-components/Select';
+import Select from '@/ds-components/Select';
 import TextLink from '@/ds-components/TextLink';
 import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import useUserPreferences from '@/hooks/use-user-preferences';
@@ -25,6 +25,7 @@ import useEmailInputUtils from '../InviteEmailsInput/hooks';
 import styles from '../index.module.scss';
 import { type InviteMemberForm } from '../types';
 import useTenantMembersApi from '../use-tenant-members-api';
+import useTenantRoleOptions from '../use-tenant-role-options';
 
 import Footer from './Footer';
 
@@ -72,27 +73,16 @@ function InviteMemberModal({ isOpen, onClose }: Props) {
     };
   }, [isOpen, reset]);
 
-  const roleOptions: Array<Option<TenantRole>> = useMemo(
-    () => [
-      { value: TenantRole.Admin, title: t('tenant_members.admin') },
-      { value: TenantRole.Collaborator, title: t('tenant_members.collaborator') },
-    ],
-    [t]
-  );
+  const roleOptions = useTenantRoleOptions();
 
   const hasTenantMembersReachedLimit = hasReachedSubscriptionQuotaLimit('tenantMembersLimit');
 
   const onSubmit = handleSubmit(async ({ emails, role }) => {
-    if (role === TenantRole.Admin) {
+    if (isCloud && role === TenantRole.Admin) {
       const [result] = await show({
         ModalContent: () => (
           <Trans components={{ ul: <ul className={styles.list} />, li: <li /> }}>
-            {/* A self-hosted admin has no billing plan or tenant deletion to manage. */}
-            {t(
-              isCloud
-                ? 'tenant_members.assign_admin_confirm'
-                : 'tenant_members.assign_admin_confirm_oss'
-            )}
+            {t('tenant_members.assign_admin_confirm')}
           </Trans>
         ),
         confirmButtonText: 'general.confirm',
@@ -135,7 +125,11 @@ function InviteMemberModal({ isOpen, onClose }: Props) {
         title={isCloud ? 'tenant_members.invite_modal.title' : 'tenant_members.invite_members'}
         paywall={conditional(isCloud && !isPaidTenant && latestProPlanId)}
         hasAddOnTag={isCloud && isPaidTenant && hasTenantMembersReachedLimit}
-        subtitle="tenant_members.invite_modal.subtitle"
+        subtitle={
+          isCloud
+            ? 'tenant_members.invite_modal.subtitle'
+            : 'tenant_members.invite_modal.subtitle_oss'
+        }
         footer={
           conditional(
             isCloud &&
@@ -199,15 +193,17 @@ function InviteMemberModal({ isOpen, onClose }: Props) {
               )}
             />
           </FormField>
-          <FormField title="tenant_members.roles">
-            <Controller
-              name="role"
-              control={control}
-              render={({ field: { onChange, value } }) => (
-                <Select options={roleOptions} value={value} onChange={onChange} />
-              )}
-            />
-          </FormField>
+          {isCloud && (
+            <FormField title="tenant_members.roles">
+              <Controller
+                name="role"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <Select options={roleOptions} value={value} onChange={onChange} />
+                )}
+              />
+            </FormField>
+          )}
         </FormProvider>
       </ModalLayout>
     </ReactModal>

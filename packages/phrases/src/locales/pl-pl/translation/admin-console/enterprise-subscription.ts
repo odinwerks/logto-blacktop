@@ -33,6 +33,37 @@ const enterprise_subscription = {
     private_region_title: 'Prywatna instancja chmury ({{regionName}})',
     shared_cross_tenants: 'W tym dla najemców',
   },
+  user_subscriptions: {
+    description:
+      'Przeglądaj subskrypcje osobiste i umowny zakres Enterprise niezależnie od wybranego tenanta.',
+    personal_title: 'Subskrypcje osobiste',
+    personal_description:
+      'Aktywne subskrypcje rozliczane na Twoim koncie. Wcześniejsze subskrypcje pozostają w historii rozliczeń.',
+    price: 'Cena',
+    next_charge: 'Następna płatność',
+    ends_on: 'Kończy się {{date}}',
+    overdue_note:
+      'Płatność jest zaległa. Jeśli pozostanie nieopłacona, subskrypcja może zostać wstrzymana, a jej płatne funkcje usunięte.',
+    other_product: 'Inna subskrypcja',
+    enterprise_invoices_description:
+      'Faktury za Twoją umowę Enterprise. Wybierz fakturę, aby ją wyświetlić i pobrać fakturę lub potwierdzenie płatności.',
+    personal_invoices_description:
+      'Faktury za subskrypcje rozliczane na Twoim koncie, w tym wcześniejsze subskrypcje. Wybierz fakturę, aby ją wyświetlić i pobrać fakturę lub potwierdzenie płatności.',
+    credit_note:
+      'Środki z usunięć lub rozliczeń proporcjonalnych pomniejszają kolejne faktury i niekoniecznie są od razu zwracane na Twoją metodę płatności.',
+    invoice_link_unavailable:
+      'Strona tej faktury jest niedostępna. Skontaktuj się z nami, jeśli potrzebujesz kopii.',
+    status: {
+      active: 'Aktywna',
+      trialing: 'Okres próbny',
+      past_due: 'Zaległa',
+      unpaid: 'Nieopłacona',
+      canceled: 'Anulowana',
+      incomplete: 'Niekompletna',
+      incomplete_expired: 'Wygasła',
+      paused: 'Wstrzymana',
+    },
+  },
 };
 
 export default Object.freeze(enterprise_subscription);

@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { PrismAsyncLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { a11yDark as a11yDarkTheme } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+import { useReadOnlyField } from '@/contexts/ReadOnlyFieldScope';
+
 import CopyToClipboard from '../CopyToClipboard';
 
 import styles from './index.module.scss';
@@ -45,6 +47,8 @@ function CodeEditor({
   showLineNumbers = true,
   shouldWrap = true,
 }: Props) {
+  const isReadOnlyField = useReadOnlyField();
+  const isEditorReadonly = isReadonly || isReadOnlyField;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const [editorWidth, setEditorWidth] = useState(0);
@@ -92,7 +96,7 @@ function CodeEditor({
   };
 
   const handleKeydown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Tab') {
+    if (event.key === 'Tab' && !isEditorReadonly) {
       const { value, selectionStart } = event.currentTarget;
 
       event.preventDefault();
@@ -129,7 +133,10 @@ function CodeEditor({
         {title && <pre className={styles.title}>{title}</pre>}
         {isShowingPlaceholder && <div className={styles.placeholder}>{placeholder}</div>}
         <CopyToClipboard value={value ?? ''} variant="icon" className={styles.copy} />
-        <div ref={editorRef} className={classNames(styles.editor, isReadonly && styles.readonly)}>
+        <div
+          ref={editorRef}
+          className={classNames(styles.editor, isEditorReadonly && styles.readonly)}
+        >
           {/* SyntaxHighlighter is a readonly component, so a transparent <textarea> layer is needed
       in order to support user interactions, such as code editing, copy-pasting, etc. */}
           <textarea
@@ -139,7 +146,7 @@ function CodeEditor({
             autoCorrect="off"
             data-gramm="false"
             wrap="false"
-            readOnly={isReadonly}
+            readOnly={isEditorReadonly}
             spellCheck="false"
             value={value}
             style={

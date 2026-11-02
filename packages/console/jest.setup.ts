@@ -1,6 +1,6 @@
 import { webcrypto } from 'node:crypto';
-// eslint-disable-next-line n/prefer-global/text-encoder, n/prefer-global/text-decoder
-import { TextEncoder, TextDecoder } from 'node:util';
+// eslint-disable-next-line n/prefer-global/text-encoder, n/prefer-global/text-decoder -- JSDOM needs explicit Node globals.
+import { TextEncoder, TextDecoder, transferableAbortController } from 'node:util';
 
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
@@ -12,33 +12,38 @@ void i18next.use(initReactI18next).init({
   react: { useSuspense: false },
 });
 
+// JSDOM does not implement `matchMedia`, which the theme provider reads at module scope.
+/* eslint-disable @silverhand/fp/no-mutating-methods -- JSDOM lacks matchMedia, so the test environment must provide it. */
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  }),
+});
+/* eslint-enable @silverhand/fp/no-mutating-methods */
+
 /* eslint-disable @silverhand/fp/no-mutation */
 // @ts-expect-error monkey-patch for `crypto`
 crypto.subtle = webcrypto.subtle;
 global.TextEncoder = TextEncoder;
-// @ts-expect-error monkey-patch for `TextEncoder`/`TextDecoder`
 global.TextDecoder = TextDecoder;
 // JSDOM does not implement `Element.scrollIntoView`, which some components call on mount.
 Element.prototype.scrollIntoView = function () {
   /* No-op */
 };
 
-// JSDOM does not implement `window.matchMedia`, which the app theme provider (and any
-// `prefers-color-scheme`/media-query consumer) reads at module load. Provide a no-op MQL shim so
-// components that call it on import render in tests without throwing. JSDOM's typings do not mark
-// the field as optional even though it is missing at runtime, so the linter cannot see the
-// nullish branch; assignment is unconditional.
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-window.matchMedia ??= (query: string): MediaQueryList => ({
-  matches: false,
-  media: query,
-  onchange: null,
-  /* eslint-disable @typescript-eslint/no-empty-function */
-  addListener: () => {},
-  removeListener: () => {},
-  addEventListener: () => {},
-  removeEventListener: () => {},
-  /* eslint-enable @typescript-eslint/no-empty-function */
-  dispatchEvent: () => false,
-});
+// Node 26's `Request` only accepts its own `AbortSignal`, while jsdom provides a separate
+// implementation. Use Node's constructors so requests created by the router pass validation.
+const nodeAbortController = transferableAbortController();
+// @ts-expect-error -- Node's constructors are compatible with the jsdom globals at runtime
+global.AbortController = nodeAbortController.constructor;
+// @ts-expect-error -- Node's constructors are compatible with the jsdom globals at runtime
+global.AbortSignal = nodeAbortController.signal.constructor;
 /* eslint-enable @silverhand/fp/no-mutation */

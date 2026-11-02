@@ -3,6 +3,7 @@
 import { appInsights } from '@logto/app-insights/node';
 import {
   AuthenticationContextMode,
+  AuthenticationFactor,
   AuthenticationFactorClass,
   AuthenticationProofRole,
   ConnectorType,
@@ -12,11 +13,17 @@ import {
   LogtoAcr,
   acrSatisfies,
   getAuthenticationFactor,
+  getAuthenticationFactorClass,
   loginPromptAuthenticationContextDetailsGuard,
   MfaFactor,
+  MissingProfile,
+  SignInIdentifier,
+  type AuthenticationProof,
   type InteractionAuthenticationContext,
   type PostSignInEvent,
   type RequestedAuthenticationContext,
+  type SignInExperience,
+  type SubjectProofConnector,
   requestedAuthenticationContextGuard,
   VerificationType,
   type User,
@@ -25,11 +32,11 @@ import { maskEmail, maskPhone } from '@logto/shared';
 import { conditional, trySafe } from '@silverhand/essentials';
 import { z } from 'zod';
 
-import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { buildUserPasswordPayload } from '#src/libraries/user.utils.js';
 import { type LogEntry } from '#src/middleware/koa-audit-log.js';
 import { getClientIdentifierPayload } from '#src/oidc/cimd/index.js';
+import { stepUpSatisfiedBySessionKey } from '#src/oidc/interaction-policy.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
 import assertThat from '#src/utils/assert-that.js';
 import { buildAppInsightsTelemetry } from '#src/utils/request.js';
@@ -65,8 +72,11 @@ import { ProvisionLibrary } from './libraries/provision-library.js';
 import { SignInExperienceValidator } from './libraries/sign-in-experience-validator.js';
 import {
   computeStepUpEligibility,
+  mayEstablishFirstFactor,
   mfaFactorToVerificationType,
+  type EstablishableMethod,
   type StepUpEligibility,
+  type StepUpEligibilityInput,
 } from './libraries/step-up-eligibility.js';
 import { UserUpdateLibrary } from './libraries/user-update-library.js';
 import { Mfa } from './mfa.js';
@@ -94,10 +104,12 @@ const loginPromptInteractionGuard = z.object({
 
 /**
  * The session fields a pure step-up reads on every request (the provider copies the session into
- * the interaction payload); see {@link ExperienceInteraction.subjectUserId}.
+ * the interaction payload); see {@link ExperienceInteraction.subjectUserId} and
+ * {@link ExperienceInteraction.isSessionSatisfied}.
  */
 const stepUpSessionGuard = z.object({
   accountId: z.string().min(1),
+  acr: z.string().optional(),
   amr: z.string().array().optional(),
 });
 
@@ -168,6 +180,20 @@ const buildMfaMaskedIdentifiers = (
     ? { [MfaFactor.PhoneVerificationCode]: maskPhone(primaryPhone) }
     : {}),
 });
+
+/** The factors a sign-in must verify before it may enroll another MFA factor. */
+type MfaBindingBlock = {
+  availableFactors: MfaFactor[];
+  maskedIdentifiers: Record<string, string>;
+};
+
+/**
+ * Whether a proof records an MFA factor enrolled and bound in this interaction, as opposed to a
+ * first factor established here (a `1fa`-class `bind`, e.g. a password set through the profile).
+ */
+const isEnrolledFactorProof = ({ class: factorClass, role }: AuthenticationProof) =>
+  role === AuthenticationProofRole.Bind &&
+  (factorClass === AuthenticationFactorClass.Mfa || factorClass === AuthenticationFactorClass.Both);
 
 /**
  * Interaction is a short-lived session session that is initiated when a user starts an interaction flow with the Logto platform.
@@ -258,6 +284,7 @@ export default class ExperienceInteraction {
         this.authenticationProofs.stageEstablishedPassword();
       },
       getCurrentProfile: () => this.profile.data,
+      canBindMfa: async () => this.canBindMfa(),
     };
 
     this.adaptiveMfaValidator = new AdaptiveMfaValidator({
@@ -273,10 +300,6 @@ export default class ExperienceInteraction {
       this.profile = new Profile(libraries, queries, {}, interactionContext);
       this.mfa = new Mfa(libraries, queries, {}, interactionContext);
       this.trustedDevice = new TrustedDevice(ctx, tenant, {});
-
-      if (!EnvSet.values.isDevFeaturesEnabled) {
-        return;
-      }
 
       this.authenticationContext = readLoginPromptAuthenticationContext(ctx.interactionDetails);
 
@@ -380,9 +403,11 @@ export default class ExperienceInteraction {
   /**
    * Switch the interaction event for the current interaction sign-in <> register
    *
-   * - any pending profile data will be cleared
-   * - any authentication proof will be cleared, so that a proof recorded for an abandoned attempt
-   *   at one event can never inflate the context of another
+   * Everything scoped to the user this interaction identified is discarded, so that nothing
+   * recorded for an abandoned attempt at one event carries into another: the identified user and
+   * their cache, the pending profile, the staged MFA data, the trusted-device opt-in and the
+   * authentication proofs. See {@link clearIdentityScopedState}. The verification records are
+   * kept.
    *
    * @throws RequestError with 403 if the interaction event is not allowed by the `SignInExperienceValidator`
    * @throws RequestError with 400 if a pure step-up switches away from `SignIn`
@@ -411,8 +436,7 @@ export default class ExperienceInteraction {
     );
 
     if (this.#interactionEvent !== interactionEvent) {
-      this.profile.cleanUp();
-      this.authenticationProofs.clear();
+      this.clearIdentityScopedState();
     }
 
     this.#interactionEvent = interactionEvent;
@@ -441,7 +465,7 @@ export default class ExperienceInteraction {
       new RequestError({ code: 'session.invalid_interaction_type', status: 400 })
     );
 
-    const verificationRecord = this.consumeForIdentify(verificationId);
+    const verificationRecord = this.getVerificationRecordById(verificationId);
 
     log?.append({
       verification: verificationRecord.toJson(),
@@ -452,10 +476,22 @@ export default class ExperienceInteraction {
       verificationRecord
     );
 
-    const { user, syncedProfile } = await identifyUserByVerificationRecord(
-      verificationRecord,
-      linkSocialIdentity
-    );
+    // In a pure step-up an upstream authentication is only ever a subject proof: it must resolve
+    // to the pinned subject by an identity already linked to it. Registration, account linking,
+    // and the enterprise SSO fallback to an account related by email are never offered, and no
+    // upstream profile is synced, because a step-up writes nothing but what it established.
+    const { user, syncedProfile } =
+      this.isStepUp &&
+      (verificationRecord.type === VerificationType.Social ||
+        verificationRecord.type === VerificationType.EnterpriseSso)
+        ? {
+            user: await this.identifyStepUpSubjectByFederatedRecord(
+              verificationRecord,
+              linkSocialIdentity
+            ),
+            syncedProfile: undefined,
+          }
+        : await identifyUserByVerificationRecord(verificationRecord, linkSocialIdentity);
 
     const { id, isSuspended } = user;
     assertThat(!isSuspended, new RequestError({ code: 'user.suspended', status: 401 }));
@@ -466,6 +502,10 @@ export default class ExperienceInteraction {
       !this.subjectUserId || this.subjectUserId === id,
       new RequestError({ code: 'session.identity_conflict', status: this.isStepUp ? 403 : 409 })
     );
+
+    // Stage only after the record resolved to this interaction's user: a verified record for
+    // another account must not leave an identifying proof behind.
+    this.authenticationProofs.stage(verificationRecord, AuthenticationProofRole.Identify);
 
     if (this.userId) {
       return;
@@ -600,11 +640,11 @@ export default class ExperienceInteraction {
    * is never a challenge; its proof is the `bind` one recorded when the factor is added.
    *
    * In a pure step-up the answered challenge is what proves the pinned subject, so it promotes
-   * {@link subjectUserId} into `userId`. Every challenge record is created for the subject, so no
-   * conflict check is needed here.
+   * {@link subjectUserId} into `userId`.
    *
    * @throws {RequestError} with 404 if the verification record is not found
-   * @throws {RequestError} with 400 if the record is not a verified MFA challenge
+   * @throws {RequestError} with 400 if the record is not a verified MFA challenge, or names a user
+   * other than the one this interaction is about
    */
   public consumeForMfa<K extends keyof VerificationRecordMap>(
     type: K,
@@ -613,7 +653,15 @@ export default class ExperienceInteraction {
     const record = this.getVerificationRecordByTypeAndId(type, verificationId);
 
     assertThat(
-      isMfaVerificationRecord(record) && record.isVerified && !record.isNewBindMfaVerification,
+      isMfaVerificationRecord(record) &&
+        record.isVerified &&
+        !record.isNewBindMfaVerification &&
+        // A challenge proves the account it was created for, so it may never prove another: an
+        // event change replaces the subject while the records stay, and the email and phone
+        // routes read the record by the id the client sends. A record naming nobody proves
+        // nobody, so it only has to not belong to someone else; `MfaValidator` is the gate that
+        // grants, and it requires an affirmative owner.
+        (record.userId === undefined || record.userId === this.subjectUserId),
       new RequestError({ code: 'session.verification_failed', status: 400 })
     );
 
@@ -640,23 +688,33 @@ export default class ExperienceInteraction {
     // A requested `mfa` is a requirement of the relying party, not of the tenant's sign-in MFA
     // policy: `skipMfaOnSignIn`, an adaptive-MFA non-trigger result and a trusted device are all
     // decisions about the tenant's policy, so none of them satisfies a class the client asked for.
-    const isRequestedMfaUnmet = await this.isRequestedMfaUnmet();
+    const pursued = await this.getPursuedRequestedAcr();
+    const isRequestedMfaUnmet = pursued?.acr === LogtoAcr.Mfa;
 
-    if (!isRequestedMfaUnmet && (this.hasVerifiedSsoIdentity || this.hasVerifiedSignInPasskey)) {
+    // Read the user before the exemptions: `verifiedInteractionGuard` relies on this guard to
+    // reject an interaction that identified nobody, and an exemption must never answer for an
+    // account that was never identified.
+    const user = await this.getIdentifiedUser();
+
+    if (!isRequestedMfaUnmet && this.isMfaGateFulfilled()) {
       return;
     }
 
-    const user = await this.getIdentifiedUser();
     const mfaSettings = await this.signInExperienceValidator.getMfaSettings();
     const adaptiveMfaResult = await this.adaptiveMfaValidator.getResult(log);
 
     const mfaValidator = new MfaValidator(mfaSettings, user, adaptiveMfaResult);
 
-    // A requested `mfa` only offers the factors that pair with the first factor already proven:
-    // a factor of the same kind (an MFA email code after an email sign-in) counts once and never
-    // lifts the context to `mfa`.
+    // A requested `mfa` only offers the factors that pair with the first factor already proven and
+    // that the eligibility offers: a factor of the same kind (an MFA email code after an email
+    // sign-in) counts once and never lifts the context to `mfa`, and a code whose connector is
+    // unavailable cannot be delivered at all. A user left with none of them reaches the enrollment
+    // requirement of `assertMfaFulfilled`, which offers a factor that does reach the class.
     const availableFactors = isRequestedMfaUnmet
-      ? this.getPairableMfaFactors(mfaValidator.availableUserMfaVerificationTypes)
+      ? this.getPairableMfaFactors(mfaValidator.availableUserMfaVerificationTypes).filter(
+          (factor) =>
+            (pursued.decision?.availableMethods ?? []).includes(mfaFactorToVerificationType[factor])
+        )
       : mfaValidator.availableUserMfaVerificationTypes;
 
     // Declared non-proof: an adaptive-MFA non-trigger result skips the gate and proves nothing,
@@ -699,43 +757,100 @@ export default class ExperienceInteraction {
   }
 
   /**
-   * The authentication classes the authorization request asked for, empty when it carried no
-   * supported `acr_values`. A sign-in with a requested context treats them as one more completion
-   * requirement of {@link submit}: `selectedAcr` is never persisted for one, the requirement is
-   * re-derived from these values on every submission, and the request cannot change mid-flow.
+   * Whether this interaction may enroll an MFA factor.
+   *
+   * Registration and pure step-up always may. On sign-in, a user with no enabled factor yet may
+   * enroll (onboarding), and a verified MFA challenge, SSO identity or passkey sign-in opens
+   * enrollment. A password-only sign-in that skipped the MFA gate may not.
+   */
+  public async canBindMfa() {
+    return !(await this.getMfaBindingBlock());
+  }
+
+  /**
+   * Guard MFA factor enrollment during sign-in.
+   *
+   * A sign-in can pass {@link guardMfaVerificationStatus} without answering an MFA challenge:
+   * adaptive MFA may not trigger, a trusted device may satisfy the gate, or optional MFA may be
+   * skipped. In those cases a user who already has MFA factors must not bind a new one, or a
+   * password-only visitor could enroll their own authenticator on the account. A user with no
+   * factor yet may still enroll (onboarding), and a verified MFA challenge, SSO identity or
+   * passkey sign-in opens enrollment.
+   *
+   * @throws {RequestError} with 403 if the user has enabled MFA factors but did not verify one
+   */
+  public async guardMfaBinding() {
+    const block = await this.getMfaBindingBlock();
+
+    if (!block) {
+      return;
+    }
+
+    throw new RequestError({ code: 'session.mfa.require_mfa_verification', status: 403 }, block);
+  }
+
+  /**
+   * The authentication classes the authorization request asked for, in the caller's order and
+   * empty when it carried no supported `acr_values`. Both a SignIn with a requested context and a
+   * pure step-up treat them as one more completion requirement of their completion path: no
+   * selection is persisted, the class pursued is re-derived from these values on every read, and
+   * the request cannot change mid-flow.
    */
   private get requestedAcrValues(): LogtoAcr[] {
     return this.authenticationContext?.requestedAcrValues ?? [];
   }
 
   /**
-   * Whether the context the interaction has proven so far satisfies the request. Any requested
-   * class is enough — the rule `interaction-policy.ts` applies to the OIDC session and re-applies
-   * to the login result when the interaction resumes — so a submission this lets through is never
-   * rejected as `unmet_authentication_requirements` afterwards. Only the proofs of this
-   * interaction are read; enrolled factors are never consulted.
+   * Enrollment cannot supply its own first-factor precondition. Apply the same rule to pure
+   * step-up and SignIn with requested ACR, without changing ordinary sign-in or registration.
    */
-  private get isRequestedAcrSatisfied(): boolean {
-    const { requestedAcrValues } = this;
+  private get countedAuthenticationProofs(): readonly AuthenticationProof[] {
+    const { proofs } = this.authenticationProofs;
 
-    if (requestedAcrValues.length === 0) {
-      return true;
+    if (
+      !this.isStepUp &&
+      (this.interactionEvent !== InteractionEvent.SignIn || this.requestedAcrValues.length === 0)
+    ) {
+      return proofs;
     }
 
-    const achievedAcr = achieveAcr(this.authenticationProofs.proofs);
-
-    return requestedAcrValues.some((requestedAcr) => acrSatisfies(achievedAcr, requestedAcr));
+    return proofs.filter((proof) => this.hasFreshFirstFactor || !isEnrolledFactorProof(proof));
   }
 
   /**
    * Whether the interaction has proven a Logto-verifiable first factor: a proof of class `1fa` or
    * `both`, verified or established in this interaction. An `mfa`-class proof never satisfies it:
    * one alone reaches only `urn:logto:acr:1fa`, so a requested `mfa` still needs the first-factor
-   * side of the pair from a different factor.
+   * side of the pair from a different factor. Only the proofs of this interaction are read: the
+   * session's stored context and a trusted device never satisfy it.
+   *
+   * In a pure step-up it gates the enrollment routes (see `koaStepUpRouteGuard`) and decides
+   * whether a factor enrolled here counts in {@link submitStepUp}, so the two cannot disagree.
    */
-  private get hasFreshFirstFactor(): boolean {
+  public get hasFreshFirstFactor(): boolean {
+    // A factor enrolled in this interaction never supplies it, a `both`-class passkey included:
+    // enrolling is licensed by a fresh first factor, so it must not license itself.
     return this.authenticationProofs.proofs.some(
-      ({ class: factorClass }) =>
+      (proof) =>
+        (proof.class === AuthenticationFactorClass.FirstFactor ||
+          proof.class === AuthenticationFactorClass.Both) &&
+        !isEnrolledFactorProof(proof)
+    );
+  }
+
+  /**
+   * Whether the interaction holds a fresh subject proof: a proof that identified or created the
+   * user (including an upstream social / SSO authentication that resolved to the pinned subject),
+   * or any Logto-verifiable `1fa`-class proof. Like {@link hasFreshFirstFactor} it reads only the
+   * proofs of this interaction: the session's stored context and a trusted device never satisfy
+   * it, so a session cookie alone can establish nothing.
+   */
+  private get hasFreshSubjectProof(): boolean {
+    return this.authenticationProofs.proofs.some(
+      ({ role, factor, class: factorClass }) =>
+        role === AuthenticationProofRole.Identify ||
+        role === AuthenticationProofRole.Create ||
+        factor === AuthenticationFactor.Federated ||
         factorClass === AuthenticationFactorClass.FirstFactor ||
         factorClass === AuthenticationFactorClass.Both
     );
@@ -748,37 +863,78 @@ export default class ExperienceInteraction {
    * pursued class (see {@link getPursuedRequestedAcr}) is `1fa` or `mfa` and the interaction has
    * proven no Logto-verifiable first factor yet. With an eligible method the user can verify, it
    * throws `session.step_up.require_verification` carrying the pursued class, the methods and the
-   * masked identifiers, and the next `submit()` re-evaluates the requirement from scratch.
+   * masked identifiers, and the next `submit()` re-evaluates the requirement from scratch. Once a
+   * first factor is proven, the same requirement asks for another one when it pairs with no MFA
+   * factor the user can verify or enroll: a first factor only lifts the context together with a
+   * factor of a different kind.
    *
-   * A registration has no existing method to verify: every credential its account holds was
-   * established by the interaction and is already one of its proofs, so only its establish
-   * branch can ever apply. Establishing a first factor and enrolling a factor are not offered
-   * yet, so with nothing to verify the guard returns and the assertion in {@link submit} rejects
-   * the submission before any side effect.
+   * With no eligible method but a fresh subject proof, `user.missing_profile` offers the methods
+   * the tenant lets the user establish. If the requested class cannot be reached, even through
+   * establishment or enrollment, finish with an OIDC error before any sign-in side effect.
+   *
+   * @returns The redirect URL when the interaction was finished as unmet.
    */
-  public async guardFirstFactor() {
-    if (this.interactionEvent !== InteractionEvent.SignIn || this.hasFreshFirstFactor) {
+  public async guardFirstFactor(): Promise<string | undefined> {
+    if (this.interactionEvent !== InteractionEvent.SignIn) {
       return;
     }
 
     const pursued = await this.getPursuedRequestedAcr();
 
-    // With nothing to verify the guard returns, and the assertion in `submit()` rejects the
-    // submission, leaving nothing behind.
-    if (!pursued?.decision || pursued.decision.availableMethods.length === 0) {
+    if (!pursued?.decision) {
       return;
     }
 
     const { acr: selectedAcr, decision } = pursued;
 
-    throw new RequestError(
-      { code: 'session.step_up.require_verification', status: 403 },
-      {
-        selectedAcr,
-        availableMethods: decision.availableMethods,
-        maskedIdentifiers: decision.maskedIdentifiers,
+    // This also covers a proven first factor on a tenant with no way to reach requested MFA.
+    if (!decision.isReachable) {
+      return this.finishUnmetAuthenticationRequirements();
+    }
+
+    if (this.hasFreshFirstFactor) {
+      // A proven first factor only lifts the context together with an MFA factor of a different
+      // kind. When nothing pairs with it, ask for another first factor the eligibility offers, so
+      // the methods the sanitized context advertises can actually complete the request.
+      if (await this.hasPairableMfaFactor(decision)) {
+        return;
       }
-    );
+
+      const firstFactorMethods = decision.availableMethods.filter(
+        (method) => getAuthenticationFactorClass(method) !== AuthenticationFactorClass.Mfa
+      );
+
+      if (firstFactorMethods.length > 0) {
+        throw new RequestError(
+          { code: 'session.step_up.require_verification', status: 403 },
+          {
+            selectedAcr,
+            availableMethods: firstFactorMethods,
+            maskedIdentifiers: decision.maskedIdentifiers,
+          }
+        );
+      }
+
+      return;
+    }
+
+    if (decision.availableMethods.length > 0) {
+      throw new RequestError(
+        { code: 'session.step_up.require_verification', status: 403 },
+        {
+          selectedAcr,
+          availableMethods: decision.availableMethods,
+          maskedIdentifiers: decision.maskedIdentifiers,
+        }
+      );
+    }
+
+    if (decision.establishableMethods.length > 0) {
+      throw new RequestError(
+        { code: 'user.missing_profile', status: 422 },
+        { missingProfile: decision.establishableMethods, isEstablishment: true }
+      );
+    }
   }
 
   /**
@@ -831,32 +987,70 @@ export default class ExperienceInteraction {
   }
 
   /**
-   * Fast-fail a pure step-up whose pinned user cannot reach `selectedAcr` with the methods they
-   * have: the interaction is finished with `unmet_authentication_requirements`, which the provider
-   * returns to the client's `redirect_uri` as a standard OIDC error, instead of rendering a
-   * step-up UI with nothing to offer. Decided here at creation rather than in the UI. A step-up
-   * that can proceed, and any other interaction, is left untouched.
-   *
-   * @returns The URL to redirect the user to when the step-up was finished as unmet.
+   * The step-up decision the route guard of a pure step-up gates the establishment and
+   * subject-proof routes on; the same one `GET /experience/interaction` projects. Evaluated for the
+   * class the step-up pursues, which is re-derived on every read from the requested list and the
+   * subject's reachable methods.
    */
-  public async finishUnreachableStepUp(): Promise<string | undefined> {
+  public async getStepUpEligibility(): Promise<StepUpEligibility | undefined> {
     if (!this.isStepUp) {
       return;
     }
 
-    const decision = await this.getStepUpDecision();
+    const pursued = await this.getPursuedAcr();
 
-    if (decision?.isReachable) {
+    return pursued?.decision;
+  }
+
+  /**
+   * Resolve a pure step-up at creation, before any UI is rendered:
+   *
+   * - The class the step-up pursues is already satisfied by the OIDC session and the request does
+   *   not force a fresh authentication event (`prompt=login` or an unmet `max_age`): the
+   *   interaction is finished with the session's context, so no verification is asked for and
+   *   `auth_time` is not refreshed. This is how `[mfa, 1fa]` on a `1fa` session with no reachable
+   *   `mfa` completes at `1fa`.
+   * - The pinned user cannot reach the pursued class with the methods they have: the interaction is
+   *   finished with `unmet_authentication_requirements`, which the provider returns to the
+   *   client's `redirect_uri` as a standard OIDC error, instead of rendering a step-up UI with
+   *   nothing to offer.
+   *
+   * A step-up that has to ask for something, and any other interaction, is left untouched.
+   *
+   * @returns The URL to redirect the user to when the interaction was finished here, and whether
+   * it was finished as unmet.
+   */
+  public async finishStepUpAtCreation(): Promise<
+    { redirectTo: string; unmet?: boolean } | undefined
+  > {
+    if (!this.isStepUp) {
       return;
     }
 
-    const { provider } = this.tenant;
+    const pursued = await this.getPursuedAcr();
 
-    return provider.interactionResult(this.ctx.req, this.ctx.res, {
-      error: 'unmet_authentication_requirements',
-      error_description:
-        'the user has no method that can reach the requested authentication context',
-    });
+    if (!pursued) {
+      return;
+    }
+
+    if (pursued.decision?.isReachable) {
+      if (!this.isSessionSatisfied(pursued.acr)) {
+        return;
+      }
+
+      // Submitting the interaction without a `login` result leaves the session untouched: its
+      // `acr`, `amr`, and `auth_time` already satisfy the request, and nothing was verified here.
+      // The marker tells the policy's resume check that a step-up finished here, since there is no
+      // `login` to read and the route alone cannot tell it from a revisit of the authorization URL.
+      const redirectTo = await this.tenant.provider.interactionResult(this.ctx.req, this.ctx.res, {
+        ...this.toJson(),
+        [stepUpSatisfiedBySessionKey]: true,
+      });
+
+      return { redirectTo };
+    }
+
+    return { redirectTo: await this.finishUnmetAuthenticationRequirements(), unmet: true };
   }
 
   /** Save the current interaction result. */
@@ -933,8 +1127,16 @@ export default class ExperienceInteraction {
 
     // The first-factor requirement of a requested authentication context joins the chain right
     // before the MFA verification gate, so a first factor is proven before an MFA factor is asked
-    // for, all before the first side effect.
-    await this.guardFirstFactor();
+    // for, all before the first side effect. A registration runs no such guard, so its request is
+    // finished as unmet here instead.
+    const unmetRedirectTo =
+      (await this.guardFirstFactor()) ?? (await this.guardUnreachableRequestedAcr());
+
+    if (unmetRedirectTo) {
+      log?.append({ error: 'unmet_authentication_requirements' });
+      this.ctx.body = { redirectTo: unmetRedirectTo };
+      return;
+    }
 
     // Verified, only SignIn requires MFA verification, for register, it does not make sense to verify MFA
     if (this.#interactionEvent === InteractionEvent.SignIn) {
@@ -946,8 +1148,7 @@ export default class ExperienceInteraction {
     // `amr` / `auth_time`; an interaction without a proof seeds nothing and the provider stamps
     // `auth_time` itself.
     const authenticationContext = conditional(
-      EnvSet.values.isDevFeaturesEnabled &&
-        aggregateAuthenticationContext(this.authenticationProofs.proofs)
+      aggregateAuthenticationContext(this.countedAuthenticationProofs)
     );
 
     // Revalidate the new profile data if any
@@ -971,10 +1172,25 @@ export default class ExperienceInteraction {
     // A requested `mfa` is enforced as a no-skip mandatory policy of its own, which the SSO
     // exemption of the tenant's policy does not cover: the relying party asked for the class and
     // an upstream assertion never reaches it.
-    const isRequestedMfaUnmet = await this.isRequestedMfaUnmet();
+    const pursued = await this.getPursuedRequestedAcr();
+    const isRequestedMfaUnmet = pursued?.acr === LogtoAcr.Mfa;
+    // A registration drives no verification or establishment: the only way it reaches the class
+    // it pursues is by binding a factor the eligibility says reaches it. Require that binding
+    // non-skippably, and offer only those factors, so a skippable suggestion or a factor that
+    // cannot complete the class does not fall through to the defense-in-depth assert below.
+    const requestedEnrollmentFactors =
+      this.interactionEvent === InteractionEvent.Register
+        ? (pursued?.decision?.enrollableFactors ?? [])
+        : [];
+    const requiresRequestedEnrollment = requestedEnrollmentFactors.length > 0;
 
-    if (!this.hasVerifiedSsoIdentity || isRequestedMfaUnmet) {
-      await this.mfa.assertMfaFulfilled({ asNoSkipMandatoryPolicy: isRequestedMfaUnmet });
+    if (!this.hasVerifiedSsoIdentity || isRequestedMfaUnmet || requiresRequestedEnrollment) {
+      await this.mfa.assertMfaFulfilled({
+        asNoSkipMandatoryPolicy: isRequestedMfaUnmet || requiresRequestedEnrollment,
+        ...conditional(
+          requiresRequestedEnrollment && { enrollmentFactors: requestedEnrollmentFactors }
+        ),
+      });
     }
 
     await this.trustedDevice.assertOptInDecision({
@@ -984,11 +1200,11 @@ export default class ExperienceInteraction {
     });
 
     // Defense in depth: assert once more, right before the first side effect, that the derived
-    // context satisfies the requested class. A submission below the request fails with 403 and
-    // leaves nothing behind; the one that passes runs the side effects exactly once below and
+    // context satisfies the class the interaction pursues. A submission below it fails with 403
+    // and leaves nothing behind; the one that passes runs the side effects exactly once below and
     // finishes with the `login` result carrying the same derived context.
     assertThat(
-      this.isRequestedAcrSatisfied,
+      !(await this.getPursuedRequestedAcr()),
       new RequestError({ code: 'session.step_up.acr_not_satisfied', status: 403 })
     );
 
@@ -1149,49 +1365,65 @@ export default class ExperienceInteraction {
    * Deliberately not run, unlike {@link submit}: the captcha guard, the tenant MFA and profile
    * policies, the passkey suggestion, every other `updateUserById` field including `lastSignInAt`,
    * SSO identity synchronization, social / SSO token-set upserts, JIT organization provisioning,
-   * `triggerPostSignInAction`, and data-hook contexts.
+   * and `triggerPostSignInAction`. A `User.Data.Updated` data hook is queued only when established
+   * methods are persisted; no sign-in interaction hook is queued.
    *
    * @throws {RequestError} with 400 if the interaction is not a pure step-up
-   * @throws {RequestError} with 403 if the achieved context does not satisfy `selectedAcr`; the
-   * assertion runs before the subject is read, so a submission that counted no verification ends
-   * here rather than as a missing subject
+   * @throws {RequestError} with 403 if the achieved context does not satisfy the class the step-up
+   * pursues; the assertion runs before the subject is read, so a submission that counted no
+   * verification ends here rather than as a missing subject
    * @throws {RequestError} with 404 if a counted proof never identified the subject, which the
    * allow-list blocks today: identification and an answered MFA challenge both set the user, and
    * the only proof that does not is a `bind`
    */
   public async submitStepUp(log?: LogEntry) {
-    const { authenticationContext, authenticationProofs } = this;
+    const { authenticationContext } = this;
 
-    // Only a pure step-up completes here: the OIDC policy writes the mode and `selectedAcr`
+    // Only a pure step-up completes here: the OIDC policy writes the mode and the requested list
     // together, and a `SignIn` with a requested ACR keeps neither.
     assertThat(
-      this.isStepUp && authenticationContext?.selectedAcr,
+      this.isStepUp && authenticationContext && authenticationContext.requestedAcrValues.length > 0,
       new RequestError({ code: 'session.step_up.invalid_interaction_event', status: 400 })
     );
 
-    const { requestedAcrValues, selectedAcr } = authenticationContext;
+    const { requestedAcrValues } = authenticationContext;
 
-    // The session's carried context only ever pairs with a proof of this interaction, so a
-    // submission that counted no verification derives nothing and fails the assertion below.
+    // The class is re-derived on this read, exactly as the guards and the projection derive it: the
+    // first requested class the user can reach, or the first one when none is reachable. Nothing
+    // pinned it earlier, so a method the user gained or lost mid-flow cannot disagree with what is
+    // asserted below.
+    const pursued = await this.getPursuedAcr();
+
+    assertThat(
+      pursued,
+      new RequestError({ code: 'session.step_up.invalid_interaction_event', status: 400 })
+    );
+
+    // A factor enrolled in this interaction counts only on top of a fresh first factor, the same
+    // predicate that gates the enrollment routes, so the route guard and the completion rule
+    // cannot disagree. The session's carried context only ever pairs with a proof of this
+    // interaction, so a submission that counted no verification derives nothing and fails the
+    // assertion below.
+    const countedProofs = this.countedAuthenticationProofs;
     const achievedContext = aggregateAuthenticationContext(
-      authenticationProofs.proofs,
+      countedProofs,
       this.carriedContributions
     );
 
     log?.append({
       requestedAcrValues,
-      selectedAcr,
+      selectedAcr: pursued.acr,
       achievedAcr: achievedContext.acr,
       // The factor families the interaction proved. Auditable and unambiguous, unlike `amr`, where
       // `otp` alone cannot tell an email code from a TOTP or a backup code. Credentials never reach
       // the log; the audit-log filters already cover passwords, codes, WebAuthn and backup codes.
-      factors: [...new Set(authenticationProofs.proofs.map(({ factor }) => factor))],
+      factors: [...new Set(countedProofs.map(({ factor }) => factor))],
     });
 
     // The UI only offers sufficient methods; this is defense in depth. Thrown before anything is
     // written, so a rejected submission leaves no interaction result behind.
     assertThat(
-      acrSatisfies(achievedContext.acr, selectedAcr),
+      acrSatisfies(achievedContext.acr, pursued.acr),
       new RequestError({ code: 'session.step_up.acr_not_satisfied', status: 403 })
     );
 
@@ -1270,10 +1502,66 @@ export default class ExperienceInteraction {
   }
 
   /**
+   * Drop everything scoped to the user this interaction identified.
+   *
+   * An identification is verified for the event it was made under, so it cannot outlive a switch
+   * away from that event, and neither can anything staged against it: a pending profile, a bound
+   * MFA factor, a recorded proof, or the decision to trust this device. Registration establishes
+   * its own user through `createUser`, and the clients switch the event before identifying, never
+   * after, so no legitimate flow loses state here.
+   *
+   * `userCache` goes with `userId`: `getIdentifiedUser` answers from the cache before it reads
+   * `userId`, so leaving one behind would keep resolving the user the other just dropped.
+   *
+   * State that is meaningful only relative to the identified user belongs here. State scoped to
+   * the interaction as a whole does not: the captcha result and the requested authentication
+   * context outlive an event change, and the verification records are kept deliberately, since
+   * a registration that follows a failed sign-in creates the account from the same record.
+   */
+  private clearIdentityScopedState() {
+    this.profile.cleanUp();
+    this.mfa.cleanUp();
+    this.trustedDevice.cleanUp();
+    this.authenticationProofs.clear();
+    this.userId = undefined;
+    this.userCache = undefined;
+  }
+
+  /**
+   * Finish a registration whose requested class the registration flow cannot reach, with the same
+   * `unmet_authentication_requirements` redirect a sign-in uses and before any side effect. A
+   * registration runs neither of the sign-in guards, so without this the defense-in-depth assert
+   * would reject the submission with 403 instead of returning the client to its application.
+   *
+   * @returns The redirect URL when the interaction was finished as unmet.
+   */
+  private async guardUnreachableRequestedAcr(): Promise<string | undefined> {
+    if (this.interactionEvent !== InteractionEvent.Register) {
+      return;
+    }
+
+    const pursued = await this.getPursuedRequestedAcr();
+
+    if (pursued?.decision && !pursued.decision.isReachable) {
+      return this.finishUnmetAuthenticationRequirements();
+    }
+  }
+
+  /** Finish an unreachable authentication request without running sign-in finalization. */
+  private async finishUnmetAuthenticationRequirements(): Promise<string> {
+    const { provider } = this.tenant;
+
+    return provider.interactionResult(this.ctx.req, this.ctx.res, {
+      error: 'unmet_authentication_requirements',
+      error_description:
+        'the user has no method that can reach the requested authentication context',
+    });
+  }
+
+  /**
    * Write only what the interaction established to the account: the MFA factors it bound, and the
-   * first factor (password or primary email / phone) it staged on the profile. Establishing is
-   * wired in a later milestone, so a step-up that only verified existing methods has nothing here
-   * and no query runs at all. Nothing else about the user is touched: in particular `lastSignInAt`
+   * first factor (password or primary email / phone) it staged on the profile. A step-up that only
+   * verified existing methods has nothing here and no query runs at all. Nothing else about the user is touched: in particular `lastSignInAt`
    * keeps the value the sign-in wrote, because a step-up is not a sign-in.
    */
   private async persistEstablishedMethods(user: User) {
@@ -1315,17 +1603,16 @@ export default class ExperienceInteraction {
 
     // Revalidate what is about to be written, exactly as `submit()` does: everything here was
     // staged by an earlier request, so an identifier can have been taken by another account, or a
-    // factor disabled, in between. The step-up allow-list keeps the establishment and enrollment
-    // routes closed until M5, so nothing reaches this write yet; the guards are here so that the
-    // milestone which opens them cannot skip the uniqueness check and turn a duplicate identifier
-    // into a raw unique-constraint error instead of the 422 the API promises.
+    // factor disabled, in between; a duplicate identifier fails with the 422 the API promises
+    // instead of a raw unique-constraint error.
     await this.profile.validateAvailability();
 
     if (mfaVerifications.length > 0) {
       await this.mfa.checkAvailability();
     }
 
-    await this.tenant.queries.users.updateUserById(user.id, established);
+    const updatedUser = await this.tenant.queries.users.updateUserById(user.id, established);
+    this.ctx.appendDataHookContext('User.Data.Updated', { user: updatedUser });
   }
 
   private async hasEligibleTrustedDeviceProof(user: User) {
@@ -1398,10 +1685,93 @@ export default class ExperienceInteraction {
   }
 
   /**
-   * The factors that can fill the `mfa` side of a pair with the first factor this interaction has
-   * proven: a factor of the same kind as a first-factor proof is dropped. With no first-factor
-   * proof, none is kept: {@link guardFirstFactor} runs first, so reaching the MFA gate without one
-   * means no first factor can be proven, and an `mfa`-class proof alone never lifts the context.
+   * Whether what the interaction proved already fulfills the tenant MFA gate while no requested
+   * `mfa` is owed: an SSO or passkey sign-in satisfies the policy without a verification, and a
+   * request that listed `mfa` and reached it here has proved a first factor plus a distinct MFA
+   * factor, at least what the policy asks for. A factor bound in this interaction is a new-bind
+   * record the gate never accepts, so without the latter the gate could only re-offer the
+   * challenge the enrollment just replaced.
+   */
+  private isMfaGateFulfilled(): boolean {
+    return (
+      this.hasVerifiedSsoIdentity ||
+      this.hasVerifiedSignInPasskey ||
+      (this.requestedAcrValues.includes(LogtoAcr.Mfa) &&
+        acrSatisfies(achieveAcr(this.countedAuthenticationProofs), LogtoAcr.Mfa))
+    );
+  }
+
+  /**
+   * The factors a sign-in must verify before it may enroll another MFA factor, or `undefined`
+   * when enrollment is allowed.
+   *
+   * Mirrors {@link guardMfaVerificationStatus}: a verified SSO identity or sign-in passkey
+   * satisfies the gate, and a requested `mfa` only accepts a factor pairable with the proven first
+   * factor that the eligibility can also deliver. Enrollment is the only way forward only when a
+   * first factor is proven and nothing can pair with it; without one, the enabled factors still
+   * have to be proven first.
+   */
+  private async getMfaBindingBlock(): Promise<MfaBindingBlock | undefined> {
+    if (this.interactionEvent !== InteractionEvent.SignIn || this.isStepUp) {
+      return;
+    }
+
+    const pursued = await this.getPursuedRequestedAcr();
+    const isRequestedMfaUnmet = pursued?.acr === LogtoAcr.Mfa;
+
+    // Mirrors `guardMfaVerificationStatus`: an unidentified interaction fails before any
+    // exemption can answer for it.
+    const user = await this.getIdentifiedUser();
+
+    if (!isRequestedMfaUnmet && this.isMfaGateFulfilled()) {
+      return;
+    }
+
+    const mfaSettings = await this.signInExperienceValidator.getMfaSettings();
+    const mfaValidator = new MfaValidator(mfaSettings, user);
+    const userFactors = mfaValidator.availableUserMfaVerificationTypes;
+
+    // Without a fresh first factor the pairable list is empty because the pair has no first side
+    // yet, not because there is nothing to challenge: keep the full list so an account with
+    // factors must still prove one before it may enroll another. A factor the eligibility cannot
+    // deliver is dropped, exactly as the gate drops it.
+    const availableFactors =
+      isRequestedMfaUnmet && this.hasFreshFirstFactor
+        ? this.getPairableMfaFactors(userFactors).filter((factor) =>
+            (pursued.decision?.availableMethods ?? []).includes(mfaFactorToVerificationType[factor])
+          )
+        : userFactors;
+
+    // While a requested `mfa` is unmet, a verified record of a non-pairable factor does not lift
+    // the request: only a pairable factor counts, and verifying one would have cleared the
+    // request already. This mirrors `guardMfaVerificationStatus`.
+    const isMfaVerified =
+      !isRequestedMfaUnmet && mfaValidator.isMfaVerified(this.verificationRecordsArray);
+
+    // A factor enrolled in this interaction keeps enrollment open for the rest of it: the first
+    // enrollment was licensed by this guard, and backup codes or further factors belong to the
+    // same onboarding.
+    const hasEnrolledFactor = this.authenticationProofs.proofs.some((proof) =>
+      isEnrolledFactorProof(proof)
+    );
+
+    if (availableFactors.length === 0 || isMfaVerified || hasEnrolledFactor) {
+      return;
+    }
+
+    return {
+      availableFactors,
+      maskedIdentifiers: buildMfaMaskedIdentifiers(availableFactors, user),
+    };
+  }
+
+  /**
+   * The factors that can fill the `mfa` side of a pair with the first factors this interaction has
+   * proven: a factor is kept when one of those first factors is of a different kind, so the two
+   * together reach `mfa`. A factor of the same kind as every proven first factor is dropped,
+   * because repeated records of one factor count once. With no first-factor proof, none is kept:
+   * {@link guardFirstFactor} runs first, so reaching the MFA gate without one means no first factor
+   * can be proven, and an `mfa`-class proof alone never lifts the context.
    */
   private getPairableMfaFactors(factors: readonly MfaFactor[]): MfaFactor[] {
     if (!this.hasFreshFirstFactor) {
@@ -1414,23 +1784,96 @@ export default class ExperienceInteraction {
         .map(({ factor }) => factor)
     );
 
-    return factors.filter(
-      (factor) => !firstFactors.has(getAuthenticationFactor(mfaFactorToVerificationType[factor]))
+    return factors.filter((factor) => {
+      const mfaFactor = getAuthenticationFactor(mfaFactorToVerificationType[factor]);
+
+      return [...firstFactors].some((firstFactor) => firstFactor !== mfaFactor);
+    });
+  }
+
+  /**
+   * Whether an MFA factor the user can verify or enroll can pair with a first factor this
+   * interaction has proven: one of a different kind, so the two together reach `mfa`. The factor
+   * must also be one the eligibility offers, which is where the connector availability of the
+   * code-based factors is applied.
+   */
+  private async hasPairableMfaFactor(decision: StepUpEligibility): Promise<boolean> {
+    if (decision.enrollableFactors.length > 0) {
+      return true;
+    }
+
+    const [user, mfaSettings] = await Promise.all([
+      this.getIdentifiedUser(),
+      this.signInExperienceValidator.getMfaSettings(),
+    ]);
+    const availableMethods = new Set(decision.availableMethods);
+
+    return this.getPairableMfaFactors(
+      new MfaValidator(mfaSettings, user).availableUserMfaVerificationTypes
+    ).some((factor) => availableMethods.has(mfaFactorToVerificationType[factor]));
+  }
+
+  /**
+   * Whether the OIDC session's recorded context already satisfies the given class, and the request
+   * does not force a fresh authentication event. Reads the session's `acr`, the same value the
+   * policy re-checks when the interaction resumes, rather than the carried contributions: `amr`
+   * alone cannot tell some classes apart, and the session's recorded class is authoritative for a
+   * step-up that verifies nothing.
+   */
+  private isSessionSatisfied(acr: LogtoAcr): boolean {
+    return (
+      !this.authenticationContext?.reauthenticationRequired &&
+      acrSatisfies(this.stepUpSession?.acr, acr)
     );
   }
 
   /**
    * The requested class the interaction is pursuing, re-derived on every read and never persisted:
    * the first requested class the user can reach with the methods they have, or the first one when
-   * none is reachable. `undefined` when the request is already satisfied or carries no class.
+   * none is reachable. `undefined` once what the interaction has proven satisfies that class, or
+   * when the request carries no class.
+   *
+   * `acr_values` is an ordered list of preferences, so a weaker listed class never ends the
+   * pursuit while an earlier one is still reachable: `[mfa, 1fa]` on a password sign-in keeps
+   * asking for MFA while the user or the tenant can reach it, and only falls back to `1fa` when
+   * `mfa` cannot be reached. Only the proofs of this interaction are read; enrolled factors are
+   * never consulted for satisfaction.
    */
   private async getPursuedRequestedAcr(): Promise<
+    { acr: LogtoAcr; decision?: StepUpEligibility } | undefined
+  > {
+    const achievedAcr = achieveAcr(this.countedAuthenticationProofs);
+    const [firstAcr] = this.requestedAcrValues;
+
+    // A satisfied first class is also the pursued one: `distanceTo` is 0 for it, so it is reachable,
+    // and the lookup below returns `undefined` all the same. Skipping it spares the subject,
+    // connector and eligibility lookups of every listed class on the happy path, which `submit()`
+    // asks for four times.
+    if (firstAcr && acrSatisfies(achievedAcr, firstAcr)) {
+      return;
+    }
+
+    const pursued = await this.getPursuedAcr();
+
+    if (!pursued || acrSatisfies(achievedAcr, pursued.acr)) {
+      return;
+    }
+
+    return pursued;
+  }
+
+  /**
+   * The class the interaction pursues, whether or not it is already satisfied: the first requested
+   * class the user can reach, or the first requested one when none is reachable. `undefined` when
+   * the interaction carries no requested class.
+   */
+  private async getPursuedAcr(): Promise<
     { acr: LogtoAcr; decision?: StepUpEligibility } | undefined
   > {
     const { requestedAcrValues } = this;
     const [firstAcr] = requestedAcrValues;
 
-    if (!firstAcr || this.isRequestedAcrSatisfied) {
+    if (!firstAcr) {
       return;
     }
 
@@ -1447,30 +1890,16 @@ export default class ExperienceInteraction {
   }
 
   /**
-   * Whether a requested `mfa` is still owed: the class being pursued is `mfa` and what the
-   * interaction has proven does not reach it yet. The class the relying party asked for is one
-   * requirement of its own, so the tenant policy's skips and exemptions never satisfy it.
+   * The step-up decision for the subject and the class the interaction pursues: what
+   * `PUT /experience` acts on and `GET /experience/interaction` projects, computed from the same
+   * inputs so the two cannot disagree. Evaluated on read and never persisted. `undefined` while no
+   * subject is known. Every caller passes the class it pursues (see {@link getPursuedAcr}); a pure
+   * step-up pairs the context its session carries.
    */
-  private async isRequestedMfaUnmet(): Promise<boolean> {
-    const pursued = await this.getPursuedRequestedAcr();
+  private async getStepUpDecision(selectedAcr: LogtoAcr): Promise<StepUpEligibility | undefined> {
+    const { subjectUserId } = this;
 
-    return pursued?.acr === LogtoAcr.Mfa;
-  }
-
-  /**
-   * The step-up decision for the subject and the selected class: what `PUT /experience` acts on
-   * and `GET /experience/interaction` projects, computed from the same inputs so the two cannot
-   * disagree. Evaluated on read and never persisted. `undefined` while no subject
-   * is known or the interaction carries no requested class. A pure step-up pairs the context its
-   * session carries; a sign-in with requested ACR has no session, and passes the class it pursues
-   * (see {@link getPursuedRequestedAcr}).
-   */
-  private async getStepUpDecision(acr?: LogtoAcr): Promise<StepUpEligibility | undefined> {
-    const { authenticationContext, subjectUserId } = this;
-    const selectedAcr =
-      acr ?? authenticationContext?.selectedAcr ?? authenticationContext?.requestedAcrValues[0];
-
-    if (!selectedAcr || !subjectUserId) {
+    if (!subjectUserId) {
       return;
     }
 
@@ -1481,36 +1910,181 @@ export default class ExperienceInteraction {
       this.signInExperienceValidator.getMfaSettings(),
       this.tenant.connectors.getLogtoConnectors(),
     ]);
+    const messageConnectors = {
+      email: connectors.some(({ type }) => type === ConnectorType.Email),
+      sms: connectors.some(({ type }) => type === ConnectorType.Sms),
+    };
 
-    return computeStepUpEligibility({
+    const input = {
       user,
       mfaSettings,
       selectedAcr,
-      connectors: {
-        email: connectors.some(({ type }) => type === ConnectorType.Email),
-        sms: connectors.some(({ type }) => type === ConnectorType.Sms),
-      },
+      connectors: messageConnectors,
       carried: this.carriedContributions,
-      proofs: this.authenticationProofs.proofs,
+      proofs: this.countedAuthenticationProofs,
+    } satisfies StepUpEligibilityInput;
+
+    return computeStepUpEligibility({
+      ...input,
+      ...(await this.getEnrollmentInput(input, connectors)),
     });
   }
 
   /**
-   * The authentication context for the sanitized projection: the stored context plus the lists
-   * computed on this read. Establishing a first factor, enrolling a factor, and subject-proof
-   * connectors are not offered yet, so their lists are empty.
+   * The enrollment inputs of the interaction. A registration drives only what its flow holds: the
+   * identifier and profile it recorded, and the TOTP / WebAuthn factors `assertMfaFulfilled`
+   * requires, which it binds without proving a first factor first. A step-up or sign-in also offers
+   * establishing a first factor and the factors the tenant lets the user enroll. An ordinary
+   * sign-in never gets this far, since it carries no requested class.
+   */
+  private async getEnrollmentInput(
+    input: StepUpEligibilityInput,
+    connectors: Awaited<ReturnType<TenantContext['connectors']['getLogtoConnectors']>>
+  ): Promise<Partial<StepUpEligibilityInput>> {
+    if (this.interactionEvent === InteractionEvent.Register) {
+      const configuredFactors = await this.signInExperienceValidator.getConfiguredMfaFactors();
+
+      return {
+        hasFreshSubjectProof: this.hasFreshSubjectProof,
+        hasFreshFirstFactor: this.hasFreshFirstFactor,
+        // A registration prompts for neither establishing nor verifying another first factor: the
+        // identifier it verified is already a proof. Only the factors `assertMfaFulfilled` requires
+        // can be bound, and a `both`-class WebAuthn factor reaches `mfa` on its own.
+        tenantEstablishableMethods: [],
+        tenantEnrollableFactors: configuredFactors.filter(
+          (factor) => factor === MfaFactor.TOTP || factor === MfaFactor.WebAuthn
+        ),
+        linkedConnectors: [],
+        registration: true,
+      };
+    }
+
+    return this.isStepUp || this.interactionEvent === InteractionEvent.SignIn
+      ? this.getStepUpEnrollmentInput(input, connectors)
+      : {};
+  }
+
+  /**
+   * The enrollment inputs shared by pure step-up and SignIn with requested ACR: the predicates
+   * read only this interaction's proofs, and the tenant decides what can be established or enrolled.
+   */
+  private async getStepUpEnrollmentInput(
+    input: StepUpEligibilityInput,
+    connectors: Awaited<ReturnType<TenantContext['connectors']['getLogtoConnectors']>>
+  ): Promise<Partial<StepUpEligibilityInput>> {
+    const { user, mfaSettings, connectors: messageConnectors } = input;
+    const { hasFreshSubjectProof } = this;
+    const [
+      {
+        signIn: { methods },
+        singleSignOnEnabled,
+        socialSignInConnectorTargets,
+      },
+      bindableFactors,
+    ] = await Promise.all([
+      this.signInExperienceValidator.getSignInExperienceData(),
+      this.signInExperienceValidator.getBindableMfaFactors(),
+    ]);
+    const isIdentifierEnabled = (identifier: SignInIdentifier) =>
+      methods.some((method) => method.identifier === identifier);
+
+    const tenantEstablishableMethods: EstablishableMethod[] = [
+      ...(methods.some(({ password }) => password) ? [MissingProfile.password as const] : []),
+      ...(isIdentifierEnabled(SignInIdentifier.Email) && messageConnectors.email
+        ? [MissingProfile.email as const]
+        : []),
+      ...(isIdentifierEnabled(SignInIdentifier.Phone) && messageConnectors.sms
+        ? [MissingProfile.phone as const]
+        : []),
+    ];
+
+    // The linked connectors only matter to a pure step-up whose user holds no subject proof yet
+    // and has nothing to verify, so every other read skips the lookups.
+    const needsSubjectProof =
+      this.isStepUp &&
+      tenantEstablishableMethods.length > 0 &&
+      !hasFreshSubjectProof &&
+      mayEstablishFirstFactor(input);
+
+    return {
+      hasFreshSubjectProof,
+      hasFreshFirstFactor: this.hasFreshFirstFactor,
+      tenantEstablishableMethods,
+      // Only the factors whose enrollment is itself a proof: binding backup codes proves nothing,
+      // and the email / phone factors are bound through an identifier, which a pure step-up only
+      // accepts for establishing a first factor.
+      // SignIn must offer the configured MFA factors `assertMfaFulfilled` requires, not a
+      // passkey-only suggestion that can be skipped without fulfilling the requested class.
+      tenantEnrollableFactors: bindableFactors.filter(
+        (factor) =>
+          (factor === MfaFactor.TOTP || factor === MfaFactor.WebAuthn) &&
+          (this.isStepUp || mfaSettings.factors.includes(factor))
+      ),
+      linkedConnectors: needsSubjectProof
+        ? await this.getLinkedConnectors(user, connectors, {
+            singleSignOnEnabled,
+            socialSignInConnectorTargets,
+          })
+        : [],
+    };
+  }
+
+  /**
+   * The subject's linked social and enterprise SSO connectors that are still available on the
+   * sign-in experience, so every connector returned is one the sign-in page can render.
+   */
+  private async getLinkedConnectors(
+    { id, identities }: User,
+    connectors: Awaited<ReturnType<TenantContext['connectors']['getLogtoConnectors']>>,
+    {
+      singleSignOnEnabled,
+      socialSignInConnectorTargets,
+    }: Pick<SignInExperience, 'singleSignOnEnabled' | 'socialSignInConnectorTargets'>
+  ): Promise<SubjectProofConnector[]> {
+    const [ssoIdentities, ssoConnectors] = await Promise.all([
+      this.tenant.queries.userSsoIdentities.findUserSsoIdentitiesByUserId(id),
+      singleSignOnEnabled ? this.tenant.libraries.ssoConnectors.getAvailableSsoConnectors() : [],
+    ]);
+    const linkedTargets = new Set(Object.keys(identities));
+
+    return [
+      ...connectors
+        .filter(
+          ({ type, metadata: { target } }) =>
+            type === ConnectorType.Social &&
+            linkedTargets.has(target) &&
+            socialSignInConnectorTargets.includes(target)
+        )
+        .map(({ dbEntry }) => ({ type: 'social' as const, connectorId: dbEntry.id })),
+      ...ssoConnectors
+        .filter((connector) =>
+          ssoIdentities.some(({ ssoConnectorId }) => ssoConnectorId === connector.id)
+        )
+        .map((connector) => ({ type: 'sso' as const, connectorId: connector.id })),
+    ];
+  }
+
+  /**
+   * The authentication context for the sanitized projection: the stored context plus the class the
+   * interaction pursues and the lists computed on this read. Neither mode persists a selection —
+   * a pure step-up and a SignIn or Register with requested ACR both re-derive it from the requested
+   * list and the subject's reachable methods — so the SPA renders the class the guards enforce and
+   * never one the interaction has already passed over. `selectedAcr` is absent while no subject is
+   * known.
    */
   private async toSanitizedAuthenticationContext(
     authenticationContext: RequestedAuthenticationContext
   ): Promise<InteractionAuthenticationContext> {
-    const decision = await this.getStepUpDecision();
+    const pursued = await this.getPursuedAcr();
+    const decision = pursued?.decision;
 
     return {
       ...authenticationContext,
+      ...conditional(pursued && decision && { selectedAcr: pursued.acr }),
       availableMethods: decision?.availableMethods ?? [],
-      establishableMethods: [],
-      enrollableFactors: [],
-      subjectProofConnectors: [],
+      establishableMethods: decision?.establishableMethods ?? [],
+      enrollableFactors: decision?.enrollableFactors ?? [],
+      subjectProofConnectors: decision?.subjectProofConnectors ?? [],
       maskedIdentifiers: decision?.maskedIdentifiers ?? {},
     };
   }
@@ -1559,6 +2133,45 @@ export default class ExperienceInteraction {
     return verificationRecord;
   }
 
+  /**
+   * Resolve the pinned subject of a pure step-up from a verified social or enterprise SSO record.
+   *
+   * @throws {RequestError} with 403 `session.step_up.subject_mismatch` if the upstream identity
+   * resolves to another account or to no account; with `session.identity_conflict` if the request
+   * asks to link the identity
+   */
+  private async identifyStepUpSubjectByFederatedRecord(
+    verificationRecord: VerificationRecordMap[
+      | VerificationType.Social
+      | VerificationType.EnterpriseSso],
+    linkSocialIdentity?: boolean
+  ): Promise<User> {
+    // A request that asks to link the identity is malformed, not a wrong account: keep the generic
+    // conflict. A verified upstream identity that resolves to another account or to none is the
+    // recoverable case the subject-proof callback shows as a mismatch.
+    const conflict = new RequestError({ code: 'session.identity_conflict', status: 403 });
+    const mismatch = new RequestError({ code: 'session.step_up.subject_mismatch', status: 403 });
+
+    assertThat(!linkSocialIdentity, conflict);
+
+    // Only an upstream identity linked to no account is a mismatch; anything else, such as a
+    // database error, keeps its own error.
+    const user = await verificationRecord.identifyUser().catch((error: unknown) => {
+      if (
+        error instanceof RequestError &&
+        (error.code === 'user.identity_not_exist' || error.code === 'user.sso_identity_not_exist')
+      ) {
+        throw mismatch;
+      }
+
+      throw error;
+    });
+
+    assertThat(user.id === this.subjectUserId, mismatch);
+
+    return user;
+  }
+
   /** Fetch a verification record for creating the account from it, recording the `create` proof. */
   private consumeForCreate(verificationId: string) {
     const record = this.getVerificationRecordById(verificationId);
@@ -1567,28 +2180,47 @@ export default class ExperienceInteraction {
     return record;
   }
 
-  /** Fetch a verification record for identifying the user with it, recording the `identify` proof. */
-  private consumeForIdentify(verificationId: string) {
-    const record = this.getVerificationRecordById(verificationId);
-    this.authenticationProofs.stage(record, AuthenticationProofRole.Identify);
-
-    return record;
+  /** Whether the record was the one that created or identified the interaction's user. */
+  private hasAuthenticationProof(recordId: string, roles: readonly AuthenticationProofRole[]) {
+    return this.authenticationProofs.proofs.some(
+      ({ id, role }) => id === recordId && roles.includes(role)
+    );
   }
 
   private get hasVerifiedSsoIdentity() {
     const ssoVerificationRecord = this.verificationRecords.get(VerificationType.EnterpriseSso);
 
-    return Boolean(ssoVerificationRecord?.isVerified);
+    return Boolean(
+      ssoVerificationRecord?.isVerified &&
+        this.hasAuthenticationProof(ssoVerificationRecord.id, [
+          AuthenticationProofRole.Identify,
+          AuthenticationProofRole.Create,
+        ])
+    );
   }
 
   private get hasVerifiedSocialIdentity() {
     const socialVerificationRecord = this.verificationRecords.get(VerificationType.Social);
-    return Boolean(socialVerificationRecord?.isVerified);
+
+    return Boolean(
+      socialVerificationRecord?.isVerified &&
+        this.hasAuthenticationProof(socialVerificationRecord.id, [
+          AuthenticationProofRole.Identify,
+          AuthenticationProofRole.Create,
+        ])
+    );
   }
 
   private get hasVerifiedSignInPasskey() {
     const webAuthnVerificationRecord = this.verificationRecords.get(VerificationType.SignInPasskey);
-    return Boolean(webAuthnVerificationRecord?.isVerified);
+
+    return Boolean(
+      webAuthnVerificationRecord?.isVerified &&
+        webAuthnVerificationRecord.userId === this.subjectUserId &&
+        this.hasAuthenticationProof(webAuthnVerificationRecord.id, [
+          AuthenticationProofRole.Identify,
+        ])
+    );
   }
 
   /**

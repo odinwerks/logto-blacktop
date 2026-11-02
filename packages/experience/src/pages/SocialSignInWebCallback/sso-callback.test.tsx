@@ -8,8 +8,14 @@ import UserInteractionContextProvider from '@/Providers/UserInteractionContextPr
 import renderWithPageContext from '@/__mocks__/RenderWithPageContext';
 import SettingsProvider from '@/__mocks__/RenderWithPageContext/SettingsProvider';
 import { mockSignInExperienceSettings, mockSsoConnectors } from '@/__mocks__/logto';
-import { registerWithVerifiedIdentifier, signInWithSso } from '@/apis/experience';
+import {
+  abortInteraction,
+  getDirectSignIn,
+  registerWithVerifiedIdentifier,
+  signInWithSso,
+} from '@/apis/experience';
 import useSessionStorage, { StorageKeys } from '@/hooks/use-session-storages';
+import useToast from '@/hooks/use-toast';
 import { type SignInExperienceResponse } from '@/types';
 import { generateState, storeState } from '@/utils/social-connectors';
 import { storeRedirectContext } from '@/utils/social-redirect-fallback-context';
@@ -32,6 +38,8 @@ jest.mock('@/apis/experience', () => ({
   identifyAndSubmitInteraction: jest.fn().mockResolvedValue({ redirectTo: `/sign-in` }),
   registerWithVerifiedIdentifier: jest.fn().mockResolvedValue({ redirectTo: `/sign-in` }),
   signInWithSso: jest.fn().mockResolvedValue({ redirectTo: `/sign-in` }),
+  getDirectSignIn: jest.fn().mockResolvedValue({}),
+  abortInteraction: jest.fn().mockResolvedValue({ redirectTo: '/client-callback' }),
 }));
 
 jest.mock('@/hooks/use-global-redirect-to', () => ({
@@ -50,6 +58,8 @@ const mockedRegisterWithVerifiedIdentifier = registerWithVerifiedIdentifier as j
   typeof registerWithVerifiedIdentifier
 >;
 const mockedSignInWithSso = signInWithSso as jest.MockedFunction<typeof signInWithSso>;
+const mockedGetDirectSignIn = getDirectSignIn as jest.MockedFunction<typeof getDirectSignIn>;
+const mockedAbortInteraction = abortInteraction as jest.MockedFunction<typeof abortInteraction>;
 
 const verificationIdsMap = {
   [VerificationType.Social]: 'foo',
@@ -60,6 +70,8 @@ const sieSettings: SignInExperienceResponse = {
   ...mockSignInExperienceSettings,
   ssoConnectors: mockSsoConnectors,
 };
+
+const ToastProbe = () => <div>{useToast().toast}</div>;
 
 const createRequestError = (body: RequestErrorBody) => {
   const response = {
@@ -83,6 +95,8 @@ describe('SocialCallbackPage — single sign-on', () => {
     jest.clearAllMocks();
     mockedRegisterWithVerifiedIdentifier.mockResolvedValue({ redirectTo: `/sign-in` });
     mockedSignInWithSso.mockResolvedValue({ redirectTo: `/sign-in` });
+    mockedGetDirectSignIn.mockResolvedValue({});
+    mockedAbortInteraction.mockResolvedValue({ redirectTo: '/client-callback' });
   });
 
   describe('normal path', () => {
@@ -186,6 +200,42 @@ describe('SocialCallbackPage — single sign-on', () => {
       await waitFor(() => {
         expect(getByText('Sign in page')).not.toBeNull();
       });
+    });
+
+    it('should abort back to the client without a toast when the SSO callback fails', async () => {
+      const state = generateState();
+      storeState(state, connectorId);
+      mockedGetDirectSignIn.mockResolvedValueOnce({ directSignIn: `sso:${connectorId}` });
+      mockedSignInWithSso.mockRejectedValueOnce(
+        createRequestError({
+          code: 'connector.general',
+          message: 'Connector error.',
+          data: undefined,
+        })
+      );
+
+      mockUseSearchParameters.mockReturnValue([
+        new URLSearchParams(`state=${state}&code=foo`),
+        jest.fn(),
+      ]);
+
+      const { queryByText } = renderWithPageContext(
+        <SettingsProvider settings={sieSettings}>
+          <UserInteractionContextProvider>
+            <ToastProbe />
+            <Routes>
+              <Route path="/callback/social/:connectorId" element={<SocialCallback />} />
+            </Routes>
+          </UserInteractionContextProvider>
+        </SettingsProvider>,
+        { initialEntries: [`/callback/social/${connectorId}`] }
+      );
+
+      await waitFor(() => {
+        expect(mockedAbortInteraction).toHaveBeenCalledWith('connector.general');
+        expect(mockRedirectTo).toHaveBeenCalledWith('/client-callback');
+      });
+      expect(queryByText('Connector error.')).toBeNull();
     });
   });
 

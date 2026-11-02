@@ -1,20 +1,21 @@
-import { useHandleSignInCallback, useLogto } from '@logto/react';
+import { useHandleSignInCallback } from '@logto/react';
 import { useEffect } from 'react';
 
-import { clearVerificationRecord } from './Providers/PageContextProvider/verification-storage';
 import GlobalLoading from './components/GlobalLoading';
+import { completePendingStepUp, discardPendingStepUp } from './utils/step-up';
 
 const Callback = () => {
-  const { clearAllTokens } = useLogto();
-
-  useEffect(() => {
-    void clearAllTokens();
-    clearVerificationRecord();
-  }, [clearAllTokens]);
-
   const { error } = useHandleSignInCallback(() => {
+    completePendingStepUp();
     window.location.replace('/account');
   });
+
+  useEffect(() => {
+    if (error) {
+      // The pending action must not run without the token set this callback failed to obtain.
+      discardPendingStepUp();
+    }
+  }, [error]);
 
   if (error) {
     return (

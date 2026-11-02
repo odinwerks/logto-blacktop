@@ -109,8 +109,22 @@ const sign_in_exp = {
     csp_source_invalid_error:
       'Introduza uma expressão de origem válida. Use URLs https://; connect-src também suporta wss://. Palavras-chave CSP e pontos e vírgulas não são suportados.',
     csp_source_duplicate_error: 'Esta expressão de origem já está listada.',
+    coop_tip:
+      'Isole a sua interface de início de sessão personalizada de janelas de outras origens. Aplicado apenas quando os recursos de UI personalizados são servidos.',
+    coop_unsafe_none: 'Não definido (predefinição)',
+    coop_same_origin_allow_popups: 'same-origin-allow-popups (recomendado)',
+    coop_warning:
+      'As aplicações que abrem a página de início de sessão numa janela pop-up de outra origem e dependem de window.opener deixarão de funcionar. same-origin também corta as janelas pop-up que a própria UI personalizada abre, como as janelas de início de sessão social.',
   },
   account_center: {
+    recent_authentication: {
+      title: 'Autenticação recente',
+      description:
+        'As operações sensíveis na conta, como alterar a palavra-passe ou desativar a verificação em duas etapas, exigem um início de sessão recente, quer no Account Center quer numa aplicação que chama a Account API. Esta janela define quão recente esse início de sessão deve ser.',
+      maximum_authentication_age_in_minutes: 'Idade máxima de autenticação em minutos',
+      maximum_authentication_age_in_minutes_tip:
+        'Durante quanto tempo um início de sessão continua suficientemente recente para operações sensíveis. Um cliente pode ainda pedir uma janela mais curta com o parâmetro `max_age`.',
+    },
     title: 'CENTRO DE CONTA',
     description: 'Personalize os fluxos do centro de conta com as APIs da Logto.',
     enable_account_api: 'Ativar o centro de conta e a Account API',
@@ -132,6 +146,8 @@ const sign_in_exp = {
           title: 'Verificação de segurança',
           description:
             'Antes de alterar as definições de segurança, os utilizadores devem verificar a sua identidade para obter um ID de registo de verificação válido durante 10 minutos. Para ativar um método de verificação (e-mail, telefone, palavra-passe), defina a permissão da Account API abaixo como <strong>Só de leitura</strong> (mínimo) ou <strong>Editar</strong> para que o sistema possa detetar se o utilizador o configurou. <a>Saber mais</a>',
+          description_step_up:
+            'Antes de alterar as definições de segurança, o Account Center integrado exige um início de sessão recente. Se o início de sessão atual for mais antigo do que a janela de autenticação recente configurada, o Account Center inicia um OIDC step-up e pede ao utilizador que verifique a sua identidade. Para permitir que os utilizadores vejam ou giram um método de verificação (e-mail, telefone ou palavra-passe) no Account Center, defina a permissão correspondente da Account API abaixo como <strong>Só de leitura</strong> ou <strong>Editar</strong>. Para estas operações sensíveis, as aplicações que chamam a Account API diretamente podem continuar a usar um ID de registo de verificação. <a>Saber mais</a>',
         },
         groups: {
           identifiers: {
@@ -142,6 +158,9 @@ const sign_in_exp = {
           },
           session_management: {
             title: 'Gestão de sessão',
+          },
+          developer_settings: {
+            title: 'Definições de programador',
           },
         },
       },
@@ -188,6 +207,9 @@ const sign_in_exp = {
         'Controle o acesso aos dados JSON personalizados guardados no utilizador.',
       sessions: 'Sessões',
       trusted_devices: 'Dispositivos de confiança',
+      personal_access_tokens: 'Tokens de acesso pessoal',
+      personal_access_tokens_description:
+        'Ativar isto permite que os utilizadores criem tokens de acesso pessoal de longa duração que permanecem ativos após terminar sessão e repor a palavra-passe, e que podem ser trocados por tokens de acesso por qualquer aplicação própria com troca de tokens ativada.',
     },
     profile_fields: {
       title: 'Campos de perfil para o centro de conta pré-construído',
@@ -226,9 +248,9 @@ const sign_in_exp = {
       flows_title: 'Integrar fluxos de definição de segurança prontos para uso',
       single_task_flows_title: 'Integrar um fluxo de tarefa única pronto a usar',
       flows_description:
-        'Combine o seu domínio com a rota para formar o seu URL de definição de conta (por exemplo, https://auth.foo.com/account/email). Opcionalmente, adicione `redirect=` para retornar utilizadores à sua aplicação após uma atualização bem-sucedida, `show_success=true` para manter a página de sucesso visível, `ui_locales=` para substituir o idioma predefinido, ou `identifier=` para preencher previamente o campo de entrada do identificador.',
+        'Combine o seu domínio com a rota para formar o seu URL de definição de conta (por exemplo, https://auth.foo.com/account/email). Opcionalmente, adicione `redirect=` para retornar utilizadores à sua aplicação após uma atualização bem-sucedida, `show_success=true` para manter a página de sucesso visível, `ui_locales=` para substituir o idioma predefinido, ou `identifier=` para preencher previamente o novo valor na rota de email, telefone ou nome de utilizador.',
       single_task_flows_description:
-        'Direcione os utilizadores diretamente para um fluxo específico (por exemplo, ligação de email). Opcionalmente, adicione `redirect=` para retornar utilizadores à sua aplicação após uma atualização bem-sucedida, `show_success=true` para manter a página de sucesso visível, `ui_locales=` para substituir o idioma predefinido, ou `identifier=` para preencher previamente o campo de entrada do identificador.',
+        'Direcione os utilizadores diretamente para um fluxo específico (por exemplo, ligação de email). Opcionalmente, adicione `redirect=` para retornar utilizadores à sua aplicação após uma atualização bem-sucedida, `show_success=true` para manter a página de sucesso visível, `ui_locales=` para substituir o idioma predefinido, ou `identifier=` para preencher previamente o novo valor na rota de email, telefone ou nome de utilizador.',
       tooltips: {
         email: 'Atualize o seu endereço de email principal',
         phone: 'Atualize o seu número de telefone principal',

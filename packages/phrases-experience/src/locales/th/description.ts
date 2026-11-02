@@ -144,6 +144,7 @@ const description = {
     phone_verification_code: 'รหัสยืนยันทางโทรศัพท์',
     verification_code_description: 'ส่งไปที่ {{target}}',
   },
+  select_wallet: 'เลือกกระเป๋าเงิน',
 };
 
 export default Object.freeze(description);

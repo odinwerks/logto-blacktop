@@ -7,6 +7,7 @@ import { InteractionEvent, type User } from '@logto/schemas';
 import { mockUser } from '#src/__mocks__/user.js';
 import { EnvSet } from '#src/env-set/index.js';
 import { type WithLogContext } from '#src/middleware/koa-audit-log.js';
+import { resetDevFeaturesEnabled, setDevFeaturesEnabled } from '#src/test-utils/dev-features.js';
 import { defaultInjectedHeaderMapping } from '#src/utils/injected-header-mapping.js';
 
 import type { SignInExperienceValidator } from '../sign-in-experience-validator.js';
@@ -15,11 +16,6 @@ import { AdaptiveMfaValidator, adaptiveMfaNewCountryWindowDays } from './index.j
 import { type AdaptiveMfaContext } from './types.js';
 
 const { jest } = import.meta;
-const originalIsDevFeaturesEnabled = EnvSet.values.isDevFeaturesEnabled;
-const setDevFeaturesEnabled = (value: boolean) => {
-  // eslint-disable-next-line @silverhand/fp/no-mutation
-  (EnvSet.values as { isDevFeaturesEnabled: boolean }).isDevFeaturesEnabled = value;
-};
 
 const originalTrustedCidrBlockList = EnvSet.values.injectedHeadersTrustedCidrBlockList;
 // Mark the mock context's direct peer `10.0.0.1` as a trusted edge so injected headers flow.
@@ -119,7 +115,7 @@ describe('AdaptiveMfaValidator', () => {
   });
 
   afterAll(() => {
-    setDevFeaturesEnabled(originalIsDevFeaturesEnabled);
+    resetDevFeaturesEnabled();
     setInjectedHeadersTrustedCidrBlockList(originalTrustedCidrBlockList);
   });
 

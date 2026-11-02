@@ -109,8 +109,22 @@ const sign_in_exp = {
     csp_source_invalid_error:
       'Wprowadź prawidłowe wyrażenie źródła. Użyj adresów URL https://; connect-src obsługuje także wss://. Słowa kluczowe CSP i średniki nie są obsługiwane.',
     csp_source_duplicate_error: 'To wyrażenie źródła jest już na liście.',
+    coop_tip:
+      'Odizoluj własny interfejs logowania od okien z innych źródeł. Stosowane tylko wtedy, gdy serwowane są niestandardowe zasoby UI.',
+    coop_unsafe_none: 'Nie ustawiono (domyślnie)',
+    coop_same_origin_allow_popups: 'same-origin-allow-popups (zalecane)',
+    coop_warning:
+      'Aplikacje, które otwierają stronę logowania w wyskakującym oknie z innego źródła i korzystają z window.opener, przestaną działać. same-origin odcina też wyskakujące okna otwierane przez sam niestandardowy interfejs, np. okna logowania społecznościowego.',
   },
   account_center: {
+    recent_authentication: {
+      title: 'Ostatnie uwierzytelnienie',
+      description:
+        'Wrażliwe operacje na koncie, takie jak zmiana hasła lub wyłączenie weryfikacji dwuetapowej, wymagają niedawnego zalogowania, niezależnie od tego, czy użytkownik działa w Account Center, czy w aplikacji wywołującej Account API. To okno określa, jak świeże musi być to logowanie.',
+      maximum_authentication_age_in_minutes: 'Maksymalny wiek uwierzytelnienia w minutach',
+      maximum_authentication_age_in_minutes_tip:
+        'Jak długo logowanie pozostaje wystarczająco świeże dla wrażliwych operacji. Klient nadal może zażądać krótszego okna za pomocą parametru `max_age`.',
+    },
     title: 'CENTRUM KONTA',
     description: 'Dostosuj przepływy centrum konta z wykorzystaniem interfejsów API Logto.',
     enable_account_api: 'Włącz centrum konta i Account API',
@@ -132,6 +146,8 @@ const sign_in_exp = {
           title: 'Weryfikacja bezpieczeństwa',
           description:
             'Przed zmianą ustawień bezpieczeństwa użytkownicy muszą potwierdzić swoją tożsamość, aby uzyskać identyfikator rekordu weryfikacji ważny przez 10 minut. Aby włączyć metodę weryfikacji (e-mail, telefon, hasło), ustaw uprawnienie Account API poniżej na <strong>Tylko do odczytu</strong> (minimum) lub <strong>Edytuj</strong>, aby system mógł wykryć, czy użytkownik ją skonfigurował. <a>Dowiedz się więcej</a>',
+          description_step_up:
+            'Przed zmianą ustawień bezpieczeństwa wbudowany Account Center wymaga niedawnego zalogowania. Jeśli bieżące logowanie jest starsze niż skonfigurowane okno ostatniego uwierzytelnienia, Account Center rozpoczyna OIDC step-up i prosi użytkownika o potwierdzenie tożsamości. Aby użytkownicy mogli wyświetlać lub zarządzać metodą weryfikacji (e-mail, telefon lub hasło) w Account Center, ustaw odpowiednie uprawnienie Account API poniżej na <strong>Tylko do odczytu</strong> lub <strong>Edytuj</strong>. W przypadku tych wrażliwych operacji aplikacje wywołujące Account API bezpośrednio nadal mogą używać identyfikatora rekordu weryfikacji. <a>Dowiedz się więcej</a>',
         },
         groups: {
           identifiers: {
@@ -142,6 +158,9 @@ const sign_in_exp = {
           },
           session_management: {
             title: 'Zarządzanie sesją',
+          },
+          developer_settings: {
+            title: 'Ustawienia dewelopera',
           },
         },
       },
@@ -187,6 +206,9 @@ const sign_in_exp = {
         'Kontroluj dostęp do niestandardowych danych JSON przechowywanych przy użytkowniku.',
       sessions: 'Sesje',
       trusted_devices: 'Zaufane urządzenia',
+      personal_access_tokens: 'Osobiste tokeny dostępu',
+      personal_access_tokens_description:
+        'Włączenie tej opcji pozwala użytkownikom tworzyć długoterminowe osobiste tokeny dostępu, które pozostają aktywne po wylogowaniu i zresetowaniu hasła oraz mogą być wymieniane na tokeny dostępu przez dowolną aplikację własną z włączoną wymianą tokenów.',
     },
     profile_fields: {
       title: 'Pola profilu dla gotowego centrum konta',
@@ -225,9 +247,9 @@ const sign_in_exp = {
       flows_title: 'Integruj gotowe przepływy ustawień bezpieczeństwa',
       single_task_flows_title: 'Zintegruj gotowy przepływ pojedynczego zadania',
       flows_description:
-        'Połącz swoją domenę ze ścieżką, aby utworzyć URL ustawień konta (np. https://auth.foo.com/account/email). Opcjonalnie dodaj `redirect=`, aby użytkownicy mogli wrócić do Twojej aplikacji po pomyślnej aktualizacji, `show_success=true`, aby strona sukcesu była widoczna, `ui_locales=`, aby nadpisać domyślny język, lub `identifier=`, aby wstępnie wypełnić pole identyfikatora.',
+        'Połącz swoją domenę ze ścieżką, aby utworzyć URL ustawień konta (np. https://auth.foo.com/account/email). Opcjonalnie dodaj `redirect=`, aby użytkownicy mogli wrócić do Twojej aplikacji po pomyślnej aktualizacji, `show_success=true`, aby strona sukcesu była widoczna, `ui_locales=`, aby nadpisać domyślny język, lub `identifier=`, aby wstępnie wypełnić nową wartość na ścieżce e-mail, telefonu lub nazwy użytkownika.',
       single_task_flows_description:
-        'Kieruj użytkowników bezpośrednio do określonego przepływu (np. łączenie emaila). Opcjonalnie dodaj `redirect=`, aby użytkownicy mogli wrócić do Twojej aplikacji po pomyślnej aktualizacji, `show_success=true`, aby strona sukcesu była widoczna, `ui_locales=`, aby nadpisać domyślny język, lub `identifier=`, aby wstępnie wypełnić pole identyfikatora.',
+        'Kieruj użytkowników bezpośrednio do określonego przepływu (np. łączenie emaila). Opcjonalnie dodaj `redirect=`, aby użytkownicy mogli wrócić do Twojej aplikacji po pomyślnej aktualizacji, `show_success=true`, aby strona sukcesu była widoczna, `ui_locales=`, aby nadpisać domyślny język, lub `identifier=`, aby wstępnie wypełnić nową wartość na ścieżce e-mail, telefonu lub nazwy użytkownika.',
       tooltips: {
         email: 'Zaktualizuj swój główny adres e-mail',
         phone: 'Zaktualizuj swój główny numer telefonu',

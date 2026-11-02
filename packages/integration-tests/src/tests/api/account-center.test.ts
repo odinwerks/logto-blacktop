@@ -43,4 +43,17 @@ describe('account center', () => {
 
     expect(clearedAccountCenter.deleteAccountUrl).toBeNull();
   });
+
+  it('should expose the recent-authentication window', async () => {
+    const updatedAccountCenter = await updateAccountCenter({
+      enabled: true,
+      maximumAuthenticationAgeInSeconds: 7200,
+    });
+
+    expect(updatedAccountCenter).toHaveProperty('maximumAuthenticationAgeInSeconds', 7200);
+    await expect(getAccountCenter()).resolves.toHaveProperty(
+      'maximumAuthenticationAgeInSeconds',
+      7200
+    );
+  });
 });

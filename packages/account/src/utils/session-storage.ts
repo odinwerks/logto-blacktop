@@ -1,24 +1,32 @@
 import * as s from 'superstruct';
 
+import { storedPendingStepUpGuard, type StoredPendingStepUp } from './pending-step-up';
+
 const storagePrefix = 'logto:account-center:';
 const pendingReturnTtl = 10 * 60 * 1000;
 const routeRestoreTtl = 10 * 60 * 1000;
+/** A step-up left unfinished for longer than this is treated as abandoned. */
+const pendingStepUpTtl = 10 * 60 * 1000;
 
 const storageKeys = Object.freeze({
   routeRestore: `${storagePrefix}route-restore`,
   showSuccess: `${storagePrefix}show-success`,
   uiLocales: `${storagePrefix}ui-locales`,
   identifier: `${storagePrefix}identifier`,
-  verificationRecord: `${storagePrefix}verification-record`,
+  loginHint: `${storagePrefix}login-hint`,
   socialFlow: `${storagePrefix}social-verification`,
   pendingReturn: `${storagePrefix}pending-return`,
-  pendingVerifiedAction: `${storagePrefix}pending-verified-action`,
-  pendingSocialRemoveConnectorId: `${storagePrefix}pending-social-remove-connector-id`,
+  pendingStepUp: `${storagePrefix}pending-step-up`,
 });
 
-export type StoredVerificationRecord = {
-  verificationId: string;
-  expiresAt: string;
+export type StoredPendingPersonalAccessTokenCreate = {
+  name: string;
+  expiryDays: number;
+};
+
+export type StoredPendingPersonalAccessTokenRename = {
+  currentName: string;
+  name: string;
 };
 
 type StoredPathState = {
@@ -56,11 +64,6 @@ type StoredSocialFlowRecordData =
       mode?: 'add' | 'change';
     };
 
-const storedVerificationRecordGuard = s.object({
-  verificationId: s.string(),
-  expiresAt: s.string(),
-});
-
 const storedPathStateGuard = s.object({
   path: s.string(),
   createdAt: s.number(),
@@ -81,21 +84,6 @@ const storedSocialFlowRecordGuard = s.union([
     mode: s.optional(s.union([s.literal('add'), s.literal('change')])),
   }),
 ]);
-
-const pendingVerifiedActions = Object.freeze([
-  'enable-mfa',
-  'disable-mfa',
-  'enable-passkey-prompt',
-  'disable-passkey-prompt',
-  'remove-username',
-  'remove-email',
-  'remove-phone',
-  'remove-social',
-  'load-sessions',
-  'load-trusted-devices',
-] as const);
-
-export type PendingVerifiedAction = (typeof pendingVerifiedActions)[number];
 
 const getStorage = (type: 'session' | 'local'): Storage | undefined => {
   if (typeof window === 'undefined') {
@@ -203,28 +191,6 @@ export const accountStorage = Object.freeze({
       removeItem(storageKeys.uiLocales, 'session');
     },
   },
-  verificationRecord: {
-    get: (): StoredVerificationRecord | undefined => {
-      const record = getStructuredValue(
-        storageKeys.verificationRecord,
-        storedVerificationRecordGuard,
-        'local'
-      );
-
-      if (!record || !isNotExpired(record.expiresAt)) {
-        removeItem(storageKeys.verificationRecord, 'local');
-        return;
-      }
-
-      return record;
-    },
-    set: (record: StoredVerificationRecord) => {
-      setStructuredValue(storageKeys.verificationRecord, record, 'local');
-    },
-    clear: () => {
-      removeItem(storageKeys.verificationRecord, 'local');
-    },
-  },
   socialFlow: {
     get: (connectorId: string): StoredSocialFlowRecord | undefined => {
       const record = getStructuredValue<StoredSocialFlowRecordData>(
@@ -264,25 +230,26 @@ export const accountStorage = Object.freeze({
       removeItem(`${storageKeys.socialFlow}:${connectorId}`, 'session');
     },
   },
-  pendingVerifiedAction: {
-    get: (): PendingVerifiedAction | undefined => {
-      const value = getString(storageKeys.pendingVerifiedAction, 'session');
-      return pendingVerifiedActions.find((action) => action === value);
+  pendingStepUp: {
+    get: (): StoredPendingStepUp | undefined => {
+      const record = getStructuredValue(
+        storageKeys.pendingStepUp,
+        storedPendingStepUpGuard,
+        'session'
+      );
+
+      if (!record || !isWithinTtl(record.createdAt, pendingStepUpTtl)) {
+        removeItem(storageKeys.pendingStepUp, 'session');
+        return;
+      }
+
+      return record;
     },
-    set: (value: PendingVerifiedAction) => {
-      setString(storageKeys.pendingVerifiedAction, value, 'session');
+    set: (record: StoredPendingStepUp) => {
+      setStructuredValue(storageKeys.pendingStepUp, record, 'session');
     },
     clear: () => {
-      removeItem(storageKeys.pendingVerifiedAction, 'session');
-    },
-  },
-  pendingSocialRemoveConnectorId: {
-    get: (): string | undefined => getString(storageKeys.pendingSocialRemoveConnectorId, 'session'),
-    set: (connectorId: string) => {
-      setString(storageKeys.pendingSocialRemoveConnectorId, connectorId, 'session');
-    },
-    clear: () => {
-      removeItem(storageKeys.pendingSocialRemoveConnectorId, 'session');
+      removeItem(storageKeys.pendingStepUp, 'session');
     },
   },
 });
@@ -300,17 +267,18 @@ export const sessionStorage = Object.freeze({
   getUiLocales: accountStorage.uiLocales.get,
   setUiLocales: accountStorage.uiLocales.set,
   clearUiLocales: accountStorage.uiLocales.clear,
-  getPendingVerifiedAction: accountStorage.pendingVerifiedAction.get,
-  setPendingVerifiedAction: accountStorage.pendingVerifiedAction.set,
-  clearPendingVerifiedAction: accountStorage.pendingVerifiedAction.clear,
-  getPendingSocialRemoveConnectorId: accountStorage.pendingSocialRemoveConnectorId.get,
-  setPendingSocialRemoveConnectorId: accountStorage.pendingSocialRemoveConnectorId.set,
-  clearPendingSocialRemoveConnectorId: accountStorage.pendingSocialRemoveConnectorId.clear,
   getIdentifier: () => getString(storageKeys.identifier, 'session'),
   setIdentifier: (value: string) => {
     setString(storageKeys.identifier, value, 'session');
   },
   clearIdentifier: () => {
     removeItem(storageKeys.identifier, 'session');
+  },
+  getLoginHint: () => getString(storageKeys.loginHint, 'session'),
+  setLoginHint: (value: string) => {
+    setString(storageKeys.loginHint, value, 'session');
+  },
+  clearLoginHint: () => {
+    removeItem(storageKeys.loginHint, 'session');
   },
 });

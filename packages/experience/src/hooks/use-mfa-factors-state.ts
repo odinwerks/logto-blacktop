@@ -1,18 +1,30 @@
-import { AuthenticationContextMode } from '@logto/schemas';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { mfaBindingVerificationCodeStateGuard, mfaFlowStateGuard, parseGuard } from '@/types/guard';
+import { UserMfaFlow } from '@/types';
+import {
+  type MfaFlowState,
+  mfaBindingVerificationCodeStateGuard,
+  mfaFlowStateGuard,
+  parseGuard,
+} from '@/types/guard';
 import { getDisplayedStepUpMethods, toMfaFlowState } from '@/utils/step-up';
 
 import useStepUpContext from './use-step-up-context';
 
-const useMfaFlowState = () => {
+const useMfaFlowState = (flow: UserMfaFlow): MfaFlowState | undefined => {
   const { state } = useLocation();
-  const { authenticationContext } = useStepUpContext();
+  const { authenticationContext, isPureStepUp } = useStepUpContext();
 
   return useMemo(() => {
-    if (authenticationContext?.mode === AuthenticationContextMode.StepUp) {
+    if (isPureStepUp && authenticationContext) {
+      if (flow === UserMfaFlow.MfaBinding) {
+        return {
+          availableFactors: authenticationContext.enrollableFactors,
+          isStepUp: true,
+        };
+      }
+
       return toMfaFlowState(
         getDisplayedStepUpMethods(authenticationContext.availableMethods),
         authenticationContext
@@ -23,7 +35,7 @@ const useMfaFlowState = () => {
       parseGuard(state, mfaFlowStateGuard) ??
       parseGuard(state, mfaBindingVerificationCodeStateGuard)?.mfaFlowState
     );
-  }, [authenticationContext, state]);
+  }, [authenticationContext, flow, isPureStepUp, state]);
 };
 
 export default useMfaFlowState;

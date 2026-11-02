@@ -12,6 +12,7 @@ import MfaSection from './MfaSection';
 import MfaVerificationsProvider from './MfaVerificationsProvider';
 import PasskeySection from './PasskeySection';
 import PasswordSection from './PasswordSection';
+import PersonalAccessTokensSection from './PersonalAccessTokensSection';
 import SocialSection from './SocialSection';
 import TrustedDevicesSection from './TrustedDevicesSection';
 import UsernameSection from './UsernameSection';
@@ -33,6 +34,7 @@ const Security = () => {
           <MfaSection />
         </MfaVerificationsProvider>
         <TrustedDevicesSection />
+        <PersonalAccessTokensSection />
         <DeleteAccountSection />
       </div>
       <PageFooter />

@@ -8,6 +8,7 @@ import {
   SignInMode,
   Theme,
   defaultTrustedDevicePolicy,
+  defaultMaximumAuthenticationAgeInSeconds,
   defaultUsernamePolicy,
   type AccountCenter,
   type UserProfileResponse,
@@ -44,6 +45,7 @@ export const mockAccountCenterSettings = {
   webauthnRelatedOrigins: [],
   deleteAccountUrl: null,
   customCss: null,
+  maximumAuthenticationAgeInSeconds: defaultMaximumAuthenticationAgeInSeconds,
 } satisfies AccountCenter;
 
 export const mockSignInExperienceSettings = {
@@ -172,8 +174,6 @@ export const createMockPageContext = (
   refreshUserInfo: noopAsync,
   userInfoError: undefined,
   isLoadingUserInfo: false,
-  verificationId: undefined,
-  setVerificationId: noop,
   isLoadingExperience: false,
   experienceError: undefined,
   ...overrides,

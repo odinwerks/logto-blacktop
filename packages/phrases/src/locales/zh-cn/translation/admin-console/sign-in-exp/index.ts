@@ -105,8 +105,21 @@ const sign_in_exp = {
     csp_source_invalid_error:
       '请输入有效的源表达式。请使用 https:// URL；connect-src 也支持 wss://。不支持 CSP 关键字和分号。',
     csp_source_duplicate_error: '此源表达式已在列表中。',
+    coop_tip: '将你的自定义登录 UI 与跨源窗口隔离。仅在提供自定义 UI 资源时生效。',
+    coop_unsafe_none: '未设置（默认）',
+    coop_same_origin_allow_popups: 'same-origin-allow-popups（推荐）',
+    coop_warning:
+      '在跨源弹出窗口中打开登录页并依赖 window.opener 的应用将无法正常工作。same-origin 还会切断自定义 UI 自身打开的弹出窗口，例如社交登录窗口。',
   },
   account_center: {
+    recent_authentication: {
+      title: '最近一次身份验证',
+      description:
+        '敏感账号操作（例如修改密码或关闭两步验证）要求用户最近登录过，无论是在 Account Center 中操作，还是在调用 Account API 的应用中操作。此时间窗口定义了多久以内的登录仍被视为最近登录。',
+      maximum_authentication_age_in_minutes: '最大身份验证时长（分钟）',
+      maximum_authentication_age_in_minutes_tip:
+        '登录在多长时间内仍被视为对敏感操作足够新。客户端仍可通过 `max_age` 参数请求更短的时间窗口。',
+    },
     title: '账户中心',
     description: '为终端用户实现账户中心，以管理账户安全和个人资料信息。',
     enable_account_api: '启用账户中心和 Account API',
@@ -128,6 +141,8 @@ const sign_in_exp = {
           title: '安全验证',
           description:
             '在更改安全设置之前，用户必须验证身份以获取有效期 10 分钟的验证记录 ID。要启用验证方式（邮箱、手机、密码），请将下方的 Account API 权限设置为<strong>只读</strong>（最低要求）或<strong>编辑</strong>，以便系统检测用户是否已配置。<a>了解更多</a>',
+          description_step_up:
+            '更改安全设置前，内置 Account Center 要求用户最近登录过。如果当前登录时间早于配置的最近身份验证时间窗口，Account Center 会发起 OIDC step-up，并要求用户验证身份。要允许用户在 Account Center 中查看或管理验证方式（邮箱、手机或密码），请将下方对应的 Account API 权限设置为<strong>只读</strong>或<strong>可编辑</strong>。对于这些敏感操作，直接调用 Account API 的应用仍可使用验证记录 ID。<a>了解更多</a>',
         },
         groups: {
           identifiers: {
@@ -138,6 +153,9 @@ const sign_in_exp = {
           },
           session_management: {
             title: '会话管理',
+          },
+          developer_settings: {
+            title: '开发者设置',
           },
         },
       },
@@ -180,6 +198,9 @@ const sign_in_exp = {
       custom_data_description: '控制对存储在用户上的自定义 JSON 数据的访问。',
       sessions: '会话',
       trusted_devices: '可信设备',
+      personal_access_tokens: '个人访问令牌',
+      personal_access_tokens_description:
+        '启用后，用户可以创建长期有效的个人访问令牌；这些令牌在退出登录和重置密码后仍然有效，并且可被任何启用了令牌交换的第一方应用兑换为访问令牌。',
     },
     profile_fields: {
       title: '预构建账户中心的资料字段',
@@ -213,10 +234,10 @@ const sign_in_exp = {
         '将用户路由到账户中心，以管理电子邮件、手机号、用户名、密码、MFA 和关联账号等安全设置。',
       flows_title: '集成开箱即用的安全设置流程',
       flows_description:
-        '将你的域名与路由组合以形成账户设置 URL（例如 https://auth.foo.com/account/email）。可选择添加 `redirect=` 以在成功更新后将用户返回到你的应用，添加 `show_success=true` 以保持成功页面可见，添加 `ui_locales=` 以覆盖默认语言，或添加 `identifier=` 以预填标识符输入字段。',
+        '将你的域名与路由组合以形成账户设置 URL（例如 https://auth.foo.com/account/email）。可选择添加 `redirect=` 以在成功更新后将用户返回到你的应用，添加 `show_success=true` 以保持成功页面可见，添加 `ui_locales=` 以覆盖默认语言，或添加 `identifier=` 以在邮箱、手机号或用户名路由中预填新的值。',
       single_task_flows_title: '集成开箱即用的单一任务流程',
       single_task_flows_description:
-        '直接将用户路由到特定流程（例如，邮箱绑定）。可选择添加 `redirect=` 以在成功更新后将用户返回到你的应用，添加 `show_success=true` 以保持成功页面可见，添加 `ui_locales=` 以覆盖默认语言，或添加 `identifier=` 以预填标识符输入字段。',
+        '直接将用户路由到特定流程（例如，邮箱绑定）。可选择添加 `redirect=` 以在成功更新后将用户返回到你的应用，添加 `show_success=true` 以保持成功页面可见，添加 `ui_locales=` 以覆盖默认语言，或添加 `identifier=` 以在邮箱、手机号或用户名路由中预填新的值。',
       tooltips: {
         email: '更新你的主要电子邮件地址',
         phone: '更新你的主要手机号码',
