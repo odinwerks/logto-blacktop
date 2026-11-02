@@ -72,7 +72,8 @@ afterEach(() => {
 describe('POST /verifications/verification-code length caps', () => {
   it('rejects an over-long email with 400 before any connector call', async () => {
     const response = await verificationRequest.post('/verifications/verification-code').send({
-      identifier: { type: SignInIdentifier.Email, value: 'a' + '@b(c)'.repeat(130_000) + '.io' },
+      // One character past the 256-char cap; the ~650 KB DoS shape is covered in the schemas tests.
+      identifier: { type: SignInIdentifier.Email, value: 'a'.repeat(248) + '@logto.io' },
     });
 
     expect(response.status).toEqual(400);
