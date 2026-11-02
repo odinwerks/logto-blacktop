@@ -9,8 +9,12 @@ import {
   templateTypeGuard,
 } from '@logto/connector-kit';
 import { ServiceConnector } from '@logto/connector-kit';
-import { phoneRegEx, emailRegEx } from '@logto/core-kit';
-import { jsonObjectGuard, ConnectorType } from '@logto/schemas';
+import {
+  jsonObjectGuard,
+  ConnectorType,
+  emailIdentifierGuard,
+  phoneIdentifierGuard,
+} from '@logto/schemas';
 import { conditional } from '@silverhand/essentials';
 import { string, object } from 'zod';
 
@@ -32,8 +36,8 @@ export default function connectorConfigTestingRoutes<T extends ManagementApiRout
     koaGuard({
       params: object({ factoryId: string().min(1) }),
       body: object({
-        phone: string().regex(phoneRegEx).optional(),
-        email: string().regex(emailRegEx).optional(),
+        phone: phoneIdentifierGuard.optional(),
+        email: emailIdentifierGuard.optional(),
         config: jsonObjectGuard,
         locale: string().optional(),
         // When omitted, the test message is sent using the `Generic` template (legacy behavior).

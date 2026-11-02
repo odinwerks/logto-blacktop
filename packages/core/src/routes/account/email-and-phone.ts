@@ -1,5 +1,10 @@
-import { emailRegEx, phoneRegEx, UserScope } from '@logto/core-kit';
-import { VerificationType, AccountCenterControlValue } from '@logto/schemas';
+import { UserScope } from '@logto/core-kit';
+import {
+  VerificationType,
+  AccountCenterControlValue,
+  emailIdentifierGuard,
+  phoneIdentifierGuard,
+} from '@logto/schemas';
 import { z } from 'zod';
 
 import koaGuard from '#src/middleware/koa-guard.js';
@@ -30,7 +35,7 @@ export default function emailAndPhoneRoutes<T extends UserRouter>(...args: Route
     `${accountApiPrefix}/primary-email`,
     koaGuard({
       body: z.object({
-        email: z.string().regex(emailRegEx),
+        email: emailIdentifierGuard,
         newIdentifierVerificationRecordId: z.string(),
       }),
       status: [204, 400, 401, 403, 422],
@@ -117,7 +122,7 @@ export default function emailAndPhoneRoutes<T extends UserRouter>(...args: Route
     `${accountApiPrefix}/primary-phone`,
     koaGuard({
       body: z.object({
-        phone: z.string().regex(phoneRegEx),
+        phone: phoneIdentifierGuard,
         newIdentifierVerificationRecordId: z.string(),
       }),
       status: [204, 400, 401, 403, 422],

@@ -69,6 +69,28 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
+describe('POST /verifications/verification-code length caps', () => {
+  it('rejects an over-long email with 400 before any connector call', async () => {
+    const response = await verificationRequest.post('/verifications/verification-code').send({
+      identifier: { type: SignInIdentifier.Email, value: 'a' + '@b(c)'.repeat(130_000) + '.io' },
+    });
+
+    expect(response.status).toEqual(400);
+    expect(createPasscode).not.toHaveBeenCalled();
+    expect(sendPasscode).not.toHaveBeenCalled();
+  });
+
+  it('rejects an over-long phone number with 400 before any connector call', async () => {
+    const response = await verificationRequest
+      .post('/verifications/verification-code')
+      .send({ identifier: phoneIdentifier('1'.repeat(33)) });
+
+    expect(response.status).toEqual(400);
+    expect(createPasscode).not.toHaveBeenCalled();
+    expect(sendPasscode).not.toHaveBeenCalled();
+  });
+});
+
 describe('POST /verifications/verification-code locale handling', () => {
   it('passes a supported body `locale` through to the connector payload', async () => {
     const response = await verificationRequest
