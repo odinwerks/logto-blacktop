@@ -39,6 +39,37 @@ const getOssServerOrigins = (): string[] => {
   }
 };
 
+/**
+ * Whether the origin points at the client's own machine: `localhost` (and `*.localhost`), any
+ * `127.0.0.0/8` address, `0.0.0.0`, and the IPv6 loopback / unspecified / IPv4-mapped loopback
+ * addresses. `URL` normalizes IPv6 hosts to their bracketed, compressed form (`[::1]`).
+ * Unparsable values are not treated as loopback.
+ */
+export const isLoopbackOrigin = (origin: string): boolean => {
+  if (!URL.canParse(origin)) {
+    return false;
+  }
+
+  // Strip a trailing root-label dot (`localhost.`) before comparing.
+  const hostname = new URL(origin).hostname.toLowerCase().replace(/\.$/, '');
+
+  return (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    /^127(?:\.\d{1,3}){3}$/.test(hostname) ||
+    hostname === '0.0.0.0' ||
+    hostname === '[::1]' ||
+    hostname === '[::]' ||
+    /^\[::ffff:(?:127\.|7f[\da-f]{2}:)/.test(hostname)
+  );
+};
+
+/** Drops loopback origins, unless that would leave nothing (localhost-only deployments). */
+export const withoutLoopbackOrigins = (origins: string[]): string[] => {
+  const filtered = origins.filter((origin) => !isLoopbackOrigin(origin));
+  return filtered.length > 0 ? filtered : origins;
+};
+
 type SecurityHeaderSettings = {
   readonly basicSecurityHeaderSettings: HelmetOptions;
   readonly consoleSecurityHeaderSettings: HelmetOptions;
@@ -67,16 +98,14 @@ const createSecurityHeaderSettings = (tenantId: string): SecurityHeaderSettings 
   // ingress, but a page served from the visitor's own localhost must not be
   // able to frame the login UI.
   const frameAncestors = isProduction
-    ? adminOrigins.filter((origin) => {
-        try {
-          const { hostname } = new URL(origin);
-          return hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '::1';
-        } catch {
-          return true;
-        }
-      })
+    ? adminOrigins.filter((origin) => !isLoopbackOrigin(origin))
     : adminOrigins;
   const coreOrigins = urlSet.origins;
+  // In production the Admin Console must not trust whatever is listening on the visitor's own
+  // loopback interface. Fall back to the full set when only loopback origins are configured, so
+  // a localhost-only production deployment keeps a working console.
+  const consoleAdminOrigins = isProduction ? withoutLoopbackOrigins(adminOrigins) : adminOrigins;
+  const consoleCoreOrigins = isProduction ? withoutLoopbackOrigins(coreOrigins) : coreOrigins;
   const developmentOrigins = isProduction
     ? []
     : [
@@ -169,6 +198,8 @@ const createSecurityHeaderSettings = (tenantId: string): SecurityHeaderSettings 
     // Security scan note: ZAP rule 90004 is ignored in .zap/rules.conf for this intentional exception.
     crossOriginEmbedderPolicy: false,
     dnsPrefetchControl: false,
+    // Two years with subdomains in production; helmet's default (180 days) elsewhere.
+    ...conditional(isProduction && { hsts: { maxAge: 63_072_000, includeSubDomains: true } }),
     referrerPolicy: {
       policy: 'strict-origin-when-cross-origin',
     },
@@ -327,12 +358,12 @@ const createSecurityHeaderSettings = (tenantId: string): SecurityHeaderSettings 
         connectSrc: [
           "'self'",
           logtoOrigin,
-          ...adminOrigins,
-          ...coreOrigins,
+          ...consoleAdminOrigins,
+          ...consoleCoreOrigins,
           ...ossSurveyOrigins,
           ...developmentOrigins,
         ],
-        frameSrc: ["'self'", ...adminOrigins, ...coreOrigins],
+        frameSrc: ["'self'", ...consoleAdminOrigins, ...consoleCoreOrigins],
       },
     },
   };

@@ -190,6 +190,30 @@ describe('interaction routes', () => {
       expect(response.status).toEqual(429);
       expect(sendVerificationCodeToIdentifier).not.toBeCalled();
     });
+
+    it('should reject an over-long email with 400 before any connector call', async () => {
+      // About 650 KB; this shape stalled nodemailer's address parser for ~27 s.
+      const email = 'a' + '@b(c)'.repeat(130_000) + '.io';
+      const response = await sessionRequest.post(path).send({ email });
+
+      expect(response.status).toEqual(400);
+      expect(sendVerificationCodeToIdentifier).not.toBeCalled();
+    });
+
+    it('should reject an email one character past the cap with 400', async () => {
+      const email = 'a'.repeat(257 - '@logto.io'.length) + '@logto.io';
+      const response = await sessionRequest.post(path).send({ email });
+
+      expect(response.status).toEqual(400);
+      expect(sendVerificationCodeToIdentifier).not.toBeCalled();
+    });
+
+    it('should reject an over-long phone number with 400 before any connector call', async () => {
+      const response = await sessionRequest.post(path).send({ phone: '1'.repeat(33) });
+
+      expect(response.status).toEqual(400);
+      expect(sendVerificationCodeToIdentifier).not.toBeCalled();
+    });
   });
 
   describe('POST /verification/social/authorization-uri', () => {

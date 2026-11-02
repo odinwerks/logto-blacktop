@@ -52,6 +52,23 @@ describe('Generic verification code flow triggered by management API', () => {
     expect(sendPasscode).toBeCalled();
   });
 
+  test('POST /verification-codes rejects an over-long email with 400 before sending', async () => {
+    const email = 'a' + '@b(c)'.repeat(130_000) + '.io';
+    const response = await verificationCodeRequest.post('/verification-codes').send({ email });
+    expect(response.status).toEqual(400);
+    expect(createPasscode).not.toBeCalled();
+    expect(sendPasscode).not.toBeCalled();
+  });
+
+  test('POST /verification-codes rejects an over-long phone with 400 before sending', async () => {
+    const response = await verificationCodeRequest
+      .post('/verification-codes')
+      .send({ phone: '1'.repeat(33) });
+    expect(response.status).toEqual(400);
+    expect(createPasscode).not.toBeCalled();
+    expect(sendPasscode).not.toBeCalled();
+  });
+
   test('POST /verification-codes with invalid payload should throw', async () => {
     await expect(
       verificationCodeRequest.post('/verification-codes').send({

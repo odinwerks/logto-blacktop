@@ -201,6 +201,21 @@ describe('connector services route', () => {
       expect(response).toHaveProperty('statusCode', 400);
     });
 
+    it('should reject an over-long email or phone with 400 before any connector call', async () => {
+      const email = 'a' + '@b(c)'.repeat(130_000) + '.io';
+      const emailResponse = await connectorRequest
+        .post('/connectors/id/test')
+        .send({ email, config: { test: 123 } });
+      const phoneResponse = await connectorRequest
+        .post('/connectors/id/test')
+        .send({ phone: '1'.repeat(33), config: { test: 123 } });
+
+      expect(emailResponse).toHaveProperty('statusCode', 400);
+      expect(phoneResponse).toHaveProperty('statusCode', 400);
+      expect(loadConnectorFactories).not.toHaveBeenCalled();
+      expect(buildRawConnector).not.toHaveBeenCalled();
+    });
+
     it('should throw when neither phone nor email is provided', async () => {
       const response = await connectorRequest.post('/connectors/id/test').send({});
       expect(response).toHaveProperty('statusCode', 400);

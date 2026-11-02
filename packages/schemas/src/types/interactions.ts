@@ -22,7 +22,9 @@ import type {
   PhoneVerificationCodePayload,
 } from './verification-code.js';
 import {
+  emailIdentifierGuard,
   emailVerificationCodePayloadGuard,
+  phoneIdentifierGuard,
   phoneVerificationCodePayloadGuard,
 } from './verification-code.js';
 import { VerificationType } from './verification-records/verification-type.js';
@@ -64,13 +66,13 @@ export type VerificationCodeIdentifier<
 export const verificationCodeIdentifierGuard = z.discriminatedUnion('type', [
   z.object({
     type: z.literal(SignInIdentifier.Email),
-    // `.max(256)` caps the input length as defense-in-depth for downstream email processing
+    // The length cap is defense-in-depth for downstream email processing
     // (a valid address is at most 254 chars per RFC 5321).
-    value: z.string().max(256).regex(emailRegEx),
+    value: emailIdentifierGuard,
   }),
   z.object({
     type: z.literal(SignInIdentifier.Phone),
-    value: z.string().regex(phoneRegEx),
+    value: phoneIdentifierGuard,
   }),
 ]) satisfies z.ZodType<VerificationCodeIdentifier>;
 
@@ -192,7 +194,7 @@ export type OneTimeTokenVerificationVerifyPayload = {
 export const oneTimeTokenVerificationVerifyPayloadGuard = z.object({
   identifier: z.object({
     type: z.literal(SignInIdentifier.Email),
-    value: z.string().regex(emailRegEx),
+    value: emailIdentifierGuard,
   }),
   token: z.string().min(1),
 }) satisfies ToZodObject<OneTimeTokenVerificationVerifyPayload>;

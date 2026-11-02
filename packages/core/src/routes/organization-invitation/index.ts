@@ -2,6 +2,7 @@ import { sendMessagePayloadGuard } from '@logto/connector-kit';
 import {
   OrganizationInvitationStatus,
   OrganizationInvitations,
+  emailIdentifierMaxLength,
   organizationInvitationEntityGuard,
 } from '@logto/schemas';
 import { z } from 'zod';
@@ -62,7 +63,7 @@ export default function organizationInvitationRoutes<T extends ManagementApiRout
           expiresAt: true,
         })
         .extend({
-          invitee: z.string().email(),
+          invitee: z.string().max(emailIdentifierMaxLength).email(),
           organizationRoleIds: z.string().array().optional(),
           messagePayload: sendMessagePayloadGuard.or(z.literal(false)).default(false),
         }),
