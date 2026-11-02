@@ -1,0 +1,182 @@
+name: logto-server
+services:
+  # Logto Core Service (built from local source)
+  logto:
+    build:
+      context: ./logto-server
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rustfs-init:
+        condition: service_completed_successfully
+    entrypoint: ["sh", "-c", "npm run cli db seed -- --swe && npm run cli db alteration deploy next && npm run cli db system set storageProvider '{\"provider\":\"S3Storage\",\"endpoint\":\"http://rustfs:9000\",\"bucket\":\"logto\",\"forcePathStyle\":true,\"accessKeyId\":\"${RUSTFS_ACCESS_KEY}\",\"accessSecretKey\":\"${RUSTFS_SECRET_KEY}\"}' && npm start"]
+    networks:
+      - logto-net
+    ports:
+      # Loopback-only: Logto is reached by cloudflared over logto-net, and the
+      # host only needs the published ports for local debugging.
+      - "127.0.0.1:3001:3001"  # API endpoint (PORT)
+      - "127.0.0.1:3002:3002"  # Admin console (ADMIN_PORT)
+    environment:
+      - TRUST_PROXY_HEADER=1
+      - DB_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/logto
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - PORT=3001
+      - ENDPOINT=${LOGTO_ENDPOINT}
+      - ADMIN_PORT=3002
+      - ADMIN_ENDPOINT=${LOGTO_ADMIN_ENDPOINT}
+      # SEC-02: production mode makes the source filter drop the localhost admin
+      # preview from CSP frame-ancestors. ADMIN_DISABLE_LOCALHOST stays unset
+      # because it stops the 3002 listener that the Cloudflare portal ingress uses.
+      - NODE_ENV=production
+      # SEC-02: do not set ADMIN_DISABLE_LOCALHOST here. It stops the 3002
+      # admin listener, and the Cloudflare portal ingress still targets 3002.
+      # The localhost frame-ancestor is filtered in the Logto source instead.
+      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_SECURE=${SMTP_SECURE}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_SERVICE_PROVIDER=nodemailer
+    volumes:
+      - ./data/logto:/var/lib/logto
+      - ./data/connectors:/etc/logto/packages/core/connectors
+    # sign-in-exp reads sign_in_experiences, so schema drift fails the check (api/status alone does not)
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:3001/api/status && wget -qO /dev/null http://127.0.0.1:3001/api/.well-known/sign-in-exp || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+      start_interval: 5s
+    restart: unless-stopped
+
+  # RustFS S3-Compatible Object Storage
+  rustfs:
+    image: rustfs/rustfs:latest
+    networks:
+      - logto-net
+    ports:
+      # Loopback-only: S3 API/admin are consumed in-network, never from the LAN.
+      - "127.0.0.1:3003:9000"
+      - "127.0.0.1:3004:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+    volumes:
+      - rustfs:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:9000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # RustFS bucket init — only creates the bucket if it does not already exist.
+  # minio/mc was removed from Docker Hub, so this reuses the rustfs image's curl, which signs
+  # S3 requests natively (--aws-sigv4): HEAD the bucket, PUT it only on 404.
+  rustfs-init:
+    image: rustfs/rustfs:latest
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    networks:
+      - logto-net
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      BUCKET: logto
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        s3() {
+          curl -sS -o /dev/null -w '%{http_code}' --aws-sigv4 aws:amz:us-east-1:s3 \
+            --user "$$RUSTFS_ACCESS_KEY:$$RUSTFS_SECRET_KEY" "$$@" "http://rustfs:9000/$$BUCKET"
+        }
+        code=$$(s3 --head)
+        if [ "$$code" = 200 ]; then echo "bucket $$BUCKET exists"; exit 0; fi
+        if [ "$$code" != 404 ]; then echo "HEAD $$BUCKET returned HTTP $$code" >&2; exit 1; fi
+        code=$$(s3 -X PUT)
+        if [ "$$code" != 200 ]; then echo "create $$BUCKET failed: HTTP $$code" >&2; exit 1; fi
+        echo "created bucket $$BUCKET"
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    networks:
+      - logto-net
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: logto
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    networks:
+      - logto-net
+    ports:
+      # Loopback-only: Logto reaches Redis over logto-net.
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Cloudflare Tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    networks:
+      - logto-net
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+      # fixed metrics address so the healthcheck's `tunnel ready` can find /ready
+      - TUNNEL_METRICS=127.0.0.1:20241
+    volumes:
+      - ./data/cloudflared:/etc/cloudflared
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:20241", "ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+      start_interval: 5s
+    restart: unless-stopped
+    depends_on:
+      - logto
+
+volumes:
+  postgres:
+    external: true
+    name: logto-server_postgres
+  redis:
+    external: true
+    name: logto-server_redis
+  rustfs:
+    external: true
+    name: logto-server_rustfs
+
+networks:
+  logto-net:
+    driver: bridge
