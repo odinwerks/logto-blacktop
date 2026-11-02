@@ -9,10 +9,19 @@ import createMockContext from '#src/test-utils/jest-koa-mocks/create-mock-contex
 const { jest } = import.meta;
 const { mockEsmWithActual } = createMockUtils(jest);
 
+/** Per-test overrides layered over the real `GlobalValues` (e.g. to simulate production). */
+// eslint-disable-next-line @silverhand/fp/no-let
+let mockEnvOverrides: Record<string, unknown> | undefined;
+
 await mockEsmWithActual('#src/env-set/index.js', () => ({
   EnvSet: {
     get values() {
-      return new GlobalValues();
+      return new Proxy(new GlobalValues(), {
+        get: (target, key) =>
+          mockEnvOverrides && typeof key === 'string' && key in mockEnvOverrides
+            ? mockEnvOverrides[key]
+            : Reflect.get(target, key),
+      });
     },
   },
   AdminApps: { Console: 'console', Welcome: 'welcome' },
@@ -20,9 +29,12 @@ await mockEsmWithActual('#src/env-set/index.js', () => ({
   getTenantEndpoint: () => new URL('https://tenant.example.com'),
 }));
 
-const { default: koaSecurityHeaders, koaExperienceSecurityHeaders } = await import(
-  './koa-security-headers.js'
-);
+const {
+  default: koaSecurityHeaders,
+  koaExperienceSecurityHeaders,
+  isLoopbackOrigin,
+  withoutLoopbackOrigins,
+} = await import('./koa-security-headers.js');
 
 const koaNoop = noop as unknown as Koa.Next;
 const customScriptSource = 'https://scripts.example.com';
@@ -287,5 +299,144 @@ describe('koaSecurityHeaders() middleware — experience CSP', () => {
     expect(scriptSource).toContain('https://cdn.jsdelivr.net/');
     expect(scriptSource).not.toContain(customScriptSource);
     expect(queries.signInExperiences.findDefaultSignInExperience).not.toHaveBeenCalled();
+  });
+});
+
+describe('isLoopbackOrigin()', () => {
+  it.each([
+    'http://localhost:3002',
+    'https://LOCALHOST',
+    'http://localhost.:3001',
+    'http://app.localhost:3000',
+    'http://127.0.0.1:3001',
+    'http://127.1.2.3',
+    'http://127.1',
+    'http://0.0.0.0:3002',
+    'http://[::1]:3002',
+    'http://[0:0:0:0:0:0:0:1]',
+    'http://[::]:3002',
+    'http://[::ffff:127.0.0.1]:3002',
+  ])('treats %s as loopback', (origin) => {
+    expect(isLoopbackOrigin(origin)).toBe(true);
+  });
+
+  it.each([
+    'https://auth.example.com',
+    'https://localhost.example.com',
+    'http://128.0.0.1',
+    'http://10.0.0.1',
+    'http://[::2]',
+    'http://[2001:db8::1]',
+    'not a url',
+  ])('does not treat %s as loopback', (origin) => {
+    expect(isLoopbackOrigin(origin)).toBe(false);
+  });
+
+  it('keeps the original origins when all of them are loopback', () => {
+    expect(withoutLoopbackOrigins(['http://localhost:3002', 'http://[::1]:3002'])).toEqual([
+      'http://localhost:3002',
+      'http://[::1]:3002',
+    ]);
+    expect(withoutLoopbackOrigins(['http://localhost:3002', 'https://portal.example.com'])).toEqual(
+      ['https://portal.example.com']
+    );
+  });
+});
+
+const productionEnv = (adminOrigins: string[], coreOrigins: string[]) => ({
+  isProduction: true,
+  isCloud: false,
+  adminUrlSet: { origins: adminOrigins },
+  urlSet: { origins: coreOrigins },
+  cloudUrlSet: { origins: [] },
+});
+
+describe('koaSecurityHeaders() middleware — production loopback origins and HSTS', () => {
+  afterEach(() => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    mockEnvOverrides = undefined;
+  });
+
+  it('drops loopback origins from the console connect-src and frame-src', async () => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    mockEnvOverrides = productionEnv(
+      ['http://localhost:3002', 'http://[::1]:3002', 'https://portal.example.com'],
+      ['http://localhost:3001', 'http://127.0.0.1:3001', 'https://auth.example.com']
+    );
+    const run = koaSecurityHeaders([], 'default');
+    const ctx = createMockContext({ method: 'GET', url: '/console' });
+
+    await run(ctx, koaNoop);
+
+    for (const directive of ['connect-src', 'frame-src']) {
+      const value = getCspDirective(ctx, directive);
+      expect(value).toContain("'self'");
+      expect(value).toContain('https://portal.example.com');
+      expect(value).toContain('https://auth.example.com');
+      expect(value).not.toContain('localhost');
+      expect(value).not.toContain('127.0.0.1');
+      expect(value).not.toContain('[::1]');
+    }
+  });
+
+  it('keeps loopback console origins when no public endpoint is configured', async () => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    mockEnvOverrides = productionEnv(['http://localhost:3002'], ['http://localhost:3001']);
+    const run = koaSecurityHeaders([], 'default');
+    const ctx = createMockContext({ method: 'GET', url: '/console' });
+
+    await run(ctx, koaNoop);
+
+    expect(getCspDirective(ctx, 'connect-src')).toContain('http://localhost:3001');
+    expect(getCspDirective(ctx, 'frame-src')).toContain('http://localhost:3002');
+  });
+
+  it('drops every loopback form from the experience frame-ancestors', async () => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    mockEnvOverrides = productionEnv(
+      [
+        'http://localhost:3002',
+        'http://127.0.0.2:3002',
+        'http://[::1]:3002',
+        'http://0.0.0.0:3002',
+        'https://portal.example.com',
+      ],
+      ['https://auth.example.com']
+    );
+    const run = koaExperienceSecurityHeaders('default', createQueries());
+    const ctx = createMockContext({ method: 'GET', url: '/sign-in' });
+
+    await run(ctx, koaNoop);
+
+    expect(getCspDirective(ctx, 'frame-ancestors')).toBe(
+      "frame-ancestors 'self' https://portal.example.com"
+    );
+  });
+
+  it('sends a two-year HSTS header with includeSubDomains', async () => {
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    mockEnvOverrides = productionEnv(['https://portal.example.com'], ['https://auth.example.com']);
+    const run = koaSecurityHeaders(['api', 'oidc'], 'default');
+
+    for (const url of ['/console', '/account', '/oidc/auth', '/sign-in']) {
+      const ctx = createMockContext({ method: 'GET', url });
+      // eslint-disable-next-line no-await-in-loop
+      await run(ctx, koaNoop);
+      expect(ctx.res.getHeader('Strict-Transport-Security')).toBe(
+        'max-age=63072000; includeSubDomains'
+      );
+    }
+  });
+
+  it('keeps localhost console origins and the default HSTS outside production', async () => {
+    const run = koaSecurityHeaders([], 'default');
+    const ctx = createMockContext({ method: 'GET', url: '/console' });
+
+    await run(ctx, koaNoop);
+
+    expect(getCspDirective(ctx, 'connect-src')).toContain('http://localhost:3002');
+    expect(ctx.res.getHeader('Strict-Transport-Security')).toBe(
+      'max-age=15552000; includeSubDomains'
+    );
   });
 });
