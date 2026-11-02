@@ -1286,7 +1286,9 @@ describe('PATCH /sign-in-exp crossOriginOpenerPolicy', () => {
     expect(updateDefaultSignInExperience).not.toHaveBeenCalled();
   });
 
-  it('should reject a policy outside Cloud without a license that grants Bring your UI', async () => {
+  // Blacktop: Bring your UI settings, including the Cross-Origin-Opener-Policy, are unlocked on
+  // self-hosted without a license, like hiding the branding and the Custom UI CSP.
+  it('should accept a policy outside Cloud without a license that grants Bring your UI', async () => {
     installLicense({ hideLogtoBranding: true });
     const { requester, updateDefaultSignInExperience } = await createCustomUiCspRequester({
       isCloud: false,
@@ -1294,8 +1296,8 @@ describe('PATCH /sign-in-exp crossOriginOpenerPolicy', () => {
 
     const response = await requester.patch('/sign-in-exp').send({ crossOriginOpenerPolicy });
 
-    expect(response.status).toEqual(400);
-    expect(updateDefaultSignInExperience).not.toHaveBeenCalled();
+    expect(response.status).toEqual(200);
+    expect(updateDefaultSignInExperience).toHaveBeenCalled();
   });
 
   it('should allow a policy outside Cloud with a license that grants Bring your UI', async () => {
